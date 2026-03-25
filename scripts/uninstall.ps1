@@ -31,6 +31,13 @@ Write-Host "Removing service..." -ForegroundColor Yellow
 sc.exe delete $ServiceName | Out-Null
 Write-Host "Service removed." -ForegroundColor Green
 
+# ── Remove Event Log source ──────────────────────────────────────────────────
+if ([System.Diagnostics.EventLog]::SourceExists($ServiceName)) {
+    Write-Host "Removing Event Log source..." -ForegroundColor Yellow
+    Remove-EventLog -Source $ServiceName
+    Write-Host "Event Log source removed." -ForegroundColor Green
+}
+
 if ($RemoveBinaries -and (Test-Path $InstallPath)) {
     Write-Host "Removing binaries at $InstallPath..." -ForegroundColor Yellow
     Remove-Item $InstallPath -Recurse -Force

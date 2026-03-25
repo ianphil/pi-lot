@@ -40,6 +40,15 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "Published successfully." -ForegroundColor Green
 
+# ── Register Event Log source ────────────────────────────────────────────────
+if (-not [System.Diagnostics.EventLog]::SourceExists($ServiceName)) {
+    Write-Host "Registering Event Log source '$ServiceName'..." -ForegroundColor Cyan
+    New-EventLog -LogName $ServiceName -Source $ServiceName
+    Write-Host "Event Log source registered." -ForegroundColor Green
+} else {
+    Write-Host "Event Log source '$ServiceName' already exists." -ForegroundColor DarkGray
+}
+
 # ── Install service ──────────────────────────────────────────────────────────
 Write-Host "Creating Windows service '$DisplayName'..." -ForegroundColor Cyan
 sc.exe create $ServiceName `

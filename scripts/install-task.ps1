@@ -36,6 +36,15 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "Published successfully." -ForegroundColor Green
 
+# ── Register Event Log source ────────────────────────────────────────────────
+if (-not [System.Diagnostics.EventLog]::SourceExists($TaskName)) {
+    Write-Host "Registering Event Log source '$TaskName'..." -ForegroundColor Cyan
+    New-EventLog -LogName $TaskName -Source $TaskName
+    Write-Host "Event Log source registered." -ForegroundColor Green
+} else {
+    Write-Host "Event Log source '$TaskName' already exists." -ForegroundColor DarkGray
+}
+
 # ── Create scheduled task ────────────────────────────────────────────────────
 Write-Host "Creating scheduled task '$TaskName'..." -ForegroundColor Cyan
 

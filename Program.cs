@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using LlmSvc;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -11,16 +12,24 @@ builder.Services.AddWindowsService(options =>
     options.ServiceName = "CopilotLlmProxy";
 });
 
+builder.Logging.AddEventLog(settings =>
+{
+    settings.SourceName = "CopilotLlmProxy";
+    settings.LogName = "CopilotLlmProxy";
+});
+
 builder.Services.AddSingleton<CopilotClient>();
 builder.Services.AddHostedService<Worker>();
 
 var app = builder.Build();
 
+app.Logger.LogInformation(LogEvents.ServiceStarted, "CopilotLlmProxy service starting.");
+
 // ── Load credential at startup ───────────────────────────────────────────────
 var client = app.Services.GetRequiredService<CopilotClient>();
 if (!client.TryLoadCredential())
 {
-    app.Logger.LogError("Failed to load Copilot credential. Service will start but requests will fail.");
+    app.Logger.LogError(LogEvents.CredentialMissing, "Failed to load Copilot credential. Service will start but requests will fail.");
 }
 
 // ── Health check ─────────────────────────────────────────────────────────────

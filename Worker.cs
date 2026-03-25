@@ -18,7 +18,7 @@ public sealed class Worker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Token validation worker started (interval: {Interval})", _interval);
+        _logger.LogInformation(LogEvents.ServiceStarted, "Token validation worker started (interval: {Interval})", _interval);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -28,9 +28,9 @@ public sealed class Worker : BackgroundService
             {
                 var valid = await _client.ValidateTokenAsync();
                 if (valid)
-                    _logger.LogDebug("Token validation succeeded");
+                    _logger.LogDebug(LogEvents.TokenValidated, "Token validation succeeded");
                 else
-                    _logger.LogWarning("Token validation failed. Will retry next cycle.");
+                    _logger.LogWarning(LogEvents.TokenValidationFailed, "Token validation failed. Will retry next cycle.");
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -38,7 +38,7 @@ public sealed class Worker : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Token validation error");
+                _logger.LogError(LogEvents.UnexpectedError, ex, "Token validation error");
             }
         }
     }

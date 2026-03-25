@@ -30,6 +30,13 @@ Write-Host "Removing scheduled task..." -ForegroundColor Yellow
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
 Write-Host "Task removed." -ForegroundColor Green
 
+# ── Remove Event Log source ──────────────────────────────────────────────────
+if ([System.Diagnostics.EventLog]::SourceExists($TaskName)) {
+    Write-Host "Removing Event Log source..." -ForegroundColor Yellow
+    Remove-EventLog -Source $TaskName
+    Write-Host "Event Log source removed." -ForegroundColor Green
+}
+
 if ($RemoveBinaries -and (Test-Path $InstallPath)) {
     Write-Host "Removing binaries at $InstallPath..." -ForegroundColor Yellow
     Remove-Item $InstallPath -Recurse -Force

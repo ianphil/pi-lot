@@ -42,11 +42,11 @@ public sealed class CopilotClient : IDisposable
         _token = CredentialManager.GetCredential(CredentialPrefix);
         if (_token is null)
         {
-            _logger.LogError("No Copilot CLI credential found in Credential Manager. " +
+            _logger.LogError(LogEvents.CredentialMissing, "No Copilot CLI credential found in Credential Manager. " +
                 "Run `copilot` and complete /login first.");
             return false;
         }
-        _logger.LogInformation("Loaded Copilot CLI credential ({Prefix}...)", _token[..4]);
+        _logger.LogInformation(LogEvents.CredentialLoaded, "Loaded Copilot CLI credential ({Prefix}...)", _token[..4]);
         return true;
     }
 
@@ -64,12 +64,12 @@ public sealed class CopilotClient : IDisposable
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            _logger.LogWarning("Copilot token is invalid or expired. Attempting to reload from Credential Manager.");
+            _logger.LogWarning(LogEvents.TokenExpired, "Copilot token is invalid or expired. Attempting to reload from Credential Manager.");
             return TryLoadCredential();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to validate Copilot token");
+            _logger.LogError(LogEvents.TokenValidationFailed, ex, "Failed to validate Copilot token");
             return false;
         }
     }
@@ -92,7 +92,7 @@ public sealed class CopilotClient : IDisposable
             .ToArray() ?? [];
         _modelsLastFetched = DateTime.UtcNow;
 
-        _logger.LogInformation("Fetched {Count} models from Copilot API", _models.Length);
+        _logger.LogInformation(LogEvents.ModelsFetched, "Fetched {Count} models from Copilot API", _models.Length);
         return _models;
     }
 
@@ -119,7 +119,7 @@ public sealed class CopilotClient : IDisposable
         bool useResponses = !endpoints.Contains("/chat/completions") && endpoints.Contains("/responses");
         string endpoint = useResponses ? "/responses" : "/chat/completions";
 
-        _logger.LogInformation("Routing {Model} to {Endpoint}", request.Model, endpoint);
+        _logger.LogInformation(LogEvents.RequestProxied, "Routing {Model} to {Endpoint}", request.Model, endpoint);
 
         var req = CreateRequest(HttpMethod.Post, endpoint);
         req.Headers.TryAddWithoutValidation("X-Initiator", "user");
@@ -172,7 +172,7 @@ public sealed class CopilotClient : IDisposable
         // On 401, try reloading credential and hint to caller
         if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            _logger.LogWarning("Got 401 from Copilot API. Reloading credential.");
+            _logger.LogWarning(LogEvents.TokenExpired, "Got 401 from Copilot API. Reloading credential.");
             TryLoadCredential();
         }
 
