@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>llm_svc</RootNamespace>
+    <OutputType>WinExe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
