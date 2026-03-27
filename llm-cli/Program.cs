@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text.Json;
 using OpenAI;
 using OpenAI.Responses;
+using llm_cli;
 
 static string LoadHelpText()
 {
@@ -39,10 +40,14 @@ var askNoStream = new Option<bool>("--no-stream")
 {
     Description = "Disable streaming",
 };
+var askTools = new Option<bool>("--tools")
+{
+    Description = "Enable local tools (currently: fetch_url)",
+};
 
 var askCommand = new Command("ask", "Send a prompt to a language model and print the response (streams by default)")
 {
-    askPrompt, askModel, askSystem, askNoStream, endpointOption,
+    askPrompt, askModel, askSystem, askNoStream, askTools, endpointOption,
 };
 
 askCommand.SetAction(async (parseResult, cancellationToken) =>
@@ -51,36 +56,25 @@ askCommand.SetAction(async (parseResult, cancellationToken) =>
     var model = parseResult.GetValue(askModel)!;
     var system = parseResult.GetValue(askSystem);
     var noStream = parseResult.GetValue(askNoStream);
+    var toolsEnabled = parseResult.GetValue(askTools);
     var endpoint = parseResult.GetValue(endpointOption)!;
 
     var client = new ResponsesClient(
         new ApiKeyCredential("unused"),
         new OpenAIClientOptions { Endpoint = new Uri(endpoint) });
 
+    using var toolHttpClient = new HttpClient();
+    var toolRegistry = LocalToolRegistry.CreateDefault(toolHttpClient);
+    var askAgent = AskAgent.Create(client, toolRegistry, Console.Out);
+    var request = new AskRequest(prompt, model, system, toolsEnabled);
+
     if (noStream)
     {
-        var options = new CreateResponseOptions { Model = model };
-        if (system is not null) options.Instructions = system;
-        options.InputItems.Add(ResponseItem.CreateUserMessageItem(prompt));
-
-        ResponseResult result = await client.CreateResponseAsync(options, cancellationToken);
-        Console.WriteLine(result.GetOutputText());
+        Console.WriteLine(await askAgent.RunNonStreamingAsync(request, cancellationToken));
     }
     else
     {
-        var options = new CreateResponseOptions { Model = model, StreamingEnabled = true };
-        if (system is not null) options.Instructions = system;
-        options.InputItems.Add(ResponseItem.CreateUserMessageItem(prompt));
-
-        AsyncCollectionResult<StreamingResponseUpdate> updates =
-            client.CreateResponseStreamingAsync(options, cancellationToken);
-
-        await foreach (var update in updates)
-        {
-            if (update is StreamingResponseOutputTextDeltaUpdate delta)
-                Console.Write(delta.Delta);
-        }
-        Console.WriteLine();
+        await askAgent.RunStreamingAsync(request, cancellationToken);
     }
 });
 

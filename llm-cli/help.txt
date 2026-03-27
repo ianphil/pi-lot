@@ -16,6 +16,7 @@ ASKING QUESTIONS
   llm ask "your prompt" --no-stream       Wait for the full response
   llm ask "your prompt" -m gpt-5.4        Use a specific model
   llm ask "your prompt" -s "Be concise"   Set system instructions
+  llm ask "summarize https://..." --tools Enable local fetch_url tool
 
   Streaming prints tokens as they arrive. Use --no-stream when piping
   output to another command or when you need the complete response at once.
@@ -43,6 +44,7 @@ ASK FLAGS
   -m, --model           Model ID (default: gpt-5.4-mini)
   -s, --system          System instructions prepended to the conversation
   --no-stream           Disable streaming, return complete response at once
+  --tools               Enable local tools (currently: fetch_url)
 
 GLOBAL FLAGS
   -e, --endpoint        Base URL of the proxy (default: http://localhost:5100)
@@ -62,6 +64,9 @@ EXAMPLES
 
   # Use Claude via the translation layer
   llm ask "Write a haiku about shipping code" -m claude-haiku-4.5
+
+  # Let the model fetch and summarize a web page
+  llm ask "Summarize https://openresponses.org/specification" --tools
 
   # Check what models are available before choosing
   llm models
