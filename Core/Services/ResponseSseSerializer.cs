@@ -14,12 +14,14 @@ public static class ResponseSseSerializer
         AppendEvent(builder, "response.created", new
         {
             type = "response.created",
+            sequence_number = sequence++,
             response = CreateSnapshot(response, ResponseStatuses.InProgress),
         });
 
         AppendEvent(builder, "response.in_progress", new
         {
             type = "response.in_progress",
+            sequence_number = sequence++,
             response = CreateSnapshot(response, ResponseStatuses.InProgress),
         });
 
@@ -58,6 +60,7 @@ public static class ResponseSseSerializer
         AppendEvent(builder, terminalEventName, new
         {
             type = terminalEventName,
+            sequence_number = sequence++,
             response = response,
         });
 
@@ -73,10 +76,10 @@ public static class ResponseSseSerializer
         var builder = new StringBuilder();
         if (!string.IsNullOrWhiteSpace(eventName))
         {
-            builder.Append("event: ").Append(eventName).AppendLine();
+            builder.Append("event: ").Append(eventName).Append('\n');
         }
 
-        builder.Append("data: ").Append(data).AppendLine().AppendLine();
+        builder.Append("data: ").Append(data).Append('\n').Append('\n');
         return builder.ToString();
     }
 
@@ -183,6 +186,7 @@ public static class ResponseSseSerializer
         Status = status,
         Model = response.Model,
         Output = response.Output,
+        CompletedAt = response.CompletedAt,
         Usage = response.Usage,
         Error = response.Error,
         IncompleteDetails = response.IncompleteDetails,
@@ -191,12 +195,28 @@ public static class ResponseSseSerializer
         MaxOutputTokens = response.MaxOutputTokens,
         Tools = response.Tools,
         ToolChoice = response.ToolChoice,
+        PreviousResponseId = response.PreviousResponseId,
+        Instructions = response.Instructions,
+        Truncation = response.Truncation,
+        ParallelToolCalls = response.ParallelToolCalls,
+        Text = response.Text,
+        PresencePenalty = response.PresencePenalty,
+        FrequencyPenalty = response.FrequencyPenalty,
+        TopLogprobs = response.TopLogprobs,
+        Store = response.Store,
+        Background = response.Background,
+        ServiceTier = response.ServiceTier,
+        Metadata = response.Metadata,
+        MaxToolCalls = response.MaxToolCalls,
+        Reasoning = response.Reasoning,
+        SafetyIdentifier = response.SafetyIdentifier,
+        PromptCacheKey = response.PromptCacheKey,
     };
 
     private static void AppendEvent(StringBuilder builder, string eventName, object payload)
     {
-        builder.Append("event: ").Append(eventName).AppendLine();
-        builder.Append("data: ").Append(JsonSerializer.Serialize(payload, JsonDefaults.Web)).AppendLine();
-        builder.AppendLine();
+        builder.Append("event: ").Append(eventName).Append('\n');
+        builder.Append("data: ").Append(JsonSerializer.Serialize(payload, JsonDefaults.Web)).Append('\n');
+        builder.Append('\n');
     }
 }

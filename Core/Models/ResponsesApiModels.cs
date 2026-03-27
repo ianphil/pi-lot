@@ -68,6 +68,42 @@ public sealed class CreateResponseRequest
 
     [JsonPropertyName("previous_response_id")]
     public string? PreviousResponseId { get; init; }
+
+    [JsonPropertyName("truncation")]
+    public string? Truncation { get; init; }
+
+    [JsonPropertyName("parallel_tool_calls")]
+    public bool? ParallelToolCalls { get; init; }
+
+    [JsonPropertyName("text")]
+    public ResponseTextConfig? Text { get; init; }
+
+    [JsonPropertyName("presence_penalty")]
+    public double? PresencePenalty { get; init; }
+
+    [JsonPropertyName("frequency_penalty")]
+    public double? FrequencyPenalty { get; init; }
+
+    [JsonPropertyName("top_logprobs")]
+    public int? TopLogprobs { get; init; }
+
+    [JsonPropertyName("store")]
+    public bool? Store { get; init; }
+
+    [JsonPropertyName("background")]
+    public bool? Background { get; init; }
+
+    [JsonPropertyName("service_tier")]
+    public string? ServiceTier { get; init; }
+
+    [JsonPropertyName("metadata")]
+    public object? Metadata { get; init; }
+
+    [JsonPropertyName("max_tool_calls")]
+    public int? MaxToolCalls { get; init; }
+
+    [JsonPropertyName("reasoning")]
+    public ResponseReasoning? Reasoning { get; init; }
 }
 
 public sealed class Response
@@ -90,35 +126,125 @@ public sealed class Response
     [JsonPropertyName("output")]
     public ResponseItem[] Output { get; init; } = [];
 
-    [JsonPropertyName("usage")]
-    public ResponseUsage? Usage { get; init; }
+    // --- NULLABLE fields: must always serialize (even as null) ---
 
-    [JsonPropertyName("error")]
-    public ResponseError? Error { get; init; }
+    [JsonPropertyName("completed_at")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public long? CompletedAt { get; init; }
 
     [JsonPropertyName("incomplete_details")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public ResponseIncompleteDetails? IncompleteDetails { get; init; }
 
-    [JsonPropertyName("temperature")]
-    public double? Temperature { get; init; }
+    [JsonPropertyName("previous_response_id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public string? PreviousResponseId { get; init; }
 
-    [JsonPropertyName("top_p")]
-    public double? TopP { get; init; }
+    [JsonPropertyName("instructions")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public string? Instructions { get; init; }
+
+    [JsonPropertyName("error")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public ResponseError? Error { get; init; }
+
+    [JsonPropertyName("reasoning")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public ResponseReasoning? Reasoning { get; init; }
+
+    [JsonPropertyName("usage")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public ResponseUsage? Usage { get; init; }
 
     [JsonPropertyName("max_output_tokens")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public int? MaxOutputTokens { get; init; }
 
+    [JsonPropertyName("max_tool_calls")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public int? MaxToolCalls { get; init; }
+
+    [JsonPropertyName("safety_identifier")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public string? SafetyIdentifier { get; init; }
+
+    [JsonPropertyName("prompt_cache_key")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public string? PromptCacheKey { get; init; }
+
+    // --- REQUIRED non-nullable fields with defaults ---
+
+    [JsonPropertyName("temperature")]
+    public double Temperature { get; init; } = 1.0;
+
+    [JsonPropertyName("top_p")]
+    public double TopP { get; init; } = 1.0;
+
     [JsonPropertyName("tools")]
-    public ResponseFunctionToolDefinition[]? Tools { get; init; }
+    public ResponseFunctionToolDefinition[] Tools { get; init; } = [];
 
     [JsonPropertyName("tool_choice")]
-    public JsonElement? ToolChoice { get; init; }
+    public object ToolChoice { get; init; } = "auto";
+
+    [JsonPropertyName("truncation")]
+    public string Truncation { get; init; } = "disabled";
+
+    [JsonPropertyName("parallel_tool_calls")]
+    public bool ParallelToolCalls { get; init; } = true;
+
+    [JsonPropertyName("text")]
+    public ResponseTextConfig Text { get; init; } = new();
+
+    [JsonPropertyName("presence_penalty")]
+    public double PresencePenalty { get; init; }
+
+    [JsonPropertyName("frequency_penalty")]
+    public double FrequencyPenalty { get; init; }
+
+    [JsonPropertyName("top_logprobs")]
+    public int TopLogprobs { get; init; }
+
+    [JsonPropertyName("store")]
+    public bool Store { get; init; }
+
+    [JsonPropertyName("background")]
+    public bool Background { get; init; }
+
+    [JsonPropertyName("service_tier")]
+    public string ServiceTier { get; init; } = "default";
+
+    [JsonPropertyName("metadata")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public object? Metadata { get; init; }
 }
 
 public sealed class ResponseIncompleteDetails
 {
     [JsonPropertyName("reason")]
     public string Reason { get; init; } = string.Empty;
+}
+
+public sealed class ResponseReasoning
+{
+    [JsonPropertyName("effort")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public string? Effort { get; init; }
+
+    [JsonPropertyName("summary")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public string? Summary { get; init; }
+}
+
+public sealed class ResponseTextConfig
+{
+    [JsonPropertyName("format")]
+    public ResponseTextFormat Format { get; init; } = new();
+}
+
+public sealed class ResponseTextFormat
+{
+    [JsonPropertyName("type")]
+    public string Type { get; init; } = "text";
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
@@ -192,6 +318,9 @@ public sealed class ResponseOutputTextPart : ResponseContentPart
 
     [JsonPropertyName("annotations")]
     public object[] Annotations { get; init; } = [];
+
+    [JsonPropertyName("logprobs")]
+    public object[] Logprobs { get; init; } = [];
 }
 
 public sealed class ResponseInputTextPart : ResponseContentPart
@@ -221,6 +350,7 @@ public sealed class ResponseFunctionToolDefinition
     public JsonElement? Parameters { get; init; }
 
     [JsonPropertyName("strict")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public bool? Strict { get; init; }
 }
 
@@ -234,6 +364,24 @@ public sealed class ResponseUsage
 
     [JsonPropertyName("total_tokens")]
     public int TotalTokens { get; init; }
+
+    [JsonPropertyName("input_tokens_details")]
+    public InputTokensDetails InputTokensDetails { get; init; } = new();
+
+    [JsonPropertyName("output_tokens_details")]
+    public OutputTokensDetails OutputTokensDetails { get; init; } = new();
+}
+
+public sealed class InputTokensDetails
+{
+    [JsonPropertyName("cached_tokens")]
+    public int CachedTokens { get; init; }
+}
+
+public sealed class OutputTokensDetails
+{
+    [JsonPropertyName("reasoning_tokens")]
+    public int ReasoningTokens { get; init; }
 }
 
 public sealed class ResponseErrorEnvelope

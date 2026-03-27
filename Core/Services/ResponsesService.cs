@@ -56,7 +56,7 @@ public sealed class ResponsesService : IResponsesService
                     }
 
                     return ResponseHttpResult.FromStream(
-                        upstream.Chunks ?? EmptyChunks(),
+                        NormalizeNativeStreamChunks(upstream.Chunks ?? EmptyChunks()),
                         upstream.StatusCode,
                         upstream.ContentType);
                 }
@@ -169,6 +169,18 @@ public sealed class ResponsesService : IResponsesService
         Tools = request.Tools,
         ToolChoice = CloneOrNull(request.ToolChoice),
         PreviousResponseId = request.PreviousResponseId,
+        Truncation = request.Truncation,
+        ParallelToolCalls = request.ParallelToolCalls,
+        Text = request.Text,
+        PresencePenalty = request.PresencePenalty,
+        FrequencyPenalty = request.FrequencyPenalty,
+        TopLogprobs = request.TopLogprobs,
+        Store = request.Store,
+        Background = request.Background,
+        ServiceTier = request.ServiceTier,
+        Metadata = request.Metadata,
+        MaxToolCalls = request.MaxToolCalls,
+        Reasoning = request.Reasoning,
     };
 
     private static CreateResponseRequest CloneForStreaming(CreateResponseRequest request) => new()
@@ -183,6 +195,18 @@ public sealed class ResponsesService : IResponsesService
         Tools = request.Tools,
         ToolChoice = CloneOrNull(request.ToolChoice),
         PreviousResponseId = request.PreviousResponseId,
+        Truncation = request.Truncation,
+        ParallelToolCalls = request.ParallelToolCalls,
+        Text = request.Text,
+        PresencePenalty = request.PresencePenalty,
+        FrequencyPenalty = request.FrequencyPenalty,
+        TopLogprobs = request.TopLogprobs,
+        Store = request.Store,
+        Background = request.Background,
+        ServiceTier = request.ServiceTier,
+        Metadata = request.Metadata,
+        MaxToolCalls = request.MaxToolCalls,
+        Reasoning = request.Reasoning,
     };
 
     private static ResponseHttpResult NormalizeError(ProxyHttpResult upstream)
@@ -260,5 +284,31 @@ public sealed class ResponsesService : IResponsesService
     {
         await Task.CompletedTask;
         yield break;
+    }
+
+    private static async IAsyncEnumerable<string> NormalizeNativeStreamChunks(
+        IAsyncEnumerable<string> chunks,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var chunk in chunks.WithCancellation(cancellationToken))
+        {
+            yield return EnsureNullableResponseFields(chunk);
+        }
+    }
+
+    private static string EnsureNullableResponseFields(string chunk)
+    {
+        if (chunk.Contains("\"prompt_cache_key\""))
+            return chunk;
+
+        // Upstream may omit prompt_cache_key; the spec requires it (nullable).
+        if (chunk.Contains("\"prompt_cache_retention\""))
+        {
+            return chunk.Replace(
+                "\"prompt_cache_retention\"",
+                "\"prompt_cache_key\":null,\"prompt_cache_retention\"");
+        }
+
+        return chunk;
     }
 }
