@@ -5,6 +5,8 @@ using System.Text;
 using System.Text.Json;
 using LlmSvc.Core.Models;
 using LlmSvc.Core.Ports;
+using LlmSvc.Core.Services;
+using static LlmSvc.Core.Models.JsonElementHelpers;
 
 namespace LlmSvc;
 
@@ -13,7 +15,7 @@ namespace LlmSvc;
 /// Reads the Copilot CLI credential from Windows Credential Manager and
 /// sends requests directly to api.enterprise.githubcopilot.com.
 /// </summary>
-public sealed class CopilotClient : IDisposable, IModelProvider
+public sealed class CopilotClient : IAuthProvider, IModelProvider
 {
     private const string BaseUrl = "https://api.enterprise.githubcopilot.com";
     private const string CredentialPrefix = "copilot-cli/https://github.com";
@@ -24,15 +26,16 @@ public sealed class CopilotClient : IDisposable, IModelProvider
         ["Copilot-Integration-Id"] = "copilot-developer-cli",
     };
 
-    private readonly HttpClient _http = new();
+    private readonly HttpClient _http;
     private readonly ILogger<CopilotClient> _logger;
     private CopilotModelInfo[]? _models;
     private DateTime _modelsLastFetched = DateTime.MinValue;
     private string? _token;
 
-    public CopilotClient(ILogger<CopilotClient> logger)
+    public CopilotClient(ILogger<CopilotClient> logger, IHttpClientFactory httpClientFactory)
     {
         _logger = logger;
+        _http = httpClientFactory.CreateClient(nameof(CopilotClient));
     }
 
     public bool IsAuthenticated => _token is not null;
@@ -115,9 +118,7 @@ public sealed class CopilotClient : IDisposable, IModelProvider
     {
         if (_token is null)
         {
-            return new ProxyHttpResult(
-                JsonSerializer.Serialize(MakeError("Not authenticated", "auth_error"), JsonDefaults.Web),
-                401);
+            return NotAuthenticatedHttpResult();
         }
 
         var payload = CreateChatCompletionPayload(request, stream: false);
@@ -128,17 +129,7 @@ public sealed class CopilotClient : IDisposable, IModelProvider
     {
         if (_token is null)
         {
-            return new ProxyHttpResult(
-                JsonSerializer.Serialize(new ResponseErrorEnvelope
-                {
-                    Error = new ResponseError
-                    {
-                        Message = "Not authenticated",
-                        Type = "invalid_request_error",
-                        Code = "auth_error",
-                    },
-                }, JsonDefaults.Web),
-                401);
+            return NotAuthenticatedHttpResult();
         }
 
         var payload = CreateResponsesPayload(request, stream: false);
@@ -149,10 +140,7 @@ public sealed class CopilotClient : IDisposable, IModelProvider
     {
         if (_token is null)
         {
-            return new ProxyStreamResult(
-                JsonSerializer.Serialize(MakeError("Not authenticated", "auth_error"), JsonDefaults.Web),
-                401,
-                "application/json");
+            return NotAuthenticatedStreamResult();
         }
 
         var payload = CreateChatCompletionPayload(request, stream: true);
@@ -163,34 +151,24 @@ public sealed class CopilotClient : IDisposable, IModelProvider
     {
         if (_token is null)
         {
-            return new ProxyStreamResult(
-                JsonSerializer.Serialize(new ResponseErrorEnvelope
-                {
-                    Error = new ResponseError
-                    {
-                        Message = "Not authenticated",
-                        Type = "invalid_request_error",
-                        Code = "auth_error",
-                    },
-                }, JsonDefaults.Web),
-                401,
-                "application/json");
+            return NotAuthenticatedStreamResult();
         }
 
         var payload = CreateResponsesPayload(request, stream: true);
         return await SendStreamAsync("/responses", payload, cancellationToken);
     }
 
-    public async Task<(string Body, int StatusCode)> ChatAsync(ChatCompletionRequest request)
+    public async Task<ProxyHttpResult> ChatAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
     {
         if (_token is null)
         {
-            return (JsonSerializer.Serialize(MakeError("Not authenticated", "auth_error"), JsonDefaults.Web), 401);
+            return NotAuthenticatedHttpResult();
         }
 
         if (string.IsNullOrEmpty(request.Model))
         {
-            return (JsonSerializer.Serialize(MakeError("model is required", "invalid_request"), JsonDefaults.Web), 400);
+            return new ProxyHttpResult(
+                JsonSerializer.Serialize(MakeError("model is required", "invalid_request"), JsonDefaults.Web), 400);
         }
 
         var models = await FetchModelsAsync();
@@ -199,7 +177,8 @@ public sealed class CopilotClient : IDisposable, IModelProvider
 
         if (model is null)
         {
-            return (JsonSerializer.Serialize(MakeError($"Model '{request.Model}' not found", "model_not_found"), JsonDefaults.Web), 404);
+            return new ProxyHttpResult(
+                JsonSerializer.Serialize(MakeError($"Model '{request.Model}' not found", "model_not_found"), JsonDefaults.Web), 404);
         }
 
         var endpoints = model.SupportedEndpoints ?? [];
@@ -218,7 +197,7 @@ public sealed class CopilotClient : IDisposable, IModelProvider
                     request.Messages?.Select(message => new
                     {
                         role = message.Role,
-                        content = NormalizeMessageContent(message.Content),
+                        content = ChatCompletionsTranslator.NormalizeMessageContent(message.Content),
                     }).ToArray() ?? Array.Empty<object>(),
                     JsonDefaults.Web)).RootElement.Clone(),
                 Stream = false,
@@ -227,20 +206,20 @@ public sealed class CopilotClient : IDisposable, IModelProvider
                 TopP = request.TopP,
             };
 
-            upstream = await SendResponsesAsync(responsesRequest);
+            upstream = await SendResponsesAsync(responsesRequest, cancellationToken);
         }
         else
         {
-            upstream = await SendChatCompletionsAsync(request);
+            upstream = await SendChatCompletionsAsync(request, cancellationToken);
         }
 
         var body = upstream.Body;
         if (useResponses && upstream.StatusCode is >= 200 and < 300)
         {
-            body = TranslateResponsesToChatCompletion(body);
+            body = ChatCompletionsTranslator.TranslateResponseBodyToChatCompletion(body);
         }
 
-        return (body, upstream.StatusCode);
+        return new ProxyHttpResult(body, upstream.StatusCode);
     }
 
     private async Task<ProxyHttpResult> SendAsync(string path, object payload, CancellationToken cancellationToken)
@@ -368,86 +347,33 @@ public sealed class CopilotClient : IDisposable, IModelProvider
         }
     }
 
-    private static string TranslateResponsesToChatCompletion(string responsesBody)
-    {
-        var resp = JsonSerializer.Deserialize<ResponsesApiResponse>(responsesBody, JsonDefaults.Web);
-        if (resp is null)
+    private static ProxyHttpResult NotAuthenticatedHttpResult() => new(
+        JsonSerializer.Serialize(new ResponseErrorEnvelope
         {
-            return responsesBody;
-        }
-
-        var textOutput = resp.Output?.FirstOrDefault(output => output.Type == "message");
-        var text = textOutput?.Content?.FirstOrDefault(content => content.Type == "output_text")?.Text;
-        var toolCalls = resp.Output?
-            .Where(output => output.Type == "function_call")
-            .Select(output => new ChatToolCall
+            Error = new ResponseError
             {
-                Id = output.CallId ?? output.Id,
-                Function = new ChatToolCallFunction
-                {
-                    Name = output.Name,
-                    Arguments = output.Arguments,
-                },
-            })
-            .ToArray();
-
-        var translated = new ChatCompletionResponse
-        {
-            Id = resp.Id,
-            Object = "chat.completion",
-            Model = resp.Model,
-            Choices =
-            [
-                new ChatChoice
-                {
-                    Index = 0,
-                    Message = new ChatMessage
-                    {
-                        Role = "assistant",
-                        Content = text,
-                        ToolCalls = toolCalls is { Length: > 0 } ? toolCalls : null,
-                    },
-                    FinishReason = resp.Status == ResponseStatuses.Incomplete ? "length" : "stop",
-                },
-            ],
-            Usage = new UsageInfo
-            {
-                PromptTokens = resp.Usage?.InputTokens ?? 0,
-                CompletionTokens = resp.Usage?.OutputTokens ?? 0,
-                TotalTokens = (resp.Usage?.InputTokens ?? 0) + (resp.Usage?.OutputTokens ?? 0),
+                Message = "Not authenticated",
+                Type = ErrorTypes.InvalidRequestError,
+                Code = ErrorCodes.AuthError,
             },
-        };
+        }, JsonDefaults.Web),
+        401);
 
-        return JsonSerializer.Serialize(translated, JsonDefaults.Web);
-    }
-
-    private static object? NormalizeMessageContent(object? content) => content switch
-    {
-        null => null,
-        JsonElement element when element.ValueKind == JsonValueKind.Array => element.EnumerateArray()
-            .Select(item => item.ValueKind == JsonValueKind.Object
-                ? JsonSerializer.Deserialize<object>(item.GetRawText(), JsonDefaults.Web)
-                : item.ToString())
-            .ToArray(),
-        JsonElement element when element.ValueKind == JsonValueKind.String => element.GetString(),
-        JsonElement element => JsonSerializer.Deserialize<object>(element.GetRawText(), JsonDefaults.Web),
-        _ => content,
-    };
-
-    private static JsonElement CloneOrDefault(JsonElement element) =>
-        element.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined
-            ? default
-            : JsonDocument.Parse(element.GetRawText()).RootElement.Clone();
-
-    private static JsonElement? CloneOrNull(JsonElement? element) =>
-        element is null || element.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined
-            ? null
-            : JsonDocument.Parse(element.Value.GetRawText()).RootElement.Clone();
+    private static ProxyStreamResult NotAuthenticatedStreamResult() => new(
+        JsonSerializer.Serialize(new ResponseErrorEnvelope
+        {
+            Error = new ResponseError
+            {
+                Message = "Not authenticated",
+                Type = ErrorTypes.InvalidRequestError,
+                Code = ErrorCodes.AuthError,
+            },
+        }, JsonDefaults.Web),
+        401,
+        "application/json");
 
     private static OpenAIErrorResponse MakeError(string message, string code) => new()
     {
         Error = new OpenAIError { Message = message, Code = code, Type = "error" }
     };
-
-    public void Dispose() => _http.Dispose();
 }

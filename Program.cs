@@ -23,9 +23,13 @@ if (!builder.Environment.IsEnvironment("Testing"))
     });
 }
 
+builder.Services.AddHttpClient();
 builder.Services.AddSingleton<CopilotClient>();
+builder.Services.AddSingleton<IAuthProvider>(sp => sp.GetRequiredService<CopilotClient>());
 builder.Services.AddSingleton<IModelProvider>(sp => sp.GetRequiredService<CopilotClient>());
 builder.Services.AddSingleton<ChatCompletionsTranslator>();
+builder.Services.AddSingleton<ChatCompletionsStreamTranslator>();
+builder.Services.AddSingleton<ModelListService>();
 builder.Services.AddSingleton<IResponsesService, ResponsesService>();
 
 if (!builder.Environment.IsEnvironment("Testing"))
@@ -38,14 +42,14 @@ var app = builder.Build();
 app.Logger.LogInformation(LogEvents.ServiceStarted, "CopilotLlmProxy service starting.");
 
 // ── Load credential at startup ───────────────────────────────────────────────
-var provider = app.Services.GetRequiredService<IModelProvider>();
-if (!app.Environment.IsEnvironment("Testing") && !provider.TryLoadCredential())
+var auth = app.Services.GetRequiredService<IAuthProvider>();
+if (!app.Environment.IsEnvironment("Testing") && !auth.TryLoadCredential())
 {
     app.Logger.LogError(LogEvents.CredentialMissing, "Failed to load Copilot credential. Service will start but requests will fail.");
 }
 
 // ── Health check ─────────────────────────────────────────────────────────────
-app.MapGet("/health", (IModelProvider p) => p.IsAuthenticated
+app.MapGet("/health", (IAuthProvider a) => a.IsAuthenticated
     ? Results.Ok(new { status = "healthy", authenticated = true })
     : Results.Json(new { status = "degraded", authenticated = false }, statusCode: 503));
 
@@ -63,30 +67,11 @@ app.MapPost("/chat/completions", ProxyChatCompletionsAsync);
 
 app.Run();
 
-static async Task<IResult> GetModelsAsync(IModelProvider p, CancellationToken cancellationToken)
+static async Task<IResult> GetModelsAsync(ModelListService modelList, CancellationToken cancellationToken)
 {
     try
     {
-        var response = new OpenAIModelListResponse
-        {
-            Data = (await p.FetchModelsAsync(cancellationToken: cancellationToken))
-                .Select(model => new
-                {
-                    Model = model,
-                    ProxySupportedEndpoints = GetProxySupportedEndpoints(model),
-                })
-                .Where(entry => entry.ProxySupportedEndpoints.Length > 0)
-                .Select(entry => new OpenAIModelInfo
-                {
-                    Id = entry.Model.Id,
-                    OwnedBy = entry.Model.OwnedBy ?? "github-copilot",
-                    Name = entry.Model.Name,
-                    SupportedEndpoints = entry.Model.SupportedEndpoints,
-                    ProxySupportedEndpoints = entry.ProxySupportedEndpoints,
-                })
-                .ToArray()
-        };
-
+        var response = await modelList.GetModelsAsync(cancellationToken);
         return Results.Ok(response);
     }
     catch (Exception ex)
@@ -103,15 +88,10 @@ static async Task<IResult> GetModelsAsync(IModelProvider p, CancellationToken ca
 static async Task<IResult> CreateResponseAsync(CreateResponseRequest request, IResponsesService responsesService, CancellationToken cancellationToken) =>
     await responsesService.CreateAsync(request, cancellationToken);
 
-static async Task<IResult> ProxyChatCompletionsAsync(ChatCompletionRequest request, CopilotClient c)
+static async Task<IResult> ProxyChatCompletionsAsync(ChatCompletionRequest request, IModelProvider provider, CancellationToken cancellationToken)
 {
-    var (body, statusCode) = await c.ChatAsync(request);
-    return Results.Text(body, "application/json", statusCode: statusCode);
+    var result = await provider.ChatAsync(request, cancellationToken);
+    return Results.Text(result.Body, "application/json", statusCode: result.StatusCode);
 }
-
-static string[] GetProxySupportedEndpoints(ModelDescriptor model) =>
-    model.SupportsResponses || model.SupportsChatCompletions
-        ? ["/v1/responses", "/v1/chat/completions"]
-        : [];
 
 public partial class Program;

@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using LlmSvc.Core.Models;
 using LlmSvc.Core.Ports;
+using static LlmSvc.Core.Models.JsonElementHelpers;
 
 namespace LlmSvc.Core.Services;
 
@@ -9,11 +10,18 @@ public sealed class ResponsesService : IResponsesService
 {
     private readonly IModelProvider _provider;
     private readonly ChatCompletionsTranslator _translator;
+    private readonly ChatCompletionsStreamTranslator _streamTranslator;
 
     public ResponsesService(IModelProvider provider, ChatCompletionsTranslator translator)
+        : this(provider, translator, new ChatCompletionsStreamTranslator())
+    {
+    }
+
+    public ResponsesService(IModelProvider provider, ChatCompletionsTranslator translator, ChatCompletionsStreamTranslator streamTranslator)
     {
         _provider = provider;
         _translator = translator;
+        _streamTranslator = streamTranslator;
     }
 
     public async Task<ResponseHttpResult> CreateAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
@@ -31,9 +39,9 @@ public sealed class ResponsesService : IResponsesService
                 throw new ResponseApiException(404, new ResponseError
                 {
                     Message = $"The requested model '{request.Model}' does not exist.",
-                    Type = "invalid_request_error",
+                    Type = ErrorTypes.InvalidRequestError,
                     Param = "model",
-                    Code = "model_not_found",
+                    Code = ErrorCodes.ModelNotFound,
                 });
             }
 
@@ -63,7 +71,7 @@ public sealed class ResponsesService : IResponsesService
                     }
 
                     return ResponseHttpResult.FromStream(
-                        _translator.TranslateStream(upstream.Chunks ?? EmptyChunks(), request, cancellationToken),
+                        _streamTranslator.TranslateStream(upstream.Chunks ?? EmptyChunks(), request, cancellationToken),
                         200,
                         "text/event-stream");
                 }
@@ -71,9 +79,9 @@ public sealed class ResponsesService : IResponsesService
                 throw new ResponseApiException(400, new ResponseError
                 {
                     Message = $"Model '{request.Model}' does not support /responses or /chat/completions.",
-                    Type = "invalid_request_error",
+                    Type = ErrorTypes.InvalidRequestError,
                     Param = "model",
-                    Code = "unsupported_model_endpoint",
+                    Code = ErrorCodes.UnsupportedModelEndpoint,
                 });
             }
 
@@ -104,9 +112,9 @@ public sealed class ResponsesService : IResponsesService
                 throw new ResponseApiException(400, new ResponseError
                 {
                     Message = $"Model '{request.Model}' does not support /responses or /chat/completions.",
-                    Type = "invalid_request_error",
+                    Type = ErrorTypes.InvalidRequestError,
                     Param = "model",
-                    Code = "unsupported_model_endpoint",
+                    Code = ErrorCodes.UnsupportedModelEndpoint,
                 });
             }
 
@@ -131,9 +139,9 @@ public sealed class ResponsesService : IResponsesService
             throw new ResponseApiException(400, new ResponseError
             {
                 Message = "model is required",
-                Type = "invalid_request_error",
+                Type = ErrorTypes.InvalidRequestError,
                 Param = "model",
-                Code = "missing_required_parameter",
+                Code = ErrorCodes.MissingRequiredParameter,
             });
         }
 
@@ -142,9 +150,9 @@ public sealed class ResponsesService : IResponsesService
             throw new ResponseApiException(400, new ResponseError
             {
                 Message = "input is required",
-                Type = "invalid_request_error",
+                Type = ErrorTypes.InvalidRequestError,
                 Param = "input",
-                Code = "missing_required_parameter",
+                Code = ErrorCodes.MissingRequiredParameter,
             });
         }
     }
@@ -176,16 +184,6 @@ public sealed class ResponsesService : IResponsesService
         ToolChoice = CloneOrNull(request.ToolChoice),
         PreviousResponseId = request.PreviousResponseId,
     };
-
-    private static JsonElement CloneOrDefault(JsonElement element) =>
-        element.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined
-            ? default
-            : JsonDocument.Parse(element.GetRawText()).RootElement.Clone();
-
-    private static JsonElement? CloneOrNull(JsonElement? element) =>
-        element is null || element.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined
-            ? null
-            : JsonDocument.Parse(element.Value.GetRawText()).RootElement.Clone();
 
     private static ResponseHttpResult NormalizeError(ProxyHttpResult upstream)
     {
@@ -252,10 +250,10 @@ public sealed class ResponsesService : IResponsesService
 
     private static string MapErrorType(int statusCode) => statusCode switch
     {
-        (int)HttpStatusCode.NotFound => "not_found",
-        (int)HttpStatusCode.TooManyRequests => "too_many_requests",
-        >= 400 and < 500 => "invalid_request_error",
-        _ => "server_error",
+        (int)HttpStatusCode.NotFound => ErrorTypes.NotFound,
+        (int)HttpStatusCode.TooManyRequests => ErrorTypes.TooManyRequests,
+        >= 400 and < 500 => ErrorTypes.InvalidRequestError,
+        _ => ErrorTypes.ServerError,
     };
 
     private static async IAsyncEnumerable<string> EmptyChunks()

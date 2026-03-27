@@ -4,7 +4,7 @@ using LlmSvc.Core.Ports;
 
 namespace llm_svc.Tests.Fakes;
 
-public sealed class FakeModelProvider : IModelProvider
+public sealed class FakeModelProvider : IAuthProvider, IModelProvider
 {
     public bool IsAuthenticated { get; set; } = true;
 
@@ -18,6 +18,8 @@ public sealed class FakeModelProvider : IModelProvider
 
     public ProxyHttpResult ResponsesResult { get; set; } = new("{}", 200);
 
+    public ProxyHttpResult ChatResult { get; set; } = new("{}", 200);
+
     public ProxyStreamResult ChatCompletionsStreamResult { get; set; } = new(null, 200, "text/event-stream", EmptyChunks());
 
     public ProxyStreamResult ResponsesStreamResult { get; set; } = new(null, 200, "text/event-stream", EmptyChunks());
@@ -28,6 +30,12 @@ public sealed class FakeModelProvider : IModelProvider
 
     public Task<ModelDescriptor[]> FetchModelsAsync(bool forceRefresh = false, CancellationToken cancellationToken = default) =>
         Task.FromResult(Models);
+
+    public Task<ProxyHttpResult> ChatAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
+    {
+        LastChatRequest = request;
+        return Task.FromResult(ChatResult);
+    }
 
     public Task<ProxyHttpResult> SendChatCompletionsAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
     {

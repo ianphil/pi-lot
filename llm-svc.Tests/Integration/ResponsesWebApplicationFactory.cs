@@ -16,7 +16,9 @@ public sealed class ResponsesWebApplicationFactory : WebApplicationFactory<Progr
         builder.UseEnvironment("Testing");
         builder.ConfigureServices(services =>
         {
+            services.RemoveAll<IAuthProvider>();
             services.RemoveAll<IModelProvider>();
+            services.AddSingleton<IAuthProvider>(Provider);
             services.AddSingleton<IModelProvider>(Provider);
         });
     }
