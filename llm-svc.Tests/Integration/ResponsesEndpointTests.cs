@@ -1,0 +1,73 @@
+using System.Net.Http.Json;
+using System.Text.Json;
+using LlmSvc;
+using LlmSvc.Core.Models;
+
+namespace llm_svc.Tests.Integration;
+
+public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicationFactory>
+{
+    private readonly ResponsesWebApplicationFactory _factory;
+
+    public ResponsesEndpointTests(ResponsesWebApplicationFactory factory)
+    {
+        _factory = factory;
+    }
+
+    [Fact]
+    public async Task PostResponses_ReturnsCanonicalResponseBody()
+    {
+        _factory.Provider.Models =
+        [
+            new ModelDescriptor
+            {
+                Id = "claude-haiku-4.5",
+                SupportedEndpoints = ["/chat/completions"],
+            },
+        ];
+        _factory.Provider.ChatCompletionsResult = new(JsonSerializer.Serialize(new ChatCompletionResponse
+        {
+            Id = "chat_456",
+            Model = "claude-haiku-4.5",
+            Choices =
+            [
+                new ChatChoice
+                {
+                    Index = 0,
+                    Message = new ChatMessage
+                    {
+                        Role = "assistant",
+                        Content = "Hello from endpoint test",
+                    },
+                    FinishReason = "stop",
+                },
+            ],
+            Usage = new UsageInfo
+            {
+                PromptTokens = 5,
+                CompletionTokens = 4,
+                TotalTokens = 9,
+            },
+        }, JsonDefaults.Web), 200);
+
+        using var client = _factory.CreateClient();
+        var httpResponse = await client.PostAsJsonAsync("/v1/responses", new
+        {
+            model = "claude-haiku-4.5",
+            input = "Hi there",
+        });
+
+        httpResponse.EnsureSuccessStatusCode();
+        Assert.StartsWith("application/json", httpResponse.Content.Headers.ContentType?.ToString());
+
+        var body = await httpResponse.Content.ReadAsStringAsync();
+        var response = JsonSerializer.Deserialize<Response>(body, JsonDefaults.Web);
+
+        Assert.NotNull(response);
+        Assert.Equal("response", response!.Object);
+        Assert.Equal("claude-haiku-4.5", response.Model);
+        var message = Assert.IsType<ResponseMessageItem>(response.Output[0]);
+        var text = Assert.IsType<ResponseOutputTextPart>(message.Content[0]);
+        Assert.Equal("Hello from endpoint test", text.Text);
+    }
+}

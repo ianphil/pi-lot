@@ -7,6 +7,7 @@
     <RootNamespace>llm_svc</RootNamespace>
     <OutputType>WinExe</OutputType>
     <NoWarn>CA1416</NoWarn>
+    <DefaultItemExcludes>$(DefaultItemExcludes);llm-svc.Tests\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

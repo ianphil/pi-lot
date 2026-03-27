@@ -1,3 +1,5 @@
+using LlmSvc.Core.Ports;
+
 namespace LlmSvc;
 
 /// <summary>
@@ -6,11 +8,11 @@ namespace LlmSvc;
 /// </summary>
 public sealed class Worker : BackgroundService
 {
-    private readonly CopilotClient _client;
+    private readonly IModelProvider _client;
     private readonly ILogger<Worker> _logger;
     private readonly TimeSpan _interval = TimeSpan.FromMinutes(5);
 
-    public Worker(CopilotClient client, ILogger<Worker> logger)
+    public Worker(IModelProvider client, ILogger<Worker> logger)
     {
         _client = client;
         _logger = logger;

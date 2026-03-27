@@ -8,11 +8,14 @@ Exposes a local HTTP API on `http://localhost:5100` that any OpenAI-compatible t
 
 ```
 GET  /v1/models              → list available Copilot models
+POST /v1/responses           → send OpenAI Responses API requests
 POST /v1/chat/completions    → send chat completion requests
 GET  /health                 → service health check
 ```
 
-**Auto-routing**: Models that only support OpenAI's `/responses` API (GPT-5.4, Codex models) are automatically handled — callers always use the standard `/chat/completions` format, and the service translates internally.
+**Auto-routing**:
+- `/v1/responses` is the unified surface. Models that only support `/chat/completions` are translated into Responses API output.
+- `/v1/chat/completions` remains available for compatibility, and `/responses`-only models are translated back internally when needed.
 
 ## Prerequisites
 
@@ -33,6 +36,11 @@ Then from any tool or script:
 # List models
 curl http://localhost:5100/v1/models
 
+# Responses API
+curl http://localhost:5100/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{"model": "gpt-5.4", "input": "Hello!"}'
+
 # Chat completion
 curl http://localhost:5100/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -47,8 +55,21 @@ Point any OpenAI SDK at the local proxy:
 from openai import OpenAI
 
 client = OpenAI(base_url="http://localhost:5100/v1", api_key="unused")
-response = client.chat.completions.create(
+response = client.responses.create(
     model="gpt-5.4-mini",
+    input="Hello!"
+)
+print(response.output[0].content[0].text)
+```
+
+Chat Completions clients still work too:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:5100/v1", api_key="unused")
+response = client.chat.completions.create(
+    model="claude-haiku-4.5",
     messages=[{"role": "user", "content": "Hello!"}]
 )
 print(response.choices[0].message.content)
@@ -104,8 +125,8 @@ Edit `appsettings.json` to change the port:
 
 1. Reads your Copilot CLI OAuth token from Windows Credential Manager (`copilot-cli/https://github.com:*`)
 2. Sends requests directly to `https://api.enterprise.githubcopilot.com`
-3. Routes to `/chat/completions` or `/responses` based on model capabilities
-4. Translates `/responses` format back to `/chat/completions` format for callers
+3. Routes requests to `/responses` or `/chat/completions` based on model capabilities
+4. Translates between Chat Completions and Responses API formats as needed
 5. Background worker validates the token every 5 minutes, reloads on 401
 
 ## Architecture
@@ -114,12 +135,12 @@ Edit `appsettings.json` to change the port:
 Caller (any OpenAI SDK)
   │
   ▼
-localhost:5100/v1/chat/completions
+localhost:5100/v1/responses
   │
-  ├─ /chat/completions models ──→ Copilot /chat/completions
-  │                                (Claude, GPT-5 mini, MiniMax)
+  ├─ native /responses models ──→ Copilot /responses
+  │                                (GPT-5.4, Codex, GPT-5.1/5.2)
   │
-  └─ /responses-only models ────→ Copilot /responses
-                                   (GPT-5.4, Codex)
-                                   └─ translated back to chat.completion format
+  └─ chat-only models ──────────→ Copilot /chat/completions
+                                   (Claude, MiniMax)
+                                   └─ translated into Responses API format
 ```

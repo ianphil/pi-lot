@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace LlmSvc;
@@ -76,6 +77,12 @@ public sealed class ChatCompletionRequest
 
     [JsonPropertyName("top_p")]
     public double? TopP { get; init; }
+
+    [JsonPropertyName("tools")]
+    public ChatToolDefinition[]? Tools { get; init; }
+
+    [JsonPropertyName("tool_choice")]
+    public object? ToolChoice { get; init; }
 }
 
 public sealed class ChatMessage
@@ -85,6 +92,57 @@ public sealed class ChatMessage
 
     [JsonPropertyName("content")]
     public object? Content { get; init; }
+
+    [JsonPropertyName("tool_calls")]
+    public ChatToolCall[]? ToolCalls { get; init; }
+
+    [JsonPropertyName("tool_call_id")]
+    public string? ToolCallId { get; init; }
+}
+
+public sealed class ChatToolDefinition
+{
+    [JsonPropertyName("type")]
+    public string Type { get; init; } = "function";
+
+    [JsonPropertyName("function")]
+    public ChatToolFunctionDefinition? Function { get; init; }
+}
+
+public sealed class ChatToolFunctionDefinition
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("parameters")]
+    public JsonElement? Parameters { get; init; }
+
+    [JsonPropertyName("strict")]
+    public bool? Strict { get; init; }
+}
+
+public sealed class ChatToolCall
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; init; }
+
+    [JsonPropertyName("type")]
+    public string Type { get; init; } = "function";
+
+    [JsonPropertyName("function")]
+    public ChatToolCallFunction? Function { get; init; }
+}
+
+public sealed class ChatToolCallFunction
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
+
+    [JsonPropertyName("arguments")]
+    public string? Arguments { get; init; }
 }
 
 public sealed class ChatCompletionResponse
@@ -136,6 +194,15 @@ public sealed class ResponsesApiResponse
     [JsonPropertyName("id")]
     public string? Id { get; init; }
 
+    [JsonPropertyName("object")]
+    public string? Object { get; init; }
+
+    [JsonPropertyName("created_at")]
+    public long? CreatedAt { get; init; }
+
+    [JsonPropertyName("status")]
+    public string? Status { get; init; }
+
     [JsonPropertyName("model")]
     public string? Model { get; init; }
 
@@ -148,11 +215,29 @@ public sealed class ResponsesApiResponse
 
 public sealed class ResponseOutput
 {
+    [JsonPropertyName("id")]
+    public string? Id { get; init; }
+
     [JsonPropertyName("type")]
     public string? Type { get; init; }
 
+    [JsonPropertyName("status")]
+    public string? Status { get; init; }
+
+    [JsonPropertyName("role")]
+    public string? Role { get; init; }
+
     [JsonPropertyName("content")]
     public ResponseContent[]? Content { get; init; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
+
+    [JsonPropertyName("call_id")]
+    public string? CallId { get; init; }
+
+    [JsonPropertyName("arguments")]
+    public string? Arguments { get; init; }
 }
 
 public sealed class ResponseContent
@@ -162,6 +247,9 @@ public sealed class ResponseContent
 
     [JsonPropertyName("text")]
     public string? Text { get; init; }
+
+    [JsonPropertyName("annotations")]
+    public object[]? Annotations { get; init; }
 }
 
 public sealed class ResponsesUsageInfo

@@ -2,6 +2,8 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using LlmSvc.Core.Models;
+using LlmSvc.Core.Ports;
 
 namespace LlmSvc;
 
@@ -10,7 +12,7 @@ namespace LlmSvc;
 /// Reads the Copilot CLI credential from Windows Credential Manager and
 /// sends requests directly to api.enterprise.githubcopilot.com.
 /// </summary>
-public sealed class CopilotClient : IDisposable
+public sealed class CopilotClient : IDisposable, IModelProvider
 {
     private const string BaseUrl = "https://api.enterprise.githubcopilot.com";
     private const string CredentialPrefix = "copilot-cli/https://github.com";
@@ -23,9 +25,9 @@ public sealed class CopilotClient : IDisposable
 
     private readonly HttpClient _http = new();
     private readonly ILogger<CopilotClient> _logger;
-    private string? _token;
     private CopilotModelInfo[]? _models;
     private DateTime _modelsLastFetched = DateTime.MinValue;
+    private string? _token;
 
     public CopilotClient(ILogger<CopilotClient> logger)
     {
@@ -46,6 +48,7 @@ public sealed class CopilotClient : IDisposable
                 "Run `copilot` and complete /login first.");
             return false;
         }
+
         _logger.LogInformation(LogEvents.CredentialLoaded, "Loaded Copilot CLI credential ({Prefix}...)", _token[..4]);
         return true;
     }
@@ -56,7 +59,11 @@ public sealed class CopilotClient : IDisposable
     /// </summary>
     public async Task<bool> ValidateTokenAsync()
     {
-        if (_token is null) return false;
+        if (_token is null)
+        {
+            return false;
+        }
+
         try
         {
             var models = await FetchModelsAsync(forceRefresh: true);
@@ -80,7 +87,9 @@ public sealed class CopilotClient : IDisposable
     public async Task<CopilotModelInfo[]> FetchModelsAsync(bool forceRefresh = false)
     {
         if (!forceRefresh && _models is not null && DateTime.UtcNow - _modelsLastFetched < TimeSpan.FromMinutes(5))
+        {
             return _models;
+        }
 
         var req = CreateRequest(HttpMethod.Get, "/models");
         var resp = await _http.SendAsync(req);
@@ -96,6 +105,80 @@ public sealed class CopilotClient : IDisposable
         return _models;
     }
 
+    async Task<ModelDescriptor[]> IModelProvider.FetchModelsAsync(bool forceRefresh, CancellationToken cancellationToken)
+    {
+        var models = await FetchModelsAsync(forceRefresh);
+        return models
+            .Where(model => !string.IsNullOrWhiteSpace(model.Id))
+            .Select(model => new ModelDescriptor
+            {
+                Id = model.Id!,
+                Name = model.Name,
+                OwnedBy = "github-copilot",
+                SupportedEndpoints = model.SupportedEndpoints ?? [],
+            })
+            .ToArray();
+    }
+
+    public async Task<ProxyHttpResult> SendChatCompletionsAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
+    {
+        if (_token is null)
+        {
+            return new ProxyHttpResult(
+                JsonSerializer.Serialize(MakeError("Not authenticated", "auth_error"), JsonDefaults.Web),
+                401);
+        }
+
+        var payload = new ChatCompletionRequest
+        {
+            Model = request.Model,
+            Messages = request.Messages,
+            Stream = false,
+            MaxCompletionTokens = request.MaxCompletionTokens ?? request.MaxTokens ?? 4096,
+            MaxTokens = request.MaxTokens,
+            Temperature = request.Temperature,
+            TopP = request.TopP,
+            Tools = request.Tools,
+            ToolChoice = request.ToolChoice,
+        };
+
+        return await SendAsync("/chat/completions", payload, cancellationToken);
+    }
+
+    public async Task<ProxyHttpResult> SendResponsesAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
+    {
+        if (_token is null)
+        {
+            return new ProxyHttpResult(
+                JsonSerializer.Serialize(new ResponseErrorEnvelope
+                {
+                    Error = new ResponseError
+                    {
+                        Message = "Not authenticated",
+                        Type = "invalid_request_error",
+                        Code = "auth_error",
+                    },
+                }, JsonDefaults.Web),
+                401);
+        }
+
+        var payload = new CreateResponseRequest
+        {
+            Model = request.Model,
+            Input = CloneOrDefault(request.Input),
+            Stream = false,
+            Instructions = request.Instructions,
+            MaxOutputTokens = request.MaxOutputTokens,
+            Temperature = request.Temperature,
+            TopP = request.TopP,
+            Tools = request.Tools,
+            ToolChoice = CloneOrNull(request.ToolChoice),
+            PreviousResponseId = request.PreviousResponseId,
+        };
+
+        return await SendAsync("/responses", payload, cancellationToken);
+    }
+
     /// <summary>
     /// Proxies a chat completion request to the Copilot API,
     /// routing to /chat/completions or /responses based on model capabilities.
@@ -103,80 +186,85 @@ public sealed class CopilotClient : IDisposable
     public async Task<(string Body, int StatusCode)> ChatAsync(ChatCompletionRequest request)
     {
         if (_token is null)
-            return (JsonSerializer.Serialize(MakeError("Not authenticated", "auth_error")), 401);
+        {
+            return (JsonSerializer.Serialize(MakeError("Not authenticated", "auth_error"), JsonDefaults.Web), 401);
+        }
 
         if (string.IsNullOrEmpty(request.Model))
-            return (JsonSerializer.Serialize(MakeError("model is required", "invalid_request")), 400);
+        {
+            return (JsonSerializer.Serialize(MakeError("model is required", "invalid_request"), JsonDefaults.Web), 400);
+        }
 
         var models = await FetchModelsAsync();
         var model = models.FirstOrDefault(m =>
             string.Equals(m.Id, request.Model, StringComparison.OrdinalIgnoreCase));
 
         if (model is null)
-            return (JsonSerializer.Serialize(MakeError($"Model '{request.Model}' not found", "model_not_found")), 404);
+        {
+            return (JsonSerializer.Serialize(MakeError($"Model '{request.Model}' not found", "model_not_found"), JsonDefaults.Web), 404);
+        }
 
         var endpoints = model.SupportedEndpoints ?? [];
-        bool useResponses = !endpoints.Contains("/chat/completions") && endpoints.Contains("/responses");
-        string endpoint = useResponses ? "/responses" : "/chat/completions";
+        var useResponses = !endpoints.Contains("/chat/completions", StringComparer.OrdinalIgnoreCase) &&
+                           endpoints.Contains("/responses", StringComparer.OrdinalIgnoreCase);
 
-        _logger.LogInformation(LogEvents.RequestProxied, "Routing {Model} to {Endpoint}", request.Model, endpoint);
+        _logger.LogInformation(LogEvents.RequestProxied, "Routing {Model} to {Endpoint}", request.Model, useResponses ? "/responses" : "/chat/completions");
 
-        var req = CreateRequest(HttpMethod.Post, endpoint);
-        req.Headers.TryAddWithoutValidation("X-Initiator", "user");
-        req.Headers.TryAddWithoutValidation("Openai-Intent", "conversation-edits");
-
-        object payload;
+        ProxyHttpResult upstream;
         if (useResponses)
         {
-            // Convert messages → input format for Responses API
-            var input = request.Messages?.Select(m => new { role = m.Role, content = m.Content }).ToArray()
-                ?? Array.Empty<object>();
-
-            payload = new
+            var responsesRequest = new CreateResponseRequest
             {
-                model = request.Model,
-                input,
-                stream = false,
-                max_output_tokens = request.MaxCompletionTokens ?? request.MaxTokens ?? 4096,
-                temperature = request.Temperature,
-                top_p = request.TopP,
+                Model = request.Model,
+                Input = JsonDocument.Parse(JsonSerializer.Serialize(
+                    request.Messages?.Select(message => new
+                    {
+                        role = message.Role,
+                        content = NormalizeMessageContent(message.Content),
+                    }).ToArray() ?? Array.Empty<object>(),
+                    JsonDefaults.Web)).RootElement.Clone(),
+                Stream = false,
+                MaxOutputTokens = request.MaxCompletionTokens ?? request.MaxTokens ?? 4096,
+                Temperature = request.Temperature,
+                TopP = request.TopP,
             };
+
+            upstream = await SendResponsesAsync(responsesRequest);
         }
         else
         {
-            payload = new
-            {
-                model = request.Model,
-                messages = request.Messages,
-                stream = false,
-                max_completion_tokens = request.MaxCompletionTokens ?? request.MaxTokens ?? 4096,
-                temperature = request.Temperature,
-                top_p = request.TopP,
-            };
+            upstream = await SendChatCompletionsAsync(request);
         }
 
-        req.Content = new StringContent(
-            JsonSerializer.Serialize(payload),
-            Encoding.UTF8,
-            "application/json");
-
-        var resp = await _http.SendAsync(req);
-        var body = await resp.Content.ReadAsStringAsync();
-
-        // If the upstream used /responses, translate back to /chat/completions format
-        if (useResponses && resp.IsSuccessStatusCode)
+        var body = upstream.Body;
+        if (useResponses && upstream.StatusCode is >= 200 and < 300)
         {
             body = TranslateResponsesToChatCompletion(body);
         }
 
-        // On 401, try reloading credential and hint to caller
+        return (body, upstream.StatusCode);
+    }
+
+    private async Task<ProxyHttpResult> SendAsync(string path, object payload, CancellationToken cancellationToken)
+    {
+        var req = CreateRequest(HttpMethod.Post, path);
+        req.Headers.TryAddWithoutValidation("X-Initiator", "user");
+        req.Headers.TryAddWithoutValidation("Openai-Intent", "conversation-edits");
+        req.Content = new StringContent(
+            JsonSerializer.Serialize(payload, JsonDefaults.Web),
+            Encoding.UTF8,
+            "application/json");
+
+        var resp = await _http.SendAsync(req, cancellationToken);
+        var body = await resp.Content.ReadAsStringAsync(cancellationToken);
+
         if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
             _logger.LogWarning(LogEvents.TokenExpired, "Got 401 from Copilot API. Reloading credential.");
             TryLoadCredential();
         }
 
-        return (body, (int)resp.StatusCode);
+        return new ProxyHttpResult(body, (int)resp.StatusCode, resp.Content.Headers.ContentType?.MediaType ?? "application/json");
     }
 
     /// <summary>
@@ -185,11 +273,26 @@ public sealed class CopilotClient : IDisposable
     /// </summary>
     private static string TranslateResponsesToChatCompletion(string responsesBody)
     {
-        var resp = JsonSerializer.Deserialize<ResponsesApiResponse>(responsesBody);
-        if (resp is null) return responsesBody;
+        var resp = JsonSerializer.Deserialize<ResponsesApiResponse>(responsesBody, JsonDefaults.Web);
+        if (resp is null)
+        {
+            return responsesBody;
+        }
 
-        var textOutput = resp.Output?.FirstOrDefault(o => o.Type == "message");
-        var text = textOutput?.Content?.FirstOrDefault(c => c.Type == "output_text")?.Text;
+        var textOutput = resp.Output?.FirstOrDefault(output => output.Type == "message");
+        var text = textOutput?.Content?.FirstOrDefault(content => content.Type == "output_text")?.Text;
+        var toolCalls = resp.Output?
+            .Where(output => output.Type == "function_call")
+            .Select(output => new ChatToolCall
+            {
+                Id = output.CallId ?? output.Id,
+                Function = new ChatToolCallFunction
+                {
+                    Name = output.Name,
+                    Arguments = output.Arguments,
+                },
+            })
+            .ToArray();
 
         var translated = new ChatCompletionResponse
         {
@@ -201,8 +304,13 @@ public sealed class CopilotClient : IDisposable
                 new ChatChoice
                 {
                     Index = 0,
-                    Message = new ChatMessage { Role = "assistant", Content = text },
-                    FinishReason = "stop",
+                    Message = new ChatMessage
+                    {
+                        Role = "assistant",
+                        Content = text,
+                        ToolCalls = toolCalls is { Length: > 0 } ? toolCalls : null,
+                    },
+                    FinishReason = resp.Status == ResponseStatuses.Incomplete ? "length" : "stop",
                 },
             ],
             Usage = new UsageInfo
@@ -213,17 +321,43 @@ public sealed class CopilotClient : IDisposable
             },
         };
 
-        return JsonSerializer.Serialize(translated);
+        return JsonSerializer.Serialize(translated, JsonDefaults.Web);
     }
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string path)
     {
         var req = new HttpRequestMessage(method, $"{BaseUrl}{path}");
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
-        foreach (var (k, v) in CopilotHeaders)
-            req.Headers.TryAddWithoutValidation(k, v);
+        foreach (var (key, value) in CopilotHeaders)
+        {
+            req.Headers.TryAddWithoutValidation(key, value);
+        }
+
         return req;
     }
+
+    private static object? NormalizeMessageContent(object? content) => content switch
+    {
+        null => null,
+        JsonElement element when element.ValueKind == JsonValueKind.Array => element.EnumerateArray()
+            .Select(item => item.ValueKind == JsonValueKind.Object
+                ? JsonSerializer.Deserialize<object>(item.GetRawText(), JsonDefaults.Web)
+                : item.ToString())
+            .ToArray(),
+        JsonElement element when element.ValueKind == JsonValueKind.String => element.GetString(),
+        JsonElement element => JsonSerializer.Deserialize<object>(element.GetRawText(), JsonDefaults.Web),
+        _ => content,
+    };
+
+    private static JsonElement CloneOrDefault(JsonElement element) =>
+        element.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined
+            ? default
+            : JsonDocument.Parse(element.GetRawText()).RootElement.Clone();
+
+    private static JsonElement? CloneOrNull(JsonElement? element) =>
+        element is null || element.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined
+            ? null
+            : JsonDocument.Parse(element.Value.GetRawText()).RootElement.Clone();
 
     private static OpenAIErrorResponse MakeError(string message, string code) => new()
     {

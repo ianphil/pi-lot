@@ -1,5 +1,7 @@
-using System.Diagnostics;
 using LlmSvc;
+using LlmSvc.Core.Models;
+using LlmSvc.Core.Ports;
+using LlmSvc.Core.Services;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
@@ -7,42 +9,52 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     ContentRootPath = AppContext.BaseDirectory,
 });
 
-builder.Services.AddWindowsService(options =>
+if (!builder.Environment.IsEnvironment("Testing"))
 {
-    options.ServiceName = "CopilotLlmProxy";
-});
+    builder.Services.AddWindowsService(options =>
+    {
+        options.ServiceName = "CopilotLlmProxy";
+    });
 
-builder.Logging.AddEventLog(settings =>
-{
-    settings.SourceName = "CopilotLlmProxy";
-    settings.LogName = "CopilotLlmProxy";
-});
+    builder.Logging.AddEventLog(settings =>
+    {
+        settings.SourceName = "CopilotLlmProxy";
+        settings.LogName = "CopilotLlmProxy";
+    });
+}
 
 builder.Services.AddSingleton<CopilotClient>();
-builder.Services.AddHostedService<Worker>();
+builder.Services.AddSingleton<IModelProvider>(sp => sp.GetRequiredService<CopilotClient>());
+builder.Services.AddSingleton<ChatCompletionsTranslator>();
+builder.Services.AddSingleton<IResponsesService, ResponsesService>();
+
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddHostedService<Worker>();
+}
 
 var app = builder.Build();
 
 app.Logger.LogInformation(LogEvents.ServiceStarted, "CopilotLlmProxy service starting.");
 
 // ── Load credential at startup ───────────────────────────────────────────────
-var client = app.Services.GetRequiredService<CopilotClient>();
-if (!client.TryLoadCredential())
+var provider = app.Services.GetRequiredService<IModelProvider>();
+if (!app.Environment.IsEnvironment("Testing") && !provider.TryLoadCredential())
 {
     app.Logger.LogError(LogEvents.CredentialMissing, "Failed to load Copilot credential. Service will start but requests will fail.");
 }
 
 // ── Health check ─────────────────────────────────────────────────────────────
-app.MapGet("/health", (CopilotClient c) => c.IsAuthenticated
+app.MapGet("/health", (IModelProvider p) => p.IsAuthenticated
     ? Results.Ok(new { status = "healthy", authenticated = true })
     : Results.Json(new { status = "degraded", authenticated = false }, statusCode: 503));
 
 // ── GET /v1/models — OpenAI-compatible model list ────────────────────────────
-app.MapGet("/v1/models", async (CopilotClient c) =>
+app.MapGet("/v1/models", async (IModelProvider p, CancellationToken cancellationToken) =>
 {
     try
     {
-        var models = await c.FetchModelsAsync();
+        var models = await p.FetchModelsAsync(cancellationToken: cancellationToken);
         var response = new OpenAIModelListResponse
         {
             Data = models.Select(m => new OpenAIModelInfo
@@ -66,6 +78,13 @@ app.MapGet("/v1/models", async (CopilotClient c) =>
     }
 });
 
+// ── POST /v1/responses — unified responses surface ───────────────────────────
+app.MapPost("/v1/responses", async (CreateResponseRequest request, IResponsesService responsesService, CancellationToken cancellationToken) =>
+{
+    var result = await responsesService.CreateAsync(request, cancellationToken);
+    return Results.Text(result.Body, result.ContentType, statusCode: result.StatusCode);
+});
+
 // ── POST /v1/chat/completions — proxy to Copilot API ────────────────────────
 app.MapPost("/v1/chat/completions", async (ChatCompletionRequest request, CopilotClient c) =>
 {
@@ -74,3 +93,5 @@ app.MapPost("/v1/chat/completions", async (ChatCompletionRequest request, Copilo
 });
 
 app.Run();
+
+public partial class Program;
