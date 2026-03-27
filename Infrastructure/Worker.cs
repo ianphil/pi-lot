@@ -1,4 +1,7 @@
-namespace LlmSvc;
+using LlmSvc.Core;
+using LlmSvc.Core.Ports;
+
+namespace LlmSvc.Infrastructure;
 
 /// <summary>
 /// Background service that periodically validates the Copilot token
@@ -6,13 +9,13 @@ namespace LlmSvc;
 /// </summary>
 public sealed class Worker : BackgroundService
 {
-    private readonly CopilotClient _client;
+    private readonly IAuthProvider _auth;
     private readonly ILogger<Worker> _logger;
     private readonly TimeSpan _interval = TimeSpan.FromMinutes(5);
 
-    public Worker(CopilotClient client, ILogger<Worker> logger)
+    public Worker(IAuthProvider auth, ILogger<Worker> logger)
     {
-        _client = client;
+        _auth = auth;
         _logger = logger;
     }
 
@@ -26,7 +29,7 @@ public sealed class Worker : BackgroundService
 
             try
             {
-                var valid = await _client.ValidateTokenAsync();
+                var valid = await _auth.ValidateTokenAsync();
                 if (valid)
                     _logger.LogDebug(LogEvents.TokenValidated, "Token validation succeeded");
                 else

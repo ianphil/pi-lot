@@ -5,8 +5,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>llm_svc</RootNamespace>
+    <Version>0.2.0</Version>
     <OutputType>WinExe</OutputType>
     <NoWarn>CA1416</NoWarn>
+    <DefaultItemExcludes>$(DefaultItemExcludes);llm-svc.Tests\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

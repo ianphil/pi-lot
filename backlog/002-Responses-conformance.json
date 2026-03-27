@@ -1,0 +1,354 @@
+{
+  "metadata": {
+    "name": "Open Responses conformance matrix",
+    "spec_url": "https://www.openresponses.org/specification",
+    "repository": "llm-svc",
+    "last_reviewed": "2026-03-27",
+    "last_verified_test_command": "dotnet test llm-svc.sln -nologo",
+    "last_verified_test_summary": "21 tests passed",
+    "status_legend": {
+      "implemented": "Requirement is implemented and backed by code evidence and/or tests.",
+      "partial": "Some support exists, but behavior is limited, incomplete, or only works for a subset of models.",
+      "not_implemented": "The requirement is not meaningfully implemented yet.",
+      "out_of_scope": "Intentional deviation for this local-proxy product shape."
+    },
+    "scope_note": "This file tracks Open Responses spec coverage. Project-specific compatibility checks live under adjacent_checks and are not counted as spec conformance.",
+    "summary": {
+      "spec_requirements": 17,
+      "implemented": 6,
+      "partial": 7,
+      "not_implemented": 3,
+      "out_of_scope": 1
+    }
+  },
+  "spec_requirements": [
+    {
+      "id": "http-json-transport",
+      "area": "HTTP",
+      "requirement": "Accept JSON request bodies and return application/json for non-streaming responses.",
+      "spec_reference": "HTTP Requests / HTTP Request Bodies; HTTP Responses / HTTP Response Bodies",
+      "status": "implemented",
+      "evidence": {
+        "files": [
+          "Program.cs",
+          "Core\\Services\\ResponsesService.cs"
+        ],
+        "tests": [
+          "llm-svc.Tests\\Integration\\ResponsesEndpointTests.cs::PostResponses_ReturnsCanonicalResponseBody"
+        ]
+      },
+      "notes": "ASP.NET Core model binding handles JSON request parsing. Non-streaming responses are returned as application/json."
+    },
+    {
+      "id": "client-authorization-header",
+      "area": "HTTP",
+      "requirement": "Require an Authorization header from the client.",
+      "spec_reference": "HTTP Requests / Headers",
+      "status": "out_of_scope",
+      "evidence": {
+        "files": [
+          "Program.cs",
+          "README.md"
+        ],
+        "tests": []
+      },
+      "notes": "The proxy is intentionally local-first and does not authenticate downstream clients. SDK examples use an unused API key value.",
+      "next_action": "If strict spec conformance becomes a goal, add optional local auth enforcement without breaking the current single-user local-proxy workflow."
+    },
+    {
+      "id": "streaming-sse-contract",
+      "area": "Streaming",
+      "requirement": "When streaming, return text/event-stream, emit semantic events whose event field matches the body type, and terminate with [DONE].",
+      "spec_reference": "Streaming HTTP Responses; Streaming / Delta Events; Streaming / State Machine events",
+      "status": "implemented",
+      "evidence": {
+        "files": [
+          "Core\\Services\\ResponsesService.cs",
+          "Core\\Services\\ChatCompletionsTranslator.cs",
+          "Core\\Services\\ResponseSseSerializer.cs"
+        ],
+        "tests": [
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsSpecLikeSseWhenStreamingRequested",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_TranslatesChatCompletionStreamIntoResponsesEvents",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsFailedStreamEventsWhenUpstreamChunkIsInvalid",
+          "llm-svc.Tests\\Integration\\ResponsesEndpointTests.cs::PostResponses_WithStreaming_ReturnsEventStreamBody"
+        ]
+      },
+      "notes": "The translated chat-completions stream follows the semantic event pattern and includes a terminal [DONE] marker."
+    },
+    {
+      "id": "response-core-envelope",
+      "area": "Response object",
+      "requirement": "Return the canonical response envelope with id, object, created_at, status, model, output, and usage.",
+      "spec_reference": "Items; State machines; Specification examples",
+      "status": "implemented",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs",
+          "Core\\Services\\ChatCompletionsTranslator.cs",
+          "Core\\Services\\ResponsesService.cs"
+        ],
+        "tests": [
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_TranslatesChatCompletionIntoResponsesShape",
+          "llm-svc.Tests\\Integration\\ResponsesEndpointTests.cs::PostResponses_ReturnsCanonicalResponseBody"
+        ]
+      },
+      "notes": "The current implementation is text-first but returns the expected top-level envelope fields for supported flows."
+    },
+    {
+      "id": "standard-item-types",
+      "area": "Items",
+      "requirement": "Support the standard message, function_call, and function_call_output item types with required top-level fields.",
+      "spec_reference": "Items are polymorphic; Required item fields",
+      "status": "implemented",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs",
+          "Core\\Services\\ChatCompletionsTranslator.cs"
+        ],
+        "tests": [
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsChatToolCallsToFunctionCallItems",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_RoundTripsFunctionCallOutputIntoToolMessages"
+        ]
+      },
+      "notes": "The proxy has concrete models for these item types and uses them in both translated responses and streaming."
+    },
+    {
+      "id": "reasoning-items-and-summary",
+      "area": "Items",
+      "requirement": "Support reasoning items, including content, summary, and encrypted_content where available.",
+      "spec_reference": "Reasoning",
+      "status": "partial",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs"
+        ],
+        "tests": []
+      },
+      "notes": "The data model contains reasoning and summary_text types, but the proxy does not currently map or stream reasoning output from upstream providers.",
+      "next_action": "Add non-streaming and streaming reasoning coverage, then map any upstream reasoning-capable models into canonical reasoning items."
+    },
+    {
+      "id": "item-lifecycle-and-incomplete-details",
+      "area": "State machines",
+      "requirement": "Model response and item lifecycle with in_progress, completed, failed, and incomplete states, including incomplete_details when relevant.",
+      "spec_reference": "Items are state machines; State machines",
+      "status": "partial",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs",
+          "Core\\Services\\ChatCompletionsTranslator.cs",
+          "Core\\Services\\ResponsesService.cs"
+        ],
+        "tests": [
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsSpecLikeSseWhenStreamingRequested",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsFailedStreamEventsWhenUpstreamChunkIsInvalid"
+        ]
+      },
+      "notes": "Status transitions are present for normal and failed streaming flows, and length maps to incomplete. However, incomplete_details is never populated and the full spec terminal-state semantics are not exhaustively tested.",
+      "next_action": "Populate incomplete_details and add tests for incomplete terminal behavior and last-item rules."
+    },
+    {
+      "id": "message-text-streaming",
+      "area": "Streaming",
+      "requirement": "Stream message text through output_item.added, content_part.added, output_text.delta, output_text.done, content_part.done, output_item.done, and response.completed.",
+      "spec_reference": "Items are streamable; Streaming / Delta Events",
+      "status": "implemented",
+      "evidence": {
+        "files": [
+          "Core\\Services\\ChatCompletionsTranslator.cs",
+          "Core\\Services\\ResponseSseSerializer.cs"
+        ],
+        "tests": [
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsSpecLikeSseWhenStreamingRequested",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_TranslatesChatCompletionStreamIntoResponsesEvents",
+          "llm-svc.Tests\\Integration\\ResponsesEndpointTests.cs::PostResponses_WithStreaming_ReturnsEventStreamBody"
+        ]
+      },
+      "notes": "This is the strongest conformance area today and is the basis for the current SDK story."
+    },
+    {
+      "id": "function-tools-and-tool-choice",
+      "area": "Tools",
+      "requirement": "Support function tools, tool_choice modes (auto, required, none, forced function), and function_call_output round-trips.",
+      "spec_reference": "Tools; tool_choice",
+      "status": "implemented",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs",
+          "Core\\Services\\ChatCompletionsTranslator.cs"
+        ],
+        "tests": [
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsChatToolCallsToFunctionCallItems",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_RoundTripsFunctionCallOutputIntoToolMessages",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsForcedFunctionToolChoiceToChatCompletions",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_PreservesSimpleToolChoiceModes",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_TranslatesStreamingToolCallArguments"
+        ]
+      },
+      "notes": "Function tools are currently the supported tool surface across both translated and streaming flows."
+    },
+    {
+      "id": "allowed-tools-hard-constraint",
+      "area": "Tools",
+      "requirement": "Treat allowed_tools as a hard execution constraint, not just a prompt hint.",
+      "spec_reference": "allowed_tools",
+      "status": "partial",
+      "evidence": {
+        "files": [
+          "Core\\Services\\ChatCompletionsTranslator.cs"
+        ],
+        "tests": [
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_FiltersToolsWhenAllowedToolsChoiceIsUsed"
+        ]
+      },
+      "notes": "The proxy filters the visible tool list before sending translated chat-completions requests. It does not yet verify that returned tool calls remain inside the allowed subset, and native /responses passthrough relies on upstream enforcement.",
+      "next_action": "Add server-side validation for returned tool calls and explicit tests for native and translated enforcement paths."
+    },
+    {
+      "id": "input-content-unions-and-multimodal",
+      "area": "Content",
+      "requirement": "Support the spec's user content unions cleanly, including structured text parts and future multimodal inputs.",
+      "spec_reference": "Content; User Content vs Model Content",
+      "status": "partial",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs",
+          "Core\\Services\\ChatCompletionsTranslator.cs"
+        ],
+        "tests": []
+      },
+      "notes": "The proxy supports string input, message objects, arrays of messages, function_call, and function_call_output. Content extraction is text-centric and flattens arrays/objects into strings; multimodal inputs such as image/audio/video are not modeled or translated.",
+      "next_action": "Add explicit input unions for structured text and multimodal content, or reject unsupported modalities with precise errors."
+    },
+    {
+      "id": "previous-response-id-continuation",
+      "area": "Conversation state",
+      "requirement": "Honor previous_response_id by rehydrating prior input and output before appending new input.",
+      "spec_reference": "previous_response_id",
+      "status": "partial",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs",
+          "Core\\Services\\ResponsesService.cs",
+          "CopilotClient.cs"
+        ],
+        "tests": []
+      },
+      "notes": "The field exists and is passed through to native /responses providers. The proxy does not persist prior response state and therefore cannot emulate these semantics for translated chat-completions-only models.",
+      "next_action": "Persist response transcripts locally or surface capability metadata that makes the native-only limitation explicit."
+    },
+    {
+      "id": "truncation-control",
+      "area": "Request options",
+      "requirement": "Support truncation control, including auto and disabled semantics.",
+      "spec_reference": "truncation",
+      "status": "not_implemented",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs"
+        ],
+        "tests": []
+      },
+      "notes": "The current request model does not expose a truncation field and the proxy does not enforce or translate truncation policy.",
+      "next_action": "Add the request field, plumb it through native responses calls, and define translated-model behavior."
+    },
+    {
+      "id": "service-tier-hint",
+      "area": "Request options",
+      "requirement": "Support the service_tier hint where the implementation chooses to expose it.",
+      "spec_reference": "service_tier",
+      "status": "not_implemented",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs"
+        ],
+        "tests": []
+      },
+      "notes": "The proxy does not accept or forward service_tier today.",
+      "next_action": "Introduce the field only when the provider abstraction work clarifies how service tiers and cost metadata should be represented."
+    },
+    {
+      "id": "structured-errors-and-taxonomy",
+      "area": "Errors",
+      "requirement": "Return a structured error envelope with message, type, code, and param, and align status-to-type mapping with the spec.",
+      "spec_reference": "Errors; Error Types",
+      "status": "partial",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs",
+          "Core\\Services\\ResponsesService.cs"
+        ],
+        "tests": [
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_ReturnsStructuredErrorWhenModelIsMissing",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_ReturnsStructuredErrorWhenInputIsMissing",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsUpstreamAuthErrorIntoStructuredResponse",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsUpstreamRateLimitErrorIntoStructuredResponse",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsRawUpstreamServerFailureIntoStructuredResponse"
+        ]
+      },
+      "notes": "The envelope shape is solid. The main gap is taxonomy alignment: the implementation still uses the OpenAI-style invalid_request_error label for many 4xx failures, while the current Open Responses spec text also describes invalid_request. This should stay tracked explicitly until the target taxonomy is locked.",
+      "next_action": "Normalize error type naming once the project decides whether it is targeting strict Open Responses labels or OpenAI-compatible labels where the two diverge."
+    },
+    {
+      "id": "provider-prefixed-extensions",
+      "area": "Extensibility",
+      "requirement": "Preserve or safely tolerate provider-prefixed extension item and event types.",
+      "spec_reference": "Items are extensible; Extending Items; Extending streaming events",
+      "status": "partial",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs",
+          "Core\\Services\\ChatCompletionsTranslator.cs",
+          "Core\\Services\\ResponsesService.cs"
+        ],
+        "tests": []
+      },
+      "notes": "Native streaming passthrough can carry upstream events unchanged, but non-stream normalization and canonical deserialization only know the built-in item/content types. Unknown item types are not yet preserved as opaque extension records.",
+      "next_action": "Add opaque extension item/event models or an extension-preserving fallback path for native responses payloads."
+    },
+    {
+      "id": "acceptance-suite-automation",
+      "area": "Conformance process",
+      "requirement": "Run the official Open Responses acceptance tests and record pass/fail coverage.",
+      "spec_reference": "Conformance process",
+      "status": "not_implemented",
+      "evidence": {
+        "files": [],
+        "tests": []
+      },
+      "notes": "The repo has a strong local xUnit suite, but there is no integrated official acceptance suite yet.",
+      "next_action": "Wire the openresponses.org acceptance tests into CI and attach their results to this matrix."
+    }
+  ],
+  "adjacent_checks": [
+    {
+      "id": "models-capability-metadata",
+      "status": "implemented",
+      "evidence": {
+        "files": [
+          "Program.cs",
+          "Models.cs"
+        ],
+        "tests": [
+          "llm-svc.Tests\\Integration\\ResponsesEndpointTests.cs::GetModels_ReportsUpstreamAndProxyEndpoints"
+        ]
+      },
+      "notes": "/v1/models is not an Open Responses conformance signal by itself, but it is the current way this project exposes proxy-vs-upstream capability metadata."
+    },
+    {
+      "id": "openai-dotnet-sdk-smoke",
+      "status": "implemented",
+      "evidence": {
+        "files": [
+          "README.md",
+          "Program.cs"
+        ],
+        "tests": [
+          "llm-svc.Tests\\Integration\\SdkCompatibilityTests.cs::ResponsesSdk_CanCallProxyUsingCustomEndpoint"
+        ]
+      },
+      "notes": "This verifies the current OpenAI .NET SDK story over a real Kestrel socket."
+    }
+  ]
+}

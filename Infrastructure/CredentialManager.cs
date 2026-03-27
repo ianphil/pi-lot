@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace LlmSvc;
+namespace LlmSvc.Infrastructure;
 
 /// <summary>
 /// Reads credentials from Windows Credential Manager.
