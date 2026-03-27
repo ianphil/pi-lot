@@ -150,6 +150,20 @@ public sealed class ChatCompletionsStreamTranslator
         private readonly ResponseFunctionToolDefinition[]? _tools;
         private readonly JsonElement? _toolChoice;
         private readonly double? _topP;
+        private readonly string? _instructions;
+        private readonly string? _previousResponseId;
+        private readonly string _truncation;
+        private readonly bool _parallelToolCalls;
+        private readonly ResponseTextConfig _text;
+        private readonly double _presencePenalty;
+        private readonly double _frequencyPenalty;
+        private readonly int _topLogprobs;
+        private readonly bool _store;
+        private readonly bool _background;
+        private readonly string _serviceTier;
+        private readonly object? _metadata;
+        private readonly int? _maxToolCalls;
+        private readonly ResponseReasoning? _reasoning;
         private readonly Dictionary<int, ToolCallStreamState> _toolCalls = [];
         private int _nextOutputIndex;
         private int _sequence;
@@ -163,6 +177,20 @@ public sealed class ChatCompletionsStreamTranslator
             _maxOutputTokens = request.MaxOutputTokens;
             _tools = request.Tools;
             _toolChoice = CloneOrNull(request.ToolChoice);
+            _instructions = request.Instructions;
+            _previousResponseId = request.PreviousResponseId;
+            _truncation = request.Truncation ?? "disabled";
+            _parallelToolCalls = request.ParallelToolCalls ?? true;
+            _text = request.Text ?? new ResponseTextConfig();
+            _presencePenalty = request.PresencePenalty ?? 0.0;
+            _frequencyPenalty = request.FrequencyPenalty ?? 0.0;
+            _topLogprobs = request.TopLogprobs ?? 0;
+            _store = request.Store ?? false;
+            _background = request.Background ?? false;
+            _serviceTier = request.ServiceTier ?? "default";
+            _metadata = request.Metadata;
+            _maxToolCalls = request.MaxToolCalls;
+            _reasoning = request.Reasoning;
         }
 
         public bool Started { get; private set; }
@@ -191,11 +219,13 @@ public sealed class ChatCompletionsStreamTranslator
                 ResponseSseSerializer.SerializeEvent("response.created", new
                 {
                     type = "response.created",
+                    sequence_number = _sequence++,
                     response = CreateResponse(ResponseStatuses.InProgress, [], null),
                 }),
                 ResponseSseSerializer.SerializeEvent("response.in_progress", new
                 {
                     type = "response.in_progress",
+                    sequence_number = _sequence++,
                     response = CreateResponse(ResponseStatuses.InProgress, [], null),
                 }),
             ];
@@ -273,6 +303,7 @@ public sealed class ChatCompletionsStreamTranslator
                         type = "output_text",
                         annotations = Array.Empty<object>(),
                         text = string.Empty,
+                        logprobs = Array.Empty<object>(),
                     },
                 }));
             }
@@ -286,6 +317,7 @@ public sealed class ChatCompletionsStreamTranslator
                 output_index = _message.OutputIndex,
                 content_index = 0,
                 delta,
+                logprobs = Array.Empty<object>(),
             }));
 
             return events;
@@ -372,6 +404,7 @@ public sealed class ChatCompletionsStreamTranslator
                         output_index = _message.OutputIndex,
                         content_index = 0,
                         text,
+                        logprobs = Array.Empty<object>(),
                     }));
 
                     events.Add(ResponseSseSerializer.SerializeEvent("response.content_part.done", new
@@ -386,6 +419,7 @@ public sealed class ChatCompletionsStreamTranslator
                             type = "output_text",
                             annotations = Array.Empty<object>(),
                             text,
+                            logprobs = Array.Empty<object>(),
                         },
                     }));
                 }
@@ -425,6 +459,7 @@ public sealed class ChatCompletionsStreamTranslator
             events.Add(ResponseSseSerializer.SerializeEvent(terminalEventName, new
             {
                 type = terminalEventName,
+                sequence_number = _sequence++,
                 response,
             }));
             events.Add(ResponseSseSerializer.SerializeDone());
@@ -448,11 +483,13 @@ public sealed class ChatCompletionsStreamTranslator
                 ResponseSseSerializer.SerializeEvent("error", new
                 {
                     type = "error",
+                    sequence_number = _sequence++,
                     error,
                 }),
                 ResponseSseSerializer.SerializeEvent("response.failed", new
                 {
                     type = "response.failed",
+                    sequence_number = _sequence++,
                     response = CreateResponse(ResponseStatuses.Failed, BuildOutputItems(ResponseStatuses.Failed, GetLastOutputIndex()), error),
                 }),
                 ResponseSseSerializer.SerializeDone(),
@@ -515,14 +552,29 @@ public sealed class ChatCompletionsStreamTranslator
             Status = status,
             Model = Model ?? _requestModel,
             Output = output,
+            CompletedAt = status == ResponseStatuses.Completed ? DateTimeOffset.UtcNow.ToUnixTimeSeconds() : null,
             Usage = Usage,
             Error = error,
             IncompleteDetails = ChatCompletionsTranslator.MapIncompleteDetailsForStatus(status),
-            Temperature = _temperature,
-            TopP = _topP,
-            MaxOutputTokens = (int?)_maxOutputTokens,
-            Tools = _tools,
-            ToolChoice = _toolChoice,
+            Temperature = _temperature ?? 1.0,
+            TopP = _topP ?? 1.0,
+            MaxOutputTokens = _maxOutputTokens,
+            Tools = _tools ?? [],
+            ToolChoice = (object?)_toolChoice ?? "auto",
+            PreviousResponseId = _previousResponseId,
+            Instructions = _instructions,
+            Truncation = _truncation,
+            ParallelToolCalls = _parallelToolCalls,
+            Text = _text,
+            PresencePenalty = _presencePenalty,
+            FrequencyPenalty = _frequencyPenalty,
+            TopLogprobs = _topLogprobs,
+            Store = _store,
+            Background = _background,
+            ServiceTier = _serviceTier,
+            Metadata = _metadata,
+            MaxToolCalls = _maxToolCalls,
+            Reasoning = _reasoning,
         };
 
         private static ResponseMessageItem CreateMessageItem(MessageStreamState state, string status)

@@ -101,6 +101,7 @@ public sealed class ChatCompletionsTranslator
             Status = status,
             Model = completion.Model ?? request.Model,
             Output = output.ToArray(),
+            CompletedAt = status == ResponseStatuses.Completed ? DateTimeOffset.UtcNow.ToUnixTimeSeconds() : null,
             Usage = new ResponseUsage
             {
                 InputTokens = completion.Usage?.PromptTokens ?? 0,
@@ -108,11 +109,26 @@ public sealed class ChatCompletionsTranslator
                 TotalTokens = completion.Usage?.TotalTokens ?? 0,
             },
             IncompleteDetails = incompleteDetails,
-            Temperature = request.Temperature,
-            TopP = request.TopP,
+            Error = null,
+            Temperature = request.Temperature ?? 1.0,
+            TopP = request.TopP ?? 1.0,
             MaxOutputTokens = request.MaxOutputTokens,
-            Tools = request.Tools,
-            ToolChoice = CloneOrNull(request.ToolChoice),
+            Tools = request.Tools ?? [],
+            ToolChoice = (object?)CloneOrNull(request.ToolChoice) ?? "auto",
+            PreviousResponseId = request.PreviousResponseId,
+            Instructions = request.Instructions,
+            Truncation = request.Truncation ?? "disabled",
+            ParallelToolCalls = request.ParallelToolCalls ?? true,
+            Text = request.Text ?? new ResponseTextConfig(),
+            PresencePenalty = request.PresencePenalty ?? 0.0,
+            FrequencyPenalty = request.FrequencyPenalty ?? 0.0,
+            TopLogprobs = request.TopLogprobs ?? 0,
+            Store = request.Store ?? false,
+            Background = request.Background ?? false,
+            ServiceTier = request.ServiceTier ?? "default",
+            Metadata = request.Metadata,
+            MaxToolCalls = request.MaxToolCalls,
+            Reasoning = request.Reasoning,
         };
     }
 
@@ -121,7 +137,7 @@ public sealed class ChatCompletionsTranslator
         var direct = TryDeserializeCanonical(body);
         if (direct is not null)
         {
-            return direct;
+            return FilterEmptyMessageItems(direct);
         }
 
         var native = JsonSerializer.Deserialize<ResponsesApiResponse>(body, JsonDefaults.Web);
@@ -176,6 +192,8 @@ public sealed class ChatCompletionsTranslator
             Status = native.Status ?? ResponseStatuses.Completed,
             Model = native.Model ?? request.Model,
             Output = output.ToArray(),
+            CompletedAt = (native.Status ?? ResponseStatuses.Completed) == ResponseStatuses.Completed
+                ? DateTimeOffset.UtcNow.ToUnixTimeSeconds() : null,
             Usage = new ResponseUsage
             {
                 InputTokens = native.Usage?.InputTokens ?? 0,
@@ -183,11 +201,26 @@ public sealed class ChatCompletionsTranslator
                 TotalTokens = (native.Usage?.InputTokens ?? 0) + (native.Usage?.OutputTokens ?? 0),
             },
             IncompleteDetails = native.IncompleteDetails,
-            Temperature = request.Temperature,
-            TopP = request.TopP,
+            Error = null,
+            Temperature = request.Temperature ?? 1.0,
+            TopP = request.TopP ?? 1.0,
             MaxOutputTokens = request.MaxOutputTokens,
-            Tools = request.Tools,
-            ToolChoice = CloneOrNull(request.ToolChoice),
+            Tools = request.Tools ?? [],
+            ToolChoice = (object?)CloneOrNull(request.ToolChoice) ?? "auto",
+            PreviousResponseId = request.PreviousResponseId,
+            Instructions = request.Instructions,
+            Truncation = request.Truncation ?? "disabled",
+            ParallelToolCalls = request.ParallelToolCalls ?? true,
+            Text = request.Text ?? new ResponseTextConfig(),
+            PresencePenalty = request.PresencePenalty ?? 0.0,
+            FrequencyPenalty = request.FrequencyPenalty ?? 0.0,
+            TopLogprobs = request.TopLogprobs ?? 0,
+            Store = request.Store ?? false,
+            Background = request.Background ?? false,
+            ServiceTier = request.ServiceTier ?? "default",
+            Metadata = request.Metadata,
+            MaxToolCalls = request.MaxToolCalls,
+            Reasoning = request.Reasoning,
         };
     }
 
@@ -479,6 +512,51 @@ public sealed class ChatCompletionsTranslator
         {
             return null;
         }
+    }
+
+    private static Response FilterEmptyMessageItems(Response response)
+    {
+        var filtered = response.Output
+            .Where(item => item is not ResponseMessageItem msg || msg.Content.Length > 0)
+            .ToArray();
+
+        if (filtered.Length == response.Output.Length)
+            return response;
+
+        return new Response
+        {
+            Id = response.Id,
+            Object = response.Object,
+            CreatedAt = response.CreatedAt,
+            Status = response.Status,
+            Model = response.Model,
+            Output = filtered,
+            CompletedAt = response.CompletedAt,
+            Usage = response.Usage,
+            Error = response.Error,
+            IncompleteDetails = response.IncompleteDetails,
+            Temperature = response.Temperature,
+            TopP = response.TopP,
+            MaxOutputTokens = response.MaxOutputTokens,
+            Tools = response.Tools,
+            ToolChoice = response.ToolChoice,
+            PreviousResponseId = response.PreviousResponseId,
+            Instructions = response.Instructions,
+            Truncation = response.Truncation,
+            ParallelToolCalls = response.ParallelToolCalls,
+            Text = response.Text,
+            PresencePenalty = response.PresencePenalty,
+            FrequencyPenalty = response.FrequencyPenalty,
+            TopLogprobs = response.TopLogprobs,
+            Store = response.Store,
+            Background = response.Background,
+            ServiceTier = response.ServiceTier,
+            Metadata = response.Metadata,
+            MaxToolCalls = response.MaxToolCalls,
+            Reasoning = response.Reasoning,
+            SafetyIdentifier = response.SafetyIdentifier,
+            PromptCacheKey = response.PromptCacheKey,
+        };
     }
 
     private static bool TryGetStringProperty(JsonElement element, string propertyName, out string? value)

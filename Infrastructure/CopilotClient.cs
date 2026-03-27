@@ -269,7 +269,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
                 break;
             }
 
-            builder.AppendLine(line);
+            builder.Append(line).Append('\n');
             if (line.Length == 0)
             {
                 var chunk = builder.ToString();
@@ -283,7 +283,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
 
         if (builder.Length > 0)
         {
-            builder.AppendLine();
+            builder.Append('\n');
             yield return builder.ToString();
         }
     }
@@ -313,6 +313,18 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         Tools = request.Tools,
         ToolChoice = CloneOrNull(request.ToolChoice),
         PreviousResponseId = request.PreviousResponseId,
+        Truncation = request.Truncation,
+        ParallelToolCalls = request.ParallelToolCalls,
+        Text = request.Text,
+        PresencePenalty = request.PresencePenalty,
+        FrequencyPenalty = request.FrequencyPenalty,
+        TopLogprobs = request.TopLogprobs,
+        Store = request.Store,
+        Background = request.Background,
+        ServiceTier = request.ServiceTier,
+        Metadata = request.Metadata,
+        MaxToolCalls = request.MaxToolCalls,
+        Reasoning = request.Reasoning,
     };
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string path)
