@@ -87,4 +87,4 @@ Integration tests use `IClassFixture<ResponsesWebApplicationFactory>` — provid
 
 **Conformance** — `backlog/002-Responses-conformance.json` tracks OpenResponses spec compliance. Items have priority (P0–P2) and Fibonacci complexity (1–21). Update status when you implement something. Mark upstream-only concerns `out_of_scope`.
 
-**Style** — .NET 10, nullable enabled, `record` for DTOs, `GeneratedRegex` over `new Regex()`. Comments only when the code genuinely needs clarification. If you need a comment to explain what the code does, the code isn't clean enough.
+**Style** — .NET 10, nullable enabled, `record` for DTOs, `GeneratedRegex` over `new Regex()`. Use `is null` / `is not null` over `== null` / `!= null`. Use `nameof` over string literals for member references. No `// Arrange // Act // Assert` comments in tests. Comments only when the code genuinely needs clarification. If you need a comment to explain what the code does, the code isn't clean enough.
