@@ -169,4 +169,31 @@ with an explanation.
 - Use `record` types for simple DTOs.
 - Use `GeneratedRegex` over `new Regex()`.
 - Use `JsonSerializerDefaults.Web` for camelCase JSON serialization.
+- Use `is null` / `is not null` over `== null` / `!= null`.
+- Use `nameof` over string literals for member references.
+- No `// Arrange // Act // Assert` comments in tests.
 - SSE output must use `\n` line endings, never `\r\n`.
+
+## AI Tooling
+
+This repo ships agents, hooks, and skills in `.github/` for use with GitHub Copilot and compatible AI tools. When starting a session, consider whether any of these are relevant to the task at hand.
+
+### Agents (`.github/agents/`)
+
+| Agent | Purpose |
+|---|---|
+| **uncle-bob** | Principal engineer guidance channeling Robert C. Martin — Clean Code, Clean Architecture, SOLID. Tuned to this codebase's dependency rule and conventions. |
+| **csharp-dotnet-janitor** | Code cleanup and modernization — unused usings, naming fixes, pattern matching, performance. Respects our architectural boundaries. |
+| **doublecheck** | Verification specialist — extracts claims from AI output, finds sources, flags risks. Three-layer pipeline: self-audit, source verification, adversarial review. |
+
+### Hooks (`.github/hooks/`)
+
+| Hook | Trigger | Purpose |
+|---|---|---|
+| **secrets-scanner** | `sessionEnd` | Scans modified files for 20+ secret/credential patterns. Warn mode by default; set `SCAN_MODE=block` to prevent commits. |
+
+### Skills (`.github/skills/`)
+
+| Skill | Purpose |
+|---|---|
+| **csharp-xunit** | XUnit best practices — `[Fact]`/`[Theory]`, `IClassFixture`, data-driven tests, assertion patterns. |

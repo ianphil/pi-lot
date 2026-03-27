@@ -1,5 +1,7 @@
 # Copilot Instructions for llm-svc
 
+**Start every session by reading `CONTRIBUTING.md`.** It has build commands, test categories, versioning rules, branch workflow, and available AI tooling (agents, hooks, skills). Do not duplicate that knowledge here — this file covers architecture and boundaries only.
+
 ## The Dependency Rule
 
 This is the most important thing to understand. All source code dependencies point inward:
@@ -38,53 +40,14 @@ The CLI has its own clean structure:
 
 ## Build and Test
 
-The proxy runs as a Windows Scheduled Task and **locks its binary**. Never build the full solution while it's running:
-
-```powershell
-# Target specific projects
-dotnet test llm-cli.Tests\llm-cli.Tests.csproj --no-restore
-dotnet test llm-svc.Tests\llm-svc.Tests.csproj --no-restore   # stop task first
-```
-
-Run a single test:
-
-```powershell
-dotnet test llm-cli.Tests --filter "FullyQualifiedName~RunNonStreamingAsync" --no-restore
-```
-
-Stop the task, build, restart:
-
-```powershell
-Stop-ScheduledTask -TaskName CopilotLlmProxy
-# ... build/test the service ...
-Start-ScheduledTask -TaskName CopilotLlmProxy
-```
-
-### Test Discipline
-
-Tests are categorized by what they couple to:
-
-- **Unit** — pure logic, fakes, no I/O. Always safe to run.
-- **Integration** — `WebApplicationFactory` with fake providers. Safe to run, but exercises real HTTP pipeline in-memory.
-- **Smoke** — tagged `[Trait("Category", "Smoke")]`. Hit `localhost:5100`. Require the running proxy. These prove the deployed system works.
-
-```powershell
-dotnet test llm-svc.Tests --filter "Category!=Smoke" --no-restore   # CI-safe
-dotnet test --filter "Category=Smoke" --no-restore                   # live verification
-```
-
-Integration tests use `IClassFixture<ResponsesWebApplicationFactory>` — provider state is set per-test, not shared. Each test declares its own preconditions. CLI agent tests suppress `#pragma warning disable OPENAI001` (SDK preview surface).
+See `CONTRIBUTING.md` for all build commands, test categories, and the file-lock warning. The critical rule: the proxy runs as a Windows Scheduled Task and **locks its binary** — never build the full solution while it's running.
 
 ## Conventions That Matter
 
-**SSE line endings must be `\n`, never `\r\n`.** This broke compliance tests. Windows defaults will betray you.
+See `CONTRIBUTING.md` for the full list. The ones that have bitten us hardest:
 
-**`JsonSerializerDefaults.Web`** for all JSON serialization. camelCase property names. The spec demands it.
-
-**Event IDs** in `Core/LogEvents.cs` follow numbered ranges: 1xxx lifecycle, 2xxx auth, 3xxx API, 4xxx errors. New events go in the correct range.
-
-**Versioning** — service and CLI version independently in `.csproj`. Git tags are for the service only (`v0.4.0`). Do not tag CLI changes.
-
-**Conformance** — `backlog/002-Responses-conformance.json` tracks OpenResponses spec compliance. Items have priority (P0–P2) and Fibonacci complexity (1–21). Update status when you implement something. Mark upstream-only concerns `out_of_scope`.
-
-**Style** — .NET 10, nullable enabled, `record` for DTOs, `GeneratedRegex` over `new Regex()`. Use `is null` / `is not null` over `== null` / `!= null`. Use `nameof` over string literals for member references. No `// Arrange // Act // Assert` comments in tests. Comments only when the code genuinely needs clarification. If you need a comment to explain what the code does, the code isn't clean enough.
+- **SSE line endings must be `\n`, never `\r\n`.** This broke compliance tests.
+- **`JsonSerializerDefaults.Web`** for all JSON. camelCase is spec-mandated.
+- **`is null` / `is not null`** over `== null` / `!= null`.
+- **No `// Arrange // Act // Assert` comments** in tests.
+- If you need a comment to explain what the code does, the code isn't clean enough.
