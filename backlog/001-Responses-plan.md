@@ -14,6 +14,10 @@ Expose a fully spec-compliant `/v1/responses` endpoint (per [Open Responses spec
   - True stream plumbing now uses provider streaming methods for native `/responses` passthrough and translated chat-completions streams
   - Tool-calling round-trip is covered for request translation, forced tool choice, allowed tools filtering, and streaming tool-call arguments
   - Error handling now normalizes validation, auth, rate-limit, and raw upstream failures into structured responses
+  - `/v1/models` now exposes upstream-native `supported_endpoints` plus `proxy_supported_endpoints`
+  - Root aliases `/models`, `/responses`, and `/chat/completions` were added for SDK-friendly custom endpoint configuration
+  - An OpenAI .NET `ResponsesClient` smoke test now exercises the proxy over a real Kestrel socket
+  - Spec coverage now lives in `backlog\002-Responses-conformance.json`
   - README updated to document `/v1/responses`
 - Passing tests currently cover:
   - chat completions -> responses translation
@@ -23,11 +27,13 @@ Expose a fully spec-compliant `/v1/responses` endpoint (per [Open Responses spec
   - tool call mapping into `function_call` items and round-trip `function_call_output`
   - forced tool choice, allowed tools filtering, and `auto` / `required` / `none`
   - structured validation, auth, rate-limit, model-not-found, and raw server errors
+  - `/v1/models` upstream vs proxy endpoint metadata
+  - OpenAI .NET SDK compatibility via `ResponsesClient`
   - end-to-end HTTP coverage for `POST /v1/responses` in both JSON and SSE modes
 - Current focus:
-  - integration and cleanup
-  - decide how `/v1/models` should expose local proxy capabilities vs upstream capabilities
-  - perform an SDK-oriented smoke test against the local endpoint
+  - responses issue core scope is implemented
+  - next architectural follow-up is provider abstraction / cost metadata from issue `#4`
+  - future conformance work can incorporate Open Responses acceptance tests
 
 ## Architecture: Hexagonal (Ports and Adapters)
 
@@ -138,13 +144,13 @@ Tests -> Implementation:
 3. **Upstream failure** - Copilot API error translated to spec error
 4. **Auth failure** - 401 from upstream -> appropriate error
 
-### Phase 7: Integration and Cleanup - Pending
-- Wire `CopilotProvider` as the real outbound adapter
-- Register `/v1/responses` endpoint alongside existing `/v1/chat/completions`
-- Update `/v1/models` to include Responses API capability info
-- Preserve existing chat completions endpoint (backward compatibility)
-- OpenAI SDK smoke test (manual or scripted)
-- Update README
+### Phase 7: Integration and Cleanup - Done
+- `CopilotClient` remains the real outbound adapter behind `IModelProvider`
+- `/v1/responses` and `/v1/chat/completions` remain in place, with root aliases added for SDK compatibility
+- `/v1/models` now includes `proxy_supported_endpoints` alongside upstream-native `supported_endpoints`
+- Backward compatibility for chat completions is preserved
+- OpenAI .NET SDK smoke coverage is now in the integration test suite
+- README was updated with the new aliases and SDK guidance
 
 ## Test Strategy
 - **Unit tests** (Phases 2-6): Test `ResponsesService` directly, mock `IModelProvider`

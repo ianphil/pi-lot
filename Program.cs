@@ -50,21 +50,43 @@ app.MapGet("/health", (IModelProvider p) => p.IsAuthenticated
     : Results.Json(new { status = "degraded", authenticated = false }, statusCode: 503));
 
 // ── GET /v1/models — OpenAI-compatible model list ────────────────────────────
-app.MapGet("/v1/models", async (IModelProvider p, CancellationToken cancellationToken) =>
+app.MapGet("/v1/models", GetModelsAsync);
+app.MapGet("/models", GetModelsAsync);
+
+// ── POST /v1/responses — unified responses surface ───────────────────────────
+app.MapPost("/v1/responses", CreateResponseAsync);
+app.MapPost("/responses", CreateResponseAsync);
+
+// ── POST /v1/chat/completions — proxy to Copilot API ────────────────────────
+app.MapPost("/v1/chat/completions", ProxyChatCompletionsAsync);
+app.MapPost("/chat/completions", ProxyChatCompletionsAsync);
+
+app.Run();
+
+static async Task<IResult> GetModelsAsync(IModelProvider p, CancellationToken cancellationToken)
 {
     try
     {
-        var models = await p.FetchModelsAsync(cancellationToken: cancellationToken);
         var response = new OpenAIModelListResponse
         {
-            Data = models.Select(m => new OpenAIModelInfo
-            {
-                Id = m.Id,
-                OwnedBy = "github-copilot",
-                Name = m.Name,
-                SupportedEndpoints = m.SupportedEndpoints,
-            }).ToArray()
+            Data = (await p.FetchModelsAsync(cancellationToken: cancellationToken))
+                .Select(model => new
+                {
+                    Model = model,
+                    ProxySupportedEndpoints = GetProxySupportedEndpoints(model),
+                })
+                .Where(entry => entry.ProxySupportedEndpoints.Length > 0)
+                .Select(entry => new OpenAIModelInfo
+                {
+                    Id = entry.Model.Id,
+                    OwnedBy = entry.Model.OwnedBy ?? "github-copilot",
+                    Name = entry.Model.Name,
+                    SupportedEndpoints = entry.Model.SupportedEndpoints,
+                    ProxySupportedEndpoints = entry.ProxySupportedEndpoints,
+                })
+                .ToArray()
         };
+
         return Results.Ok(response);
     }
     catch (Exception ex)
@@ -76,21 +98,20 @@ app.MapGet("/v1/models", async (IModelProvider p, CancellationToken cancellation
             },
             statusCode: 502);
     }
-});
+}
 
-// ── POST /v1/responses — unified responses surface ───────────────────────────
-app.MapPost("/v1/responses", async (CreateResponseRequest request, IResponsesService responsesService, CancellationToken cancellationToken) =>
-{
-    return await responsesService.CreateAsync(request, cancellationToken);
-});
+static async Task<IResult> CreateResponseAsync(CreateResponseRequest request, IResponsesService responsesService, CancellationToken cancellationToken) =>
+    await responsesService.CreateAsync(request, cancellationToken);
 
-// ── POST /v1/chat/completions — proxy to Copilot API ────────────────────────
-app.MapPost("/v1/chat/completions", async (ChatCompletionRequest request, CopilotClient c) =>
+static async Task<IResult> ProxyChatCompletionsAsync(ChatCompletionRequest request, CopilotClient c)
 {
     var (body, statusCode) = await c.ChatAsync(request);
     return Results.Text(body, "application/json", statusCode: statusCode);
-});
+}
 
-app.Run();
+static string[] GetProxySupportedEndpoints(ModelDescriptor model) =>
+    model.SupportsResponses || model.SupportsChatCompletions
+        ? ["/v1/responses", "/v1/chat/completions"]
+        : [];
 
 public partial class Program;

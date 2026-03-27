@@ -351,6 +351,9 @@ public sealed class OpenAIModelInfo
 
     [JsonPropertyName("supported_endpoints")]
     public string[]? SupportedEndpoints { get; init; }
+
+    [JsonPropertyName("proxy_supported_endpoints")]
+    public string[]? ProxySupportedEndpoints { get; init; }
 }
 
 // ── Error response ───────────────────────────────────────────────────────────

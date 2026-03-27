@@ -7,9 +7,12 @@ A local OpenAI-compatible proxy that routes to GitHub Copilot's LLM API using yo
 Exposes a local HTTP API on `http://localhost:5100` that any OpenAI-compatible tool can use:
 
 ```
-GET  /v1/models              → list available Copilot models
+GET  /v1/models              → list available models
+GET  /models                 → SDK-friendly alias for model listing
 POST /v1/responses           → send OpenAI Responses API requests
+POST /responses              → SDK-friendly alias for responses
 POST /v1/chat/completions    → send chat completion requests
+POST /chat/completions       → SDK-friendly alias for chat completions
 GET  /health                 → service health check
 ```
 
@@ -60,6 +63,30 @@ response = client.responses.create(
     input="Hello!"
 )
 print(response.output[0].content[0].text)
+```
+
+For the OpenAI .NET SDK, use the service root as the custom endpoint:
+
+```csharp
+using OpenAI;
+using OpenAI.Responses;
+using System.ClientModel;
+
+var client = new ResponsesClient(
+    new ApiKeyCredential("unused"),
+    new OpenAIClientOptions
+    {
+        Endpoint = new Uri("http://localhost:5100")
+    });
+
+var options = new CreateResponseOptions
+{
+    Model = "claude-haiku-4.5",
+};
+options.InputItems.Add(ResponseItem.CreateUserMessageItem("Hello!"));
+
+var response = await client.CreateResponseAsync(options);
+Console.WriteLine(((MessageResponseItem)response.OutputItems[0]).Content[0].Text);
 ```
 
 Chat Completions clients still work too:
@@ -128,6 +155,8 @@ Edit `appsettings.json` to change the port:
 3. Routes requests to `/responses` or `/chat/completions` based on model capabilities
 4. Translates between Chat Completions and Responses API formats as needed
 5. Background worker validates the token every 5 minutes, reloads on 401
+
+`GET /v1/models` preserves upstream-native `supported_endpoints` and adds `proxy_supported_endpoints` so callers can see what Copilot supports directly and what this proxy accepts via translation.
 
 ## Architecture
 

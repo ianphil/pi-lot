@@ -110,6 +110,50 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
         Assert.Contains("data: [DONE]", body);
     }
 
+    [Fact]
+    public async Task GetModels_ReportsUpstreamAndProxyEndpoints()
+    {
+        _factory.Provider.Models =
+        [
+            new ModelDescriptor
+            {
+                Id = "claude-haiku-4.5",
+                Name = "Claude Haiku 4.5",
+                OwnedBy = "github-copilot",
+                SupportedEndpoints = ["/chat/completions", "/v1/messages"],
+            },
+            new ModelDescriptor
+            {
+                Id = "gpt-5.4",
+                Name = "GPT-5.4",
+                OwnedBy = "github-copilot",
+                SupportedEndpoints = ["/responses"],
+            },
+        ];
+
+        using var client = _factory.CreateClient();
+        var httpResponse = await client.GetAsync("/v1/models");
+
+        httpResponse.EnsureSuccessStatusCode();
+
+        var body = await httpResponse.Content.ReadAsStringAsync();
+        var response = JsonSerializer.Deserialize<OpenAIModelListResponse>(body, JsonDefaults.Web);
+
+        Assert.NotNull(response);
+
+        var claude = Assert.Single(response!.Data, model => model.Id == "claude-haiku-4.5");
+        Assert.NotNull(claude.SupportedEndpoints);
+        Assert.NotNull(claude.ProxySupportedEndpoints);
+        Assert.Equal(["/chat/completions", "/v1/messages"], claude.SupportedEndpoints);
+        Assert.Equal(["/v1/responses", "/v1/chat/completions"], claude.ProxySupportedEndpoints);
+
+        var gpt = Assert.Single(response.Data, model => model.Id == "gpt-5.4");
+        Assert.NotNull(gpt.SupportedEndpoints);
+        Assert.NotNull(gpt.ProxySupportedEndpoints);
+        Assert.Equal(["/responses"], gpt.SupportedEndpoints);
+        Assert.Equal(["/v1/responses", "/v1/chat/completions"], gpt.ProxySupportedEndpoints);
+    }
+
     private static async IAsyncEnumerable<string> AsAsyncChunks(params string[] chunks)
     {
         foreach (var chunk in chunks)
