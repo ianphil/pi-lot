@@ -26,6 +26,9 @@ public sealed class ResponsesApiResponse
 
     [JsonPropertyName("usage")]
     public ResponsesUsageInfo? Usage { get; init; }
+
+    [JsonPropertyName("incomplete_details")]
+    public ResponseIncompleteDetails? IncompleteDetails { get; init; }
 }
 
 public sealed class ResponseOutput

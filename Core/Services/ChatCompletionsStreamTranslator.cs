@@ -356,9 +356,11 @@ public sealed class ChatCompletionsStreamTranslator
 
             var events = new List<string>();
             var finalStatus = string.IsNullOrWhiteSpace(Status) ? ResponseStatuses.Completed : Status;
+            var lastOutputIndex = GetLastOutputIndex();
 
             if (_message is not null)
             {
+                var messageStatus = ChatCompletionsTranslator.MapOutputItemStatus(finalStatus, _message.OutputIndex == lastOutputIndex);
                 if (_message.ContentStarted)
                 {
                     var text = _message.Text.ToString();
@@ -393,12 +395,13 @@ public sealed class ChatCompletionsStreamTranslator
                     type = "response.output_item.done",
                     sequence_number = _sequence++,
                     output_index = _message.OutputIndex,
-                    item = CreateMessageItem(_message, finalStatus),
+                    item = CreateMessageItem(_message, messageStatus),
                 }));
             }
 
             foreach (var toolState in _toolCalls.Values.OrderBy(state => state.OutputIndex))
             {
+                var toolStatus = ChatCompletionsTranslator.MapOutputItemStatus(finalStatus, toolState.OutputIndex == lastOutputIndex);
                 events.Add(ResponseSseSerializer.SerializeEvent("response.function_call_arguments.done", new
                 {
                     type = "response.function_call_arguments.done",
@@ -413,14 +416,15 @@ public sealed class ChatCompletionsStreamTranslator
                     type = "response.output_item.done",
                     sequence_number = _sequence++,
                     output_index = toolState.OutputIndex,
-                    item = CreateFunctionCallItem(toolState, finalStatus),
+                    item = CreateFunctionCallItem(toolState, toolStatus),
                 }));
             }
 
-            var response = CreateResponse(finalStatus, BuildOutputItems(finalStatus), null);
-            events.Add(ResponseSseSerializer.SerializeEvent("response.completed", new
+            var response = CreateResponse(finalStatus, BuildOutputItems(finalStatus, lastOutputIndex), null);
+            var terminalEventName = ResponseSseSerializer.GetTerminalEventName(finalStatus);
+            events.Add(ResponseSseSerializer.SerializeEvent(terminalEventName, new
             {
-                type = "response.completed",
+                type = terminalEventName,
                 response,
             }));
             events.Add(ResponseSseSerializer.SerializeDone());
@@ -449,7 +453,7 @@ public sealed class ChatCompletionsStreamTranslator
                 ResponseSseSerializer.SerializeEvent("response.failed", new
                 {
                     type = "response.failed",
-                    response = CreateResponse(ResponseStatuses.Failed, BuildOutputItems(ResponseStatuses.Failed), error),
+                    response = CreateResponse(ResponseStatuses.Failed, BuildOutputItems(ResponseStatuses.Failed, GetLastOutputIndex()), error),
                 }),
                 ResponseSseSerializer.SerializeDone(),
             ];
@@ -466,24 +470,43 @@ public sealed class ChatCompletionsStreamTranslator
             Model = _requestModel;
         }
 
-        private ResponseItem[] BuildOutputItems(string status)
+        private ResponseItem[] BuildOutputItems(string status, int? lastOutputIndex)
         {
             var items = new List<(int OutputIndex, ResponseItem Item)>();
 
             if (_message is not null)
             {
-                items.Add((_message.OutputIndex, CreateMessageItem(_message, status)));
+                items.Add((_message.OutputIndex, CreateMessageItem(
+                    _message,
+                    ChatCompletionsTranslator.MapOutputItemStatus(status, _message.OutputIndex == lastOutputIndex))));
             }
 
             foreach (var toolState in _toolCalls.Values)
             {
-                items.Add((toolState.OutputIndex, CreateFunctionCallItem(toolState, status)));
+                items.Add((toolState.OutputIndex, CreateFunctionCallItem(
+                    toolState,
+                    ChatCompletionsTranslator.MapOutputItemStatus(status, toolState.OutputIndex == lastOutputIndex))));
             }
 
             return items
                 .OrderBy(item => item.OutputIndex)
                 .Select(item => item.Item)
                 .ToArray();
+        }
+
+        private int? GetLastOutputIndex()
+        {
+            int? lastOutputIndex = _message?.OutputIndex;
+
+            foreach (var toolState in _toolCalls.Values)
+            {
+                if (!lastOutputIndex.HasValue || toolState.OutputIndex > lastOutputIndex.Value)
+                {
+                    lastOutputIndex = toolState.OutputIndex;
+                }
+            }
+
+            return lastOutputIndex;
         }
 
         private Response CreateResponse(string status, ResponseItem[] output, ResponseError? error) => new()
@@ -494,6 +517,7 @@ public sealed class ChatCompletionsStreamTranslator
             Output = output,
             Usage = Usage,
             Error = error,
+            IncompleteDetails = ChatCompletionsTranslator.MapIncompleteDetailsForStatus(status),
             Temperature = _temperature,
             TopP = _topP,
             MaxOutputTokens = (int?)_maxOutputTokens,

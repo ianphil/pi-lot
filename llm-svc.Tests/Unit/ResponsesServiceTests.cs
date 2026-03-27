@@ -80,6 +80,143 @@ public sealed class ResponsesServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_ReturnsIncompleteDetailsWhenChatCompletionStopsForLength()
+    {
+        var provider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelDescriptor
+                {
+                    Id = "claude-sonnet-4.5",
+                    Name = "Claude Sonnet 4.5",
+                    OwnedBy = "github-copilot",
+                    SupportedEndpoints = ["/chat/completions"],
+                },
+            ],
+            ChatCompletionsResult = new ProxyHttpResult(JsonSerializer.Serialize(new ChatCompletionResponse
+            {
+                Id = "chat_incomplete",
+                Object = "chat.completion",
+                Model = "claude-sonnet-4.5",
+                Choices =
+                [
+                    new ChatChoice
+                    {
+                        Index = 0,
+                        Message = new ChatMessage
+                        {
+                            Role = "assistant",
+                            Content = "Hello from Claude",
+                        },
+                        FinishReason = "length",
+                    },
+                ],
+                Usage = new UsageInfo
+                {
+                    PromptTokens = 11,
+                    CompletionTokens = 7,
+                    TotalTokens = 18,
+                },
+            }, JsonDefaults.Web), 200),
+        };
+
+        var service = new ResponsesService(provider, new ChatCompletionsTranslator());
+
+        var result = await service.CreateAsync(new CreateResponseRequest
+        {
+            Model = "claude-sonnet-4.5",
+            Input = JsonDocument.Parse("\"Hi\"").RootElement.Clone(),
+            MaxOutputTokens = 7,
+        });
+
+        Assert.Equal(200, result.StatusCode);
+        Assert.Equal("application/json", result.ContentType);
+
+        var body = Assert.IsType<string>(result.Body);
+        using var document = JsonDocument.Parse(body);
+        Assert.Equal("incomplete", document.RootElement.GetProperty("status").GetString());
+        Assert.Equal("max_output_tokens", document.RootElement.GetProperty("incomplete_details").GetProperty("reason").GetString());
+
+        var response = JsonSerializer.Deserialize<Response>(body, JsonDefaults.Web);
+        Assert.NotNull(response);
+        var message = Assert.IsType<ResponseMessageItem>(response!.Output[0]);
+        Assert.Equal("incomplete", message.Status);
+    }
+
+    [Fact]
+    public async Task CreateAsync_MarksOnlyLastNonStreamingOutputItemIncomplete()
+    {
+        var provider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelDescriptor
+                {
+                    Id = "claude-sonnet-4.5",
+                    SupportedEndpoints = ["/chat/completions"],
+                },
+            ],
+            ChatCompletionsResult = new ProxyHttpResult(JsonSerializer.Serialize(new ChatCompletionResponse
+            {
+                Id = "chat_tool_incomplete",
+                Model = "claude-sonnet-4.5",
+                Choices =
+                [
+                    new ChatChoice
+                    {
+                        Index = 0,
+                        Message = new ChatMessage
+                        {
+                            Role = "assistant",
+                            ToolCalls =
+                            [
+                                new ChatToolCall
+                                {
+                                    Id = "call_one",
+                                    Function = new ChatToolCallFunction
+                                    {
+                                        Name = "tool_one",
+                                        Arguments = "{\"city\":\"Seattle\"}",
+                                    },
+                                },
+                                new ChatToolCall
+                                {
+                                    Id = "call_two",
+                                    Function = new ChatToolCallFunction
+                                    {
+                                        Name = "tool_two",
+                                        Arguments = "{\"zip\":\"98101\"}",
+                                    },
+                                },
+                            ],
+                        },
+                        FinishReason = "length",
+                    },
+                ],
+            }, JsonDefaults.Web), 200),
+        };
+
+        var service = new ResponsesService(provider, new ChatCompletionsTranslator());
+
+        var result = await service.CreateAsync(new CreateResponseRequest
+        {
+            Model = "claude-sonnet-4.5",
+            Input = JsonDocument.Parse("\"Need tools\"").RootElement.Clone(),
+            MaxOutputTokens = 7,
+        });
+
+        var body = Assert.IsType<string>(result.Body);
+        var response = JsonSerializer.Deserialize<Response>(body, JsonDefaults.Web);
+
+        Assert.NotNull(response);
+        Assert.Equal("incomplete", response!.Status);
+        Assert.Equal(2, response.Output.Length);
+        Assert.Equal("completed", response.Output[0].Status);
+        Assert.Equal("incomplete", response.Output[1].Status);
+    }
+
+    [Fact]
     public async Task CreateAsync_EmitsSpecLikeSseWhenStreamingRequested()
     {
         var provider = new FakeModelProvider
@@ -173,6 +310,104 @@ public sealed class ResponsesServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_EmitsIncompleteTerminalEventWhenChatCompletionStopsForLength()
+    {
+        var provider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelDescriptor
+                {
+                    Id = "claude-sonnet-4.5",
+                    SupportedEndpoints = ["/chat/completions"],
+                },
+            ],
+            ChatCompletionsStreamResult = new ProxyStreamResult(
+                null,
+                200,
+                "text/event-stream",
+                AsAsyncChunks(
+                    "data: {\"id\":\"chat_stream\",\"model\":\"claude-sonnet-4.5\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Hello\"},\"finish_reason\":null}]}\n\n",
+                    "data: {\"id\":\"chat_stream\",\"model\":\"claude-sonnet-4.5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" world\"},\"finish_reason\":null}]}\n\n",
+                    "data: {\"id\":\"chat_stream\",\"model\":\"claude-sonnet-4.5\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"length\"}]}\n\n",
+                    "data: [DONE]\n\n")),
+        };
+
+        var service = new ResponsesService(provider, new ChatCompletionsTranslator());
+
+        var result = await service.CreateAsync(new CreateResponseRequest
+        {
+            Model = "claude-sonnet-4.5",
+            Stream = true,
+            Input = JsonDocument.Parse("\"Hi\"").RootElement.Clone(),
+            MaxOutputTokens = 7,
+        });
+
+        var body = await result.ReadBodyAsync();
+        var events = ParseSseEvents(body);
+
+        Assert.Equal("text/event-stream", result.ContentType);
+        Assert.True(provider.LastChatRequest?.Stream);
+
+        var outputItemDone = Assert.Single(events, item => item.EventName == "response.output_item.done");
+        Assert.Equal("incomplete", outputItemDone.Payload.GetProperty("item").GetProperty("status").GetString());
+
+        var terminal = Assert.Single(events, item => item.EventName == "response.incomplete");
+        Assert.Equal("incomplete", terminal.Payload.GetProperty("response").GetProperty("status").GetString());
+        Assert.Equal(
+            "max_output_tokens",
+            terminal.Payload.GetProperty("response").GetProperty("incomplete_details").GetProperty("reason").GetString());
+
+        Assert.DoesNotContain(events, item => item.EventName == "response.completed");
+        Assert.Contains("data: [DONE]", body);
+    }
+
+    [Fact]
+    public async Task CreateAsync_MarksOnlyLastStreamingOutputItemIncomplete()
+    {
+        var provider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelDescriptor
+                {
+                    Id = "claude-sonnet-4.5",
+                    SupportedEndpoints = ["/chat/completions"],
+                },
+            ],
+            ChatCompletionsStreamResult = new ProxyStreamResult(
+                null,
+                200,
+                "text/event-stream",
+                AsAsyncChunks(
+                    "data: {\"id\":\"chat_tool_stream\",\"model\":\"claude-sonnet-4.5\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_one\",\"type\":\"function\",\"function\":{\"name\":\"tool_one\",\"arguments\":\"{\\\"city\\\":\"}},{\"index\":1,\"id\":\"call_two\",\"type\":\"function\",\"function\":{\"name\":\"tool_two\",\"arguments\":\"{\\\"zip\\\":\"}}]},\"finish_reason\":null}]}\n\n",
+                    "data: {\"id\":\"chat_tool_stream\",\"model\":\"claude-sonnet-4.5\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"Seattle\\\"}\"}},{\"index\":1,\"function\":{\"arguments\":\"\\\"98101\\\"}\"}}]},\"finish_reason\":\"length\"}]}\n\n",
+                    "data: [DONE]\n\n")),
+        };
+
+        var service = new ResponsesService(provider, new ChatCompletionsTranslator());
+
+        var result = await service.CreateAsync(new CreateResponseRequest
+        {
+            Model = "claude-sonnet-4.5",
+            Stream = true,
+            Input = JsonDocument.Parse("\"Need tools\"").RootElement.Clone(),
+            MaxOutputTokens = 7,
+        });
+
+        var body = await result.ReadBodyAsync();
+        var events = ParseSseEvents(body);
+        var outputItemDoneEvents = events
+            .Where(item => item.EventName == "response.output_item.done")
+            .OrderBy(item => item.Payload.GetProperty("output_index").GetInt32())
+            .ToArray();
+
+        Assert.Equal(2, outputItemDoneEvents.Length);
+        Assert.Equal("completed", outputItemDoneEvents[0].Payload.GetProperty("item").GetProperty("status").GetString());
+        Assert.Equal("incomplete", outputItemDoneEvents[1].Payload.GetProperty("item").GetProperty("status").GetString());
+    }
+
+    [Fact]
     public async Task CreateAsync_EmitsFailedStreamEventsWhenUpstreamChunkIsInvalid()
     {
         var provider = new FakeModelProvider
@@ -204,6 +439,47 @@ public sealed class ResponsesServiceTests
         var body = await result.ReadBodyAsync();
         Assert.Contains("event: error", body);
         Assert.Contains("event: response.failed", body);
+        Assert.Contains("data: [DONE]", body);
+    }
+
+    [Fact]
+    public void Serialize_EmitsIncompleteTerminalEventWhenResponseIsIncomplete()
+    {
+        var body = ResponseSseSerializer.Serialize(new Response
+        {
+            Id = "resp_incomplete",
+            Status = ResponseStatuses.Incomplete,
+            Model = "claude-sonnet-4.5",
+            IncompleteDetails = new ResponseIncompleteDetails
+            {
+                Reason = "max_output_tokens",
+            },
+            Output =
+            [
+                new ResponseMessageItem
+                {
+                    Id = "msg_incomplete",
+                    Status = ResponseStatuses.Incomplete,
+                    Role = "assistant",
+                    Content =
+                    [
+                        new ResponseOutputTextPart
+                        {
+                            Text = "Hello world",
+                        },
+                    ],
+                },
+            ],
+        });
+
+        var events = ParseSseEvents(body);
+        var terminal = Assert.Single(events, item => item.EventName == "response.incomplete");
+
+        Assert.Equal("incomplete", terminal.Payload.GetProperty("response").GetProperty("status").GetString());
+        Assert.Equal(
+            "max_output_tokens",
+            terminal.Payload.GetProperty("response").GetProperty("incomplete_details").GetProperty("reason").GetString());
+        Assert.DoesNotContain(events, item => item.EventName == "response.completed");
         Assert.Contains("data: [DONE]", body);
     }
 
@@ -733,4 +1009,29 @@ public sealed class ResponsesServiceTests
             await Task.Yield();
         }
     }
+
+    private static List<ParsedSseEvent> ParseSseEvents(string body)
+    {
+        var events = new List<ParsedSseEvent>();
+        var normalizedBody = body.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        foreach (var chunk in normalizedBody.Split("\n\n", StringSplitOptions.RemoveEmptyEntries))
+        {
+            var lines = chunk.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            var eventName = lines.FirstOrDefault(line => line.StartsWith("event: ", StringComparison.Ordinal))?[7..];
+            var data = lines.FirstOrDefault(line => line.StartsWith("data: ", StringComparison.Ordinal))?[6..];
+
+            if (eventName is null || data is null || string.Equals(data, "[DONE]", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            using var document = JsonDocument.Parse(data);
+            events.Add(new ParsedSseEvent(eventName, document.RootElement.Clone()));
+        }
+
+        return events;
+    }
+
+    private sealed record ParsedSseEvent(string EventName, JsonElement Payload);
 }

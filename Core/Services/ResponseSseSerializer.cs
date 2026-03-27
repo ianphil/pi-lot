@@ -54,9 +54,10 @@ public static class ResponseSseSerializer
             });
         }
 
-        AppendEvent(builder, "response.completed", new
+        var terminalEventName = GetTerminalEventName(response.Status);
+        AppendEvent(builder, terminalEventName, new
         {
-            type = "response.completed",
+            type = terminalEventName,
             response = response,
         });
 
@@ -80,6 +81,14 @@ public static class ResponseSseSerializer
     }
 
     public static string SerializeDone() => SerializeChunk(null, "[DONE]");
+
+    internal static string GetTerminalEventName(string status) =>
+        status switch
+        {
+            ResponseStatuses.Failed => "response.failed",
+            ResponseStatuses.Incomplete => "response.incomplete",
+            _ => "response.completed",
+        };
 
     private static void WriteMessageItem(StringBuilder builder, ResponseMessageItem message, int outputIndex, ref int sequence)
     {

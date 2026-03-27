@@ -5,7 +5,7 @@
     "repository": "llm-svc",
     "last_reviewed": "2026-03-27",
     "last_verified_test_command": "dotnet test llm-svc.sln -nologo",
-    "last_verified_test_summary": "21 tests passed",
+    "last_verified_test_summary": "35 tests passed",
     "status_legend": {
       "implemented": "Requirement is implemented and backed by code evidence and/or tests.",
       "partial": "Some support exists, but behavior is limited, incomplete, or only works for a subset of models.",
@@ -15,8 +15,8 @@
     "scope_note": "This file tracks Open Responses spec coverage. Project-specific compatibility checks live under adjacent_checks and are not counted as spec conformance.",
     "summary": {
       "spec_requirements": 17,
-      "implemented": 6,
-      "partial": 7,
+      "implemented": 7,
+      "partial": 6,
       "not_implemented": 3,
       "out_of_scope": 1
     }
@@ -133,20 +133,26 @@
       "area": "State machines",
       "requirement": "Model response and item lifecycle with in_progress, completed, failed, and incomplete states, including incomplete_details when relevant.",
       "spec_reference": "Items are state machines; State machines",
-      "status": "partial",
+      "status": "implemented",
       "evidence": {
         "files": [
           "Core\\Models\\ResponsesApiModels.cs",
+          "Core\\Models\\ResponsesDeserializationModels.cs",
           "Core\\Services\\ChatCompletionsTranslator.cs",
-          "Core\\Services\\ResponsesService.cs"
+          "Core\\Services\\ChatCompletionsStreamTranslator.cs",
+          "Core\\Services\\ResponseSseSerializer.cs"
         ],
         "tests": [
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsSpecLikeSseWhenStreamingRequested",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsFailedStreamEventsWhenUpstreamChunkIsInvalid"
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_TranslatesChatCompletionStreamIntoResponsesEvents",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsFailedStreamEventsWhenUpstreamChunkIsInvalid",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_ReturnsIncompleteDetailsWhenChatCompletionStopsForLength",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MarksOnlyLastNonStreamingOutputItemIncomplete",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsIncompleteTerminalEventWhenChatCompletionStopsForLength",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MarksOnlyLastStreamingOutputItemIncomplete",
+          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::Serialize_EmitsIncompleteTerminalEventWhenResponseIsIncomplete"
         ]
       },
-      "notes": "Status transitions are present for normal and failed streaming flows, and length maps to incomplete. However, incomplete_details is never populated and the full spec terminal-state semantics are not exhaustively tested.",
-      "next_action": "Populate incomplete_details and add tests for incomplete terminal behavior and last-item rules."
+      "notes": "Translated chat-completions now populate incomplete_details for length-truncated responses, emit response.incomplete as the terminal state-machine event, and keep only the final output item in the incomplete state while earlier items remain completed. Failed streaming continues to emit response.failed."
     },
     {
       "id": "message-text-streaming",

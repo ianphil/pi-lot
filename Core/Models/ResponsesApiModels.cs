@@ -97,7 +97,7 @@ public sealed class Response
     public ResponseError? Error { get; init; }
 
     [JsonPropertyName("incomplete_details")]
-    public object? IncompleteDetails { get; init; }
+    public ResponseIncompleteDetails? IncompleteDetails { get; init; }
 
     [JsonPropertyName("temperature")]
     public double? Temperature { get; init; }
@@ -113,6 +113,12 @@ public sealed class Response
 
     [JsonPropertyName("tool_choice")]
     public JsonElement? ToolChoice { get; init; }
+}
+
+public sealed class ResponseIncompleteDetails
+{
+    [JsonPropertyName("reason")]
+    public string Reason { get; init; } = string.Empty;
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]

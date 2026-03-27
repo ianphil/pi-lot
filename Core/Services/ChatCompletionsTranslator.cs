@@ -57,15 +57,20 @@ public sealed class ChatCompletionsTranslator
         var choice = completion.Choices?.FirstOrDefault();
         var output = new List<ResponseItem>();
         var status = MapFinishReason(choice?.FinishReason);
+        var incompleteDetails = MapIncompleteDetails(choice?.FinishReason);
+        var toolCalls = choice?.Message?.ToolCalls ?? [];
+        var text = ExtractChatText(choice?.Message?.Content);
+        var shouldAddMessage = text is not null || toolCalls.Length == 0;
 
-        if (choice?.Message?.ToolCalls is { Length: > 0 })
+        if (toolCalls.Length > 0)
         {
-            foreach (var toolCall in choice.Message.ToolCalls)
+            for (var toolCallIndex = 0; toolCallIndex < toolCalls.Length; toolCallIndex++)
             {
+                var toolCall = toolCalls[toolCallIndex];
                 output.Add(new ResponseFunctionCallItem
                 {
                     Id = toolCall.Id ?? NewId("fc"),
-                    Status = status,
+                    Status = MapOutputItemStatus(status, isLastItem: !shouldAddMessage && toolCallIndex == toolCalls.Length - 1),
                     Name = toolCall.Function?.Name ?? "function",
                     CallId = toolCall.Id ?? NewId("call"),
                     Arguments = toolCall.Function?.Arguments ?? "{}",
@@ -73,13 +78,12 @@ public sealed class ChatCompletionsTranslator
             }
         }
 
-        var text = ExtractChatText(choice?.Message?.Content);
-        if (text is not null || output.Count == 0)
+        if (shouldAddMessage)
         {
             output.Add(new ResponseMessageItem
             {
                 Id = NewId("msg"),
-                Status = status,
+                Status = MapOutputItemStatus(status, isLastItem: true),
                 Role = choice?.Message?.Role ?? "assistant",
                 Content =
                 [
@@ -103,6 +107,7 @@ public sealed class ChatCompletionsTranslator
                 OutputTokens = completion.Usage?.CompletionTokens ?? 0,
                 TotalTokens = completion.Usage?.TotalTokens ?? 0,
             },
+            IncompleteDetails = incompleteDetails,
             Temperature = request.Temperature,
             TopP = request.TopP,
             MaxOutputTokens = request.MaxOutputTokens,
@@ -177,6 +182,7 @@ public sealed class ChatCompletionsTranslator
                 OutputTokens = native.Usage?.OutputTokens ?? 0,
                 TotalTokens = (native.Usage?.InputTokens ?? 0) + (native.Usage?.OutputTokens ?? 0),
             },
+            IncompleteDetails = native.IncompleteDetails,
             Temperature = request.Temperature,
             TopP = request.TopP,
             MaxOutputTokens = request.MaxOutputTokens,
@@ -439,6 +445,22 @@ public sealed class ChatCompletionsTranslator
         string.Equals(finishReason, "length", StringComparison.OrdinalIgnoreCase)
             ? ResponseStatuses.Incomplete
             : ResponseStatuses.Completed;
+
+    internal static ResponseIncompleteDetails? MapIncompleteDetails(string? finishReason) =>
+        MapIncompleteDetailsForStatus(MapFinishReason(finishReason));
+
+    internal static ResponseIncompleteDetails? MapIncompleteDetailsForStatus(string? status) =>
+        string.Equals(status, ResponseStatuses.Incomplete, StringComparison.OrdinalIgnoreCase)
+            ? new ResponseIncompleteDetails
+            {
+                Reason = "max_output_tokens",
+            }
+            : null;
+
+    internal static string MapOutputItemStatus(string responseStatus, bool isLastItem) =>
+        string.Equals(responseStatus, ResponseStatuses.Incomplete, StringComparison.OrdinalIgnoreCase) && !isLastItem
+            ? ResponseStatuses.Completed
+            : responseStatus;
 
     private static Response? TryDeserializeCanonical(string body)
     {
