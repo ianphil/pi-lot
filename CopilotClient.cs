@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using LlmSvc.Core.Models;
@@ -36,9 +37,6 @@ public sealed class CopilotClient : IDisposable, IModelProvider
 
     public bool IsAuthenticated => _token is not null;
 
-    /// <summary>
-    /// Reads the Copilot CLI credential from Windows Credential Manager.
-    /// </summary>
     public bool TryLoadCredential()
     {
         _token = CredentialManager.GetCredential(CredentialPrefix);
@@ -53,10 +51,6 @@ public sealed class CopilotClient : IDisposable, IModelProvider
         return true;
     }
 
-    /// <summary>
-    /// Validates the current credential by calling the /models endpoint.
-    /// Returns true if the token is valid.
-    /// </summary>
     public async Task<bool> ValidateTokenAsync()
     {
         if (_token is null)
@@ -81,9 +75,6 @@ public sealed class CopilotClient : IDisposable, IModelProvider
         }
     }
 
-    /// <summary>
-    /// Fetches available models from the Copilot API. Caches for 5 minutes.
-    /// </summary>
     public async Task<CopilotModelInfo[]> FetchModelsAsync(bool forceRefresh = false)
     {
         if (!forceRefresh && _models is not null && DateTime.UtcNow - _modelsLastFetched < TimeSpan.FromMinutes(5))
@@ -129,19 +120,7 @@ public sealed class CopilotClient : IDisposable, IModelProvider
                 401);
         }
 
-        var payload = new ChatCompletionRequest
-        {
-            Model = request.Model,
-            Messages = request.Messages,
-            Stream = false,
-            MaxCompletionTokens = request.MaxCompletionTokens ?? request.MaxTokens ?? 4096,
-            MaxTokens = request.MaxTokens,
-            Temperature = request.Temperature,
-            TopP = request.TopP,
-            Tools = request.Tools,
-            ToolChoice = request.ToolChoice,
-        };
-
+        var payload = CreateChatCompletionPayload(request, stream: false);
         return await SendAsync("/chat/completions", payload, cancellationToken);
     }
 
@@ -162,27 +141,46 @@ public sealed class CopilotClient : IDisposable, IModelProvider
                 401);
         }
 
-        var payload = new CreateResponseRequest
-        {
-            Model = request.Model,
-            Input = CloneOrDefault(request.Input),
-            Stream = false,
-            Instructions = request.Instructions,
-            MaxOutputTokens = request.MaxOutputTokens,
-            Temperature = request.Temperature,
-            TopP = request.TopP,
-            Tools = request.Tools,
-            ToolChoice = CloneOrNull(request.ToolChoice),
-            PreviousResponseId = request.PreviousResponseId,
-        };
-
+        var payload = CreateResponsesPayload(request, stream: false);
         return await SendAsync("/responses", payload, cancellationToken);
     }
 
-    /// <summary>
-    /// Proxies a chat completion request to the Copilot API,
-    /// routing to /chat/completions or /responses based on model capabilities.
-    /// </summary>
+    public async Task<ProxyStreamResult> StreamChatCompletionsAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
+    {
+        if (_token is null)
+        {
+            return new ProxyStreamResult(
+                JsonSerializer.Serialize(MakeError("Not authenticated", "auth_error"), JsonDefaults.Web),
+                401,
+                "application/json");
+        }
+
+        var payload = CreateChatCompletionPayload(request, stream: true);
+        return await SendStreamAsync("/chat/completions", payload, cancellationToken);
+    }
+
+    public async Task<ProxyStreamResult> StreamResponsesAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
+    {
+        if (_token is null)
+        {
+            return new ProxyStreamResult(
+                JsonSerializer.Serialize(new ResponseErrorEnvelope
+                {
+                    Error = new ResponseError
+                    {
+                        Message = "Not authenticated",
+                        Type = "invalid_request_error",
+                        Code = "auth_error",
+                    },
+                }, JsonDefaults.Web),
+                401,
+                "application/json");
+        }
+
+        var payload = CreateResponsesPayload(request, stream: true);
+        return await SendStreamAsync("/responses", payload, cancellationToken);
+    }
+
     public async Task<(string Body, int StatusCode)> ChatAsync(ChatCompletionRequest request)
     {
         if (_token is null)
@@ -247,6 +245,110 @@ public sealed class CopilotClient : IDisposable, IModelProvider
 
     private async Task<ProxyHttpResult> SendAsync(string path, object payload, CancellationToken cancellationToken)
     {
+        var req = CreatePostRequest(path, payload);
+        var resp = await _http.SendAsync(req, cancellationToken);
+        var body = await resp.Content.ReadAsStringAsync(cancellationToken);
+
+        HandleUnauthorized(resp.StatusCode);
+
+        return new ProxyHttpResult(body, (int)resp.StatusCode, resp.Content.Headers.ContentType?.MediaType ?? "application/json");
+    }
+
+    private async Task<ProxyStreamResult> SendStreamAsync(string path, object payload, CancellationToken cancellationToken)
+    {
+        var req = CreatePostRequest(path, payload);
+        var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+        HandleUnauthorized(resp.StatusCode);
+
+        var contentType = resp.Content.Headers.ContentType?.MediaType ?? "text/event-stream";
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync(cancellationToken);
+            resp.Dispose();
+            return new ProxyStreamResult(body, (int)resp.StatusCode, contentType);
+        }
+
+        return new ProxyStreamResult(null, (int)resp.StatusCode, contentType, ReadEventChunks(resp, cancellationToken));
+    }
+
+    private static async IAsyncEnumerable<string> ReadEventChunks(HttpResponseMessage response, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        using var resp = response;
+        using var stream = await resp.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+        var builder = new StringBuilder();
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var line = await reader.ReadLineAsync();
+            if (line is null)
+            {
+                break;
+            }
+
+            builder.AppendLine(line);
+            if (line.Length == 0)
+            {
+                var chunk = builder.ToString();
+                builder.Clear();
+                if (chunk.Length > 0)
+                {
+                    yield return chunk;
+                }
+            }
+        }
+
+        if (builder.Length > 0)
+        {
+            builder.AppendLine();
+            yield return builder.ToString();
+        }
+    }
+
+    private static ChatCompletionRequest CreateChatCompletionPayload(ChatCompletionRequest request, bool stream) => new()
+    {
+        Model = request.Model,
+        Messages = request.Messages,
+        Stream = stream,
+        MaxCompletionTokens = request.MaxCompletionTokens ?? request.MaxTokens ?? 4096,
+        MaxTokens = request.MaxTokens,
+        Temperature = request.Temperature,
+        TopP = request.TopP,
+        Tools = request.Tools,
+        ToolChoice = request.ToolChoice,
+    };
+
+    private static CreateResponseRequest CreateResponsesPayload(CreateResponseRequest request, bool stream) => new()
+    {
+        Model = request.Model,
+        Input = CloneOrDefault(request.Input),
+        Stream = stream,
+        Instructions = request.Instructions,
+        MaxOutputTokens = request.MaxOutputTokens,
+        Temperature = request.Temperature,
+        TopP = request.TopP,
+        Tools = request.Tools,
+        ToolChoice = CloneOrNull(request.ToolChoice),
+        PreviousResponseId = request.PreviousResponseId,
+    };
+
+    private HttpRequestMessage CreateRequest(HttpMethod method, string path)
+    {
+        var req = new HttpRequestMessage(method, $"{BaseUrl}{path}");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
+        foreach (var (key, value) in CopilotHeaders)
+        {
+            req.Headers.TryAddWithoutValidation(key, value);
+        }
+
+        return req;
+    }
+
+    private HttpRequestMessage CreatePostRequest(string path, object payload)
+    {
         var req = CreateRequest(HttpMethod.Post, path);
         req.Headers.TryAddWithoutValidation("X-Initiator", "user");
         req.Headers.TryAddWithoutValidation("Openai-Intent", "conversation-edits");
@@ -254,23 +356,18 @@ public sealed class CopilotClient : IDisposable, IModelProvider
             JsonSerializer.Serialize(payload, JsonDefaults.Web),
             Encoding.UTF8,
             "application/json");
+        return req;
+    }
 
-        var resp = await _http.SendAsync(req, cancellationToken);
-        var body = await resp.Content.ReadAsStringAsync(cancellationToken);
-
-        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+    private void HandleUnauthorized(System.Net.HttpStatusCode statusCode)
+    {
+        if (statusCode == System.Net.HttpStatusCode.Unauthorized)
         {
             _logger.LogWarning(LogEvents.TokenExpired, "Got 401 from Copilot API. Reloading credential.");
             TryLoadCredential();
         }
-
-        return new ProxyHttpResult(body, (int)resp.StatusCode, resp.Content.Headers.ContentType?.MediaType ?? "application/json");
     }
 
-    /// <summary>
-    /// Translates a Responses API response into a ChatCompletion response
-    /// so callers always see a consistent format.
-    /// </summary>
     private static string TranslateResponsesToChatCompletion(string responsesBody)
     {
         var resp = JsonSerializer.Deserialize<ResponsesApiResponse>(responsesBody, JsonDefaults.Web);
@@ -322,18 +419,6 @@ public sealed class CopilotClient : IDisposable, IModelProvider
         };
 
         return JsonSerializer.Serialize(translated, JsonDefaults.Web);
-    }
-
-    private HttpRequestMessage CreateRequest(HttpMethod method, string path)
-    {
-        var req = new HttpRequestMessage(method, $"{BaseUrl}{path}");
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
-        foreach (var (key, value) in CopilotHeaders)
-        {
-            req.Headers.TryAddWithoutValidation(key, value);
-        }
-
-        return req;
     }
 
     private static object? NormalizeMessageContent(object? content) => content switch

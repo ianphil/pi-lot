@@ -81,8 +81,7 @@ app.MapGet("/v1/models", async (IModelProvider p, CancellationToken cancellation
 // ── POST /v1/responses — unified responses surface ───────────────────────────
 app.MapPost("/v1/responses", async (CreateResponseRequest request, IResponsesService responsesService, CancellationToken cancellationToken) =>
 {
-    var result = await responsesService.CreateAsync(request, cancellationToken);
-    return Results.Text(result.Body, result.ContentType, statusCode: result.StatusCode);
+    return await responsesService.CreateAsync(request, cancellationToken);
 });
 
 // ── POST /v1/chat/completions — proxy to Copilot API ────────────────────────

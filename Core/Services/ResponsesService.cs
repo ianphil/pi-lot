@@ -37,6 +37,46 @@ public sealed class ResponsesService : IResponsesService
                 });
             }
 
+            if (request.Stream == true)
+            {
+                if (model.SupportsResponses)
+                {
+                    var upstream = await _provider.StreamResponsesAsync(CloneForStreaming(request), cancellationToken);
+                    if (upstream.StatusCode >= 400)
+                    {
+                        return NormalizeStreamError(upstream);
+                    }
+
+                    return ResponseHttpResult.FromStream(
+                        upstream.Chunks ?? EmptyChunks(),
+                        upstream.StatusCode,
+                        upstream.ContentType);
+                }
+
+                if (model.SupportsChatCompletions)
+                {
+                    var completionRequest = _translator.ToChatCompletionRequest(request, stream: true);
+                    var upstream = await _provider.StreamChatCompletionsAsync(completionRequest, cancellationToken);
+                    if (upstream.StatusCode >= 400)
+                    {
+                        return NormalizeStreamError(upstream);
+                    }
+
+                    return ResponseHttpResult.FromStream(
+                        _translator.TranslateStream(upstream.Chunks ?? EmptyChunks(), request, cancellationToken),
+                        200,
+                        "text/event-stream");
+                }
+
+                throw new ResponseApiException(400, new ResponseError
+                {
+                    Message = $"Model '{request.Model}' does not support /responses or /chat/completions.",
+                    Type = "invalid_request_error",
+                    Param = "model",
+                    Code = "unsupported_model_endpoint",
+                });
+            }
+
             Response response;
             if (model.SupportsResponses)
             {
@@ -70,19 +110,14 @@ public sealed class ResponsesService : IResponsesService
                 });
             }
 
-            if (request.Stream == true)
-            {
-                return new ResponseHttpResult(ResponseSseSerializer.Serialize(response), 200, "text/event-stream");
-            }
-
-            return new ResponseHttpResult(
+            return ResponseHttpResult.FromBody(
                 JsonSerializer.Serialize(response, JsonDefaults.Web),
                 200,
                 "application/json");
         }
         catch (ResponseApiException ex)
         {
-            return new ResponseHttpResult(
+            return ResponseHttpResult.FromBody(
                 JsonSerializer.Serialize(new ResponseErrorEnvelope { Error = ex.Error }, JsonDefaults.Web),
                 ex.StatusCode,
                 "application/json");
@@ -128,6 +163,20 @@ public sealed class ResponsesService : IResponsesService
         PreviousResponseId = request.PreviousResponseId,
     };
 
+    private static CreateResponseRequest CloneForStreaming(CreateResponseRequest request) => new()
+    {
+        Model = request.Model,
+        Input = CloneOrDefault(request.Input),
+        Stream = true,
+        Instructions = request.Instructions,
+        MaxOutputTokens = request.MaxOutputTokens,
+        Temperature = request.Temperature,
+        TopP = request.TopP,
+        Tools = request.Tools,
+        ToolChoice = CloneOrNull(request.ToolChoice),
+        PreviousResponseId = request.PreviousResponseId,
+    };
+
     private static JsonElement CloneOrDefault(JsonElement element) =>
         element.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined
             ? default
@@ -141,7 +190,16 @@ public sealed class ResponsesService : IResponsesService
     private static ResponseHttpResult NormalizeError(ProxyHttpResult upstream)
     {
         var error = ParseError(upstream.Body, upstream.StatusCode);
-        return new ResponseHttpResult(
+        return ResponseHttpResult.FromBody(
+            JsonSerializer.Serialize(new ResponseErrorEnvelope { Error = error }, JsonDefaults.Web),
+            upstream.StatusCode,
+            "application/json");
+    }
+
+    private static ResponseHttpResult NormalizeStreamError(ProxyStreamResult upstream)
+    {
+        var error = ParseError(upstream.Body ?? string.Empty, upstream.StatusCode);
+        return ResponseHttpResult.FromBody(
             JsonSerializer.Serialize(new ResponseErrorEnvelope { Error = error }, JsonDefaults.Web),
             upstream.StatusCode,
             "application/json");
@@ -154,7 +212,7 @@ public sealed class ResponsesService : IResponsesService
             var envelope = JsonSerializer.Deserialize<ResponseErrorEnvelope>(body, JsonDefaults.Web);
             if (envelope?.Error is not null)
             {
-                return envelope.Error;
+                return NormalizeParsedError(envelope.Error, statusCode);
             }
 
             var openAiError = JsonSerializer.Deserialize<OpenAIErrorResponse>(body, JsonDefaults.Web);
@@ -163,9 +221,7 @@ public sealed class ResponsesService : IResponsesService
                 return new ResponseError
                 {
                     Message = openAiError.Error.Message,
-                    Type = string.IsNullOrWhiteSpace(openAiError.Error.Type)
-                        ? MapErrorType(statusCode)
-                        : openAiError.Error.Type,
+                    Type = NormalizeErrorType(openAiError.Error.Type, statusCode),
                     Code = openAiError.Error.Code,
                 };
             }
@@ -181,6 +237,19 @@ public sealed class ResponsesService : IResponsesService
         };
     }
 
+    private static ResponseError NormalizeParsedError(ResponseError error, int statusCode) => new()
+    {
+        Message = error.Message,
+        Type = NormalizeErrorType(error.Type, statusCode),
+        Param = error.Param,
+        Code = error.Code,
+    };
+
+    private static string NormalizeErrorType(string? errorType, int statusCode) =>
+        string.IsNullOrWhiteSpace(errorType) || string.Equals(errorType, "error", StringComparison.OrdinalIgnoreCase)
+            ? MapErrorType(statusCode)
+            : errorType;
+
     private static string MapErrorType(int statusCode) => statusCode switch
     {
         (int)HttpStatusCode.NotFound => "not_found",
@@ -188,4 +257,10 @@ public sealed class ResponsesService : IResponsesService
         >= 400 and < 500 => "invalid_request_error",
         _ => "server_error",
     };
+
+    private static async IAsyncEnumerable<string> EmptyChunks()
+    {
+        await Task.CompletedTask;
+        yield break;
+    }
 }

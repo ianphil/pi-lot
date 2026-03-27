@@ -60,9 +60,26 @@ public static class ResponseSseSerializer
             response = response,
         });
 
-        builder.Append("data: [DONE]").AppendLine().AppendLine();
+        builder.Append(SerializeDone());
         return builder.ToString();
     }
+
+    public static string SerializeEvent(string eventName, object payload) =>
+        SerializeChunk(eventName, JsonSerializer.Serialize(payload, JsonDefaults.Web));
+
+    public static string SerializeChunk(string? eventName, string data)
+    {
+        var builder = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(eventName))
+        {
+            builder.Append("event: ").Append(eventName).AppendLine();
+        }
+
+        builder.Append("data: ").Append(data).AppendLine().AppendLine();
+        return builder.ToString();
+    }
+
+    public static string SerializeDone() => SerializeChunk(null, "[DONE]");
 
     private static void WriteMessageItem(StringBuilder builder, ResponseMessageItem message, int outputIndex, ref int sequence)
     {
@@ -118,7 +135,12 @@ public static class ResponseSseSerializer
                 item_id = message.Id,
                 output_index = outputIndex,
                 content_index = contentIndex,
-                part = outputText,
+                part = new
+                {
+                    type = "output_text",
+                    annotations = outputText.Annotations,
+                    text = outputText.Text,
+                },
             });
         }
     }

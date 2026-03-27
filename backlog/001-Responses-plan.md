@@ -11,17 +11,23 @@ Expose a fully spec-compliant `/v1/responses` endpoint (per [Open Responses spec
   - `CopilotClient` now participates as the outbound provider
   - `POST /v1/responses` added to the app
   - Non-streaming translation works for both native `/responses` models and chat-completions-only models
+  - True stream plumbing now uses provider streaming methods for native `/responses` passthrough and translated chat-completions streams
+  - Tool-calling round-trip is covered for request translation, forced tool choice, allowed tools filtering, and streaming tool-call arguments
+  - Error handling now normalizes validation, auth, rate-limit, and raw upstream failures into structured responses
   - README updated to document `/v1/responses`
 - Passing tests currently cover:
   - chat completions -> responses translation
-  - basic SSE response shape for streaming requests
-  - tool call mapping into `function_call` items
-  - structured `model_not_found` errors
-  - end-to-end HTTP coverage for `POST /v1/responses`
+  - native responses stream passthrough
+  - translated chat-completions streaming with event ordering
+  - streamed tool-call argument translation
+  - tool call mapping into `function_call` items and round-trip `function_call_output`
+  - forced tool choice, allowed tools filtering, and `auto` / `required` / `none`
+  - structured validation, auth, rate-limit, model-not-found, and raw server errors
+  - end-to-end HTTP coverage for `POST /v1/responses` in both JSON and SSE modes
 - Current focus:
-  - finish true streaming behavior end-to-end instead of only serializing buffered output into SSE
-  - expand state-machine and error-path coverage
-  - complete the remaining tool-calling round-trip behavior
+  - integration and cleanup
+  - decide how `/v1/models` should expose local proxy capabilities vs upstream capabilities
+  - perform an SDK-oriented smoke test against the local endpoint
 
 ## Architecture: Hexagonal (Ports and Adapters)
 
@@ -104,7 +110,7 @@ Tests -> Implementation:
 6. **Model not found** - returns spec-compliant error (`invalid_request_error`, `model_not_found`)
 7. **Missing required fields** - returns spec-compliant validation error
 
-### Phase 4: Streaming (TDD) - In progress
+### Phase 4: Streaming (TDD) - Done
 Tests -> Implementation:
 1. **Event ordering** - assert strict sequence: `response.created` -> `response.in_progress` -> `output_item.added` -> `content_part.added` -> `output_text.delta`(s) -> `output_text.done` -> `content_part.done` -> `output_item.done` -> `response.completed`
 2. **SSE format** - `Content-Type: text/event-stream`, `event:` field matches `type` in body, terminal `[DONE]`
@@ -114,9 +120,9 @@ Tests -> Implementation:
 6. **State machine** - response status transitions `in_progress` -> `completed`
 7. **Stream error** - error mid-stream emits error event followed by `response.failed`
 
-Current state: a basic SSE serializer is in place and covered by tests, but it still serializes buffered output. True upstream streaming and chunk translation are still outstanding.
+Current state: provider-backed streaming is wired for native `/responses` passthrough and translated chat-completions streams, with streaming endpoint coverage in tests.
 
-### Phase 5: Tool / Function Calling (TDD) - Pending
+### Phase 5: Tool / Function Calling (TDD) - Done
 Tests -> Implementation:
 1. **Function tool definition** - `tools[]` with `type: "function"` accepted in request
 2. **Function call output item** - model emits `function_call` item with `name`, `call_id`, `arguments`
@@ -125,7 +131,7 @@ Tests -> Implementation:
 5. **Translation** - chat completions `tool_calls` <-> Responses `function_call` items
 6. **Streaming function calls** - `function_call_arguments.delta` events
 
-### Phase 6: Error Handling (TDD) - Pending
+### Phase 6: Error Handling (TDD) - Done
 Tests -> Implementation:
 1. **Error response shape** - `{ error: { message, type, code, param } }`
 2. **Error types** - `invalid_request` (400), `not_found` (404), `server_error` (500), `too_many_requests` (429)

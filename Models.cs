@@ -163,6 +163,69 @@ public sealed class ChatCompletionResponse
     public UsageInfo? Usage { get; init; }
 }
 
+public sealed class ChatCompletionChunk
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; init; }
+
+    [JsonPropertyName("model")]
+    public string? Model { get; init; }
+
+    [JsonPropertyName("choices")]
+    public ChatChunkChoice[]? Choices { get; init; }
+
+    [JsonPropertyName("usage")]
+    public UsageInfo? Usage { get; init; }
+}
+
+public sealed class ChatChunkChoice
+{
+    [JsonPropertyName("index")]
+    public int Index { get; init; }
+
+    [JsonPropertyName("delta")]
+    public ChatChunkDelta? Delta { get; init; }
+
+    [JsonPropertyName("finish_reason")]
+    public string? FinishReason { get; init; }
+}
+
+public sealed class ChatChunkDelta
+{
+    [JsonPropertyName("role")]
+    public string? Role { get; init; }
+
+    [JsonPropertyName("content")]
+    public string? Content { get; init; }
+
+    [JsonPropertyName("tool_calls")]
+    public ChatChunkToolCall[]? ToolCalls { get; init; }
+}
+
+public sealed class ChatChunkToolCall
+{
+    [JsonPropertyName("index")]
+    public int? Index { get; init; }
+
+    [JsonPropertyName("id")]
+    public string? Id { get; init; }
+
+    [JsonPropertyName("type")]
+    public string? Type { get; init; }
+
+    [JsonPropertyName("function")]
+    public ChatChunkToolCallFunction? Function { get; init; }
+}
+
+public sealed class ChatChunkToolCallFunction
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
+
+    [JsonPropertyName("arguments")]
+    public string? Arguments { get; init; }
+}
+
 public sealed class ChatChoice
 {
     [JsonPropertyName("index")]

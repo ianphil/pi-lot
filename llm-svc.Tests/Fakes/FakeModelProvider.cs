@@ -18,6 +18,10 @@ public sealed class FakeModelProvider : IModelProvider
 
     public ProxyHttpResult ResponsesResult { get; set; } = new("{}", 200);
 
+    public ProxyStreamResult ChatCompletionsStreamResult { get; set; } = new(null, 200, "text/event-stream", EmptyChunks());
+
+    public ProxyStreamResult ResponsesStreamResult { get; set; } = new(null, 200, "text/event-stream", EmptyChunks());
+
     public ChatCompletionRequest? LastChatRequest { get; private set; }
 
     public CreateResponseRequest? LastResponsesRequest { get; private set; }
@@ -35,5 +39,23 @@ public sealed class FakeModelProvider : IModelProvider
     {
         LastResponsesRequest = request;
         return Task.FromResult(ResponsesResult);
+    }
+
+    public Task<ProxyStreamResult> StreamChatCompletionsAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
+    {
+        LastChatRequest = request;
+        return Task.FromResult(ChatCompletionsStreamResult);
+    }
+
+    public Task<ProxyStreamResult> StreamResponsesAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
+    {
+        LastResponsesRequest = request;
+        return Task.FromResult(ResponsesStreamResult);
+    }
+
+    private static async IAsyncEnumerable<string> EmptyChunks()
+    {
+        await Task.CompletedTask;
+        yield break;
     }
 }
