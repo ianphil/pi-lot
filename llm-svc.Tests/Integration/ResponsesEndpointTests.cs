@@ -4,6 +4,7 @@ using LlmSvc.Core.Models;
 
 namespace llm_svc.Tests.Integration;
 
+[Trait("Category", "Integration")]
 public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicationFactory>
 {
     private readonly ResponsesWebApplicationFactory _factory;

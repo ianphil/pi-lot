@@ -8,7 +8,7 @@
     <Version>0.4.0</Version>
     <OutputType>WinExe</OutputType>
     <NoWarn>CA1416</NoWarn>
-    <DefaultItemExcludes>$(DefaultItemExcludes);llm-svc.Tests\**;llm-cli\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);llm-svc.Tests\**;llm-cli\**;llm-cli.Tests\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

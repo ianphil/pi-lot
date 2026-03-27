@@ -8,6 +8,7 @@ using OpenAI.Responses;
 
 namespace llm_svc.Tests.Integration;
 
+[Trait("Category", "Integration")]
 public sealed class SdkCompatibilityTests
 {
     [Fact]

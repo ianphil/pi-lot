@@ -6,6 +6,7 @@ using llm_svc.Tests.Fakes;
 
 namespace llm_svc.Tests.Unit;
 
+[Trait("Category", "Unit")]
 public sealed class ResponsesServiceTests
 {
     [Fact]

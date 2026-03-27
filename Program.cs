@@ -87,7 +87,7 @@ static async Task<IResult> GetModelsAsync(ModelListService modelList, Cancellati
 }
 
 static async Task<IResult> CreateResponseAsync(CreateResponseRequest request, IResponsesService responsesService, CancellationToken cancellationToken) =>
-    await responsesService.CreateAsync(request, cancellationToken);
+    new ResponseHttpResultAdapter(await responsesService.CreateAsync(request, cancellationToken));
 
 static async Task<IResult> ProxyChatCompletionsAsync(ChatCompletionRequest request, IModelProvider provider, CancellationToken cancellationToken)
 {
@@ -96,3 +96,28 @@ static async Task<IResult> ProxyChatCompletionsAsync(ChatCompletionRequest reque
 }
 
 public partial class Program;
+
+sealed class ResponseHttpResultAdapter(ResponseHttpResult result) : IResult
+{
+    public async Task ExecuteAsync(HttpContext httpContext)
+    {
+        httpContext.Response.StatusCode = result.StatusCode;
+        httpContext.Response.ContentType = result.ContentType;
+
+        if (result.Chunks is null)
+        {
+            if (!string.IsNullOrEmpty(result.Body))
+            {
+                await httpContext.Response.WriteAsync(result.Body, httpContext.RequestAborted);
+            }
+
+            return;
+        }
+
+        await foreach (var chunk in result.Chunks.WithCancellation(httpContext.RequestAborted))
+        {
+            await httpContext.Response.WriteAsync(chunk, httpContext.RequestAborted);
+            await httpContext.Response.Body.FlushAsync(httpContext.RequestAborted);
+        }
+    }
+}

@@ -276,7 +276,7 @@ public sealed class ChatCompletionsTranslator
             {
                 var allowed = allowedToolsElement.EnumerateArray()
                     .Select(item => TryGetStringProperty(item, "name", out var toolName) ? toolName : null)
-                    .OfType<string>()
+                    .Where(name => name is not null)
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
                 tools = tools
@@ -290,49 +290,33 @@ public sealed class ChatCompletionsTranslator
         return Clone(value);
     }
 
-    private static IEnumerable<ChatMessage> ParseInput(JsonElement input)
+    private static IEnumerable<ChatMessage> ParseInput(JsonElement input) => input.ValueKind switch
     {
-        if (input.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        JsonValueKind.Null or JsonValueKind.Undefined => throw new ResponseApiException(400, new ResponseError
         {
-            throw new ResponseApiException(400, new ResponseError
+            Message = "input is required",
+            Type = ErrorTypes.InvalidRequestError,
+            Param = "input",
+            Code = ErrorCodes.MissingRequiredParameter,
+        }),
+        JsonValueKind.String =>
+        [
+            new ChatMessage
             {
-                Message = "input is required",
-                Type = ErrorTypes.InvalidRequestError,
-                Param = "input",
-                Code = ErrorCodes.MissingRequiredParameter,
-            });
-        }
-
-        if (input.ValueKind == JsonValueKind.String)
-        {
-            return
-            [
-                new ChatMessage
-                {
-                    Role = "user",
-                    Content = input.GetString(),
-                },
-            ];
-        }
-
-        if (input.ValueKind == JsonValueKind.Object)
-        {
-            return [ParseMessage(input)];
-        }
-
-        if (input.ValueKind == JsonValueKind.Array)
-        {
-            return input.EnumerateArray().Select(ParseMessage).ToArray();
-        }
-
-        throw new ResponseApiException(400, new ResponseError
+                Role = "user",
+                Content = input.GetString(),
+            },
+        ],
+        JsonValueKind.Object => [ParseMessage(input)],
+        JsonValueKind.Array => input.EnumerateArray().Select(ParseMessage).ToArray(),
+        _ => throw new ResponseApiException(400, new ResponseError
         {
             Message = "input must be a string, object, or array",
             Type = ErrorTypes.InvalidRequestError,
             Param = "input",
             Code = ErrorCodes.InvalidInputFormat,
-        });
-    }
+        }),
+    };
 
     private static ChatMessage ParseMessage(JsonElement element)
     {
@@ -401,57 +385,26 @@ public sealed class ChatCompletionsTranslator
         };
     }
 
-    private static string? ExtractContentPartText(JsonElement content)
+    private static string? ExtractContentPartText(JsonElement content) => content.ValueKind switch
     {
-        if (content.ValueKind == JsonValueKind.String)
-        {
-            return content.GetString();
-        }
+        JsonValueKind.String => content.GetString(),
+        JsonValueKind.Object when TryGetStringProperty(content, "text", out var text) => text,
+        JsonValueKind.Object when TryGetStringProperty(content, "output", out var output) => output,
+        JsonValueKind.Object when content.TryGetProperty("output", out var outputElement) => ExtractOutputText(outputElement),
+        _ => null,
+    };
 
-        if (content.ValueKind == JsonValueKind.Object)
-        {
-            if (TryGetStringProperty(content, "text", out var text))
-            {
-                return text;
-            }
-
-            if (TryGetStringProperty(content, "output", out var output))
-            {
-                return output;
-            }
-
-            if (content.TryGetProperty("output", out var outputElement))
-            {
-                return ExtractOutputText(outputElement);
-            }
-        }
-
-        return null;
-    }
-
-    private static string ExtractOutputText(JsonElement element)
+    private static string ExtractOutputText(JsonElement element) => element.ValueKind switch
     {
-        if (element.ValueKind == JsonValueKind.String)
-        {
-            return element.GetString() ?? string.Empty;
-        }
-
-        if (element.ValueKind == JsonValueKind.Object && element.TryGetProperty("output", out var output))
-        {
-            return ExtractOutputText(output);
-        }
-
-        if (element.ValueKind == JsonValueKind.Array)
-        {
-            return string.Join(
-                Environment.NewLine,
-                element.EnumerateArray()
-                    .Select(ExtractContentPartText)
-                    .Where(text => !string.IsNullOrWhiteSpace(text)));
-        }
-
-        return element.GetRawText();
-    }
+        JsonValueKind.String => element.GetString() ?? string.Empty,
+        JsonValueKind.Object when element.TryGetProperty("output", out var output) => ExtractOutputText(output),
+        JsonValueKind.Array => string.Join(
+            Environment.NewLine,
+            element.EnumerateArray()
+                .Select(ExtractContentPartText)
+                .Where(text => !string.IsNullOrWhiteSpace(text))),
+        _ => element.GetRawText(),
+    };
 
     private static string? ExtractChatText(object? content)
     {

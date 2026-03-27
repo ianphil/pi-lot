@@ -1,9 +1,8 @@
 using System.Text;
-using Microsoft.AspNetCore.Http;
 
 namespace LlmSvc.Core.Ports;
 
-public sealed class ResponseHttpResult : IResult
+public sealed class ResponseHttpResult
 {
     private ResponseHttpResult(string? body, IAsyncEnumerable<string>? chunks, int statusCode, string contentType)
     {
@@ -46,27 +45,5 @@ public sealed class ResponseHttpResult : IResult
         }
 
         return builder.ToString();
-    }
-
-    public async Task ExecuteAsync(HttpContext httpContext)
-    {
-        httpContext.Response.StatusCode = StatusCode;
-        httpContext.Response.ContentType = ContentType;
-
-        if (Chunks is null)
-        {
-            if (!string.IsNullOrEmpty(Body))
-            {
-                await httpContext.Response.WriteAsync(Body, httpContext.RequestAborted);
-            }
-
-            return;
-        }
-
-        await foreach (var chunk in Chunks.WithCancellation(httpContext.RequestAborted))
-        {
-            await httpContext.Response.WriteAsync(chunk, httpContext.RequestAborted);
-            await httpContext.Response.Body.FlushAsync(httpContext.RequestAborted);
-        }
     }
 }

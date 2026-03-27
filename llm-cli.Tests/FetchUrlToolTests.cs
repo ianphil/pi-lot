@@ -7,6 +7,7 @@ using OpenAI.Responses;
 
 namespace llm_cli.Tests;
 
+[Trait("Category", "Unit")]
 public sealed class FetchUrlToolTests
 {
     [Fact]
