@@ -1,4 +1,4 @@
-namespace LlmSvc;
+namespace LlmSvc.Core;
 
 /// <summary>
 /// Centralized Event IDs for Windows Event Log entries.

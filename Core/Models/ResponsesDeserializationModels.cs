@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace LlmSvc;
+namespace LlmSvc.Core.Models;
 
 // ── OpenAI Responses API types (for /responses-only models) ──────────────────
 

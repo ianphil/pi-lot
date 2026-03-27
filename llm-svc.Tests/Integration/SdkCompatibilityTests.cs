@@ -2,7 +2,6 @@
 
 using System.ClientModel;
 using System.Text.Json;
-using LlmSvc;
 using LlmSvc.Core.Models;
 using OpenAI;
 using OpenAI.Responses;

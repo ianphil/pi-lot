@@ -1,6 +1,7 @@
+using LlmSvc.Core;
 using LlmSvc.Core.Ports;
 
-namespace LlmSvc;
+namespace LlmSvc.Infrastructure;
 
 /// <summary>
 /// Background service that periodically validates the Copilot token

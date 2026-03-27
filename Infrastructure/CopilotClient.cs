@@ -3,12 +3,13 @@ using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using LlmSvc.Core;
 using LlmSvc.Core.Models;
 using LlmSvc.Core.Ports;
 using LlmSvc.Core.Services;
 using static LlmSvc.Core.Models.JsonElementHelpers;
 
-namespace LlmSvc;
+namespace LlmSvc.Infrastructure;
 
 /// <summary>
 /// Singleton client that handles Copilot API auth and request proxying.

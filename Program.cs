@@ -1,7 +1,8 @@
-using LlmSvc;
+using LlmSvc.Core;
 using LlmSvc.Core.Models;
 using LlmSvc.Core.Ports;
 using LlmSvc.Core.Services;
+using LlmSvc.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {

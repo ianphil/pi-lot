@@ -1,6 +1,5 @@
 using System.Net.Http.Json;
 using System.Text.Json;
-using LlmSvc;
 using LlmSvc.Core.Models;
 
 namespace llm_svc.Tests.Integration;

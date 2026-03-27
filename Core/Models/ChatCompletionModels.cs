@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace LlmSvc;
+namespace LlmSvc.Core.Models;
 
 // ── OpenAI-compatible request/response types ─────────────────────────────────
 
