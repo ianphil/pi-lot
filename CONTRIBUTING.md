@@ -104,7 +104,7 @@ dotnet test --filter "Category=Smoke" --no-restore
 - If you changed **Core/** or **Infrastructure/**: run `llm-svc.Tests` (stop task first).
 - If you changed **llm-cli/**: run `llm-cli.Tests`.
 - If you changed response serialization or translation: run smoke tests against both
-  a GPT model (native `/responses`) and a Claude model (translated from `/chat/completions`).
+  a GPT model (native `/responses`) and a Claude model (translated via `/chat/completions` upstream).
 
 ## Versioning
 

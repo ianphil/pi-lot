@@ -62,10 +62,6 @@ app.MapGet("/models", GetModelsAsync);
 app.MapPost("/v1/responses", CreateResponseAsync);
 app.MapPost("/responses", CreateResponseAsync);
 
-// ── POST /v1/chat/completions — proxy to Copilot API ────────────────────────
-app.MapPost("/v1/chat/completions", ProxyChatCompletionsAsync);
-app.MapPost("/chat/completions", ProxyChatCompletionsAsync);
-
 app.Run();
 
 static async Task<IResult> GetModelsAsync(ModelListService modelList, CancellationToken cancellationToken)
@@ -88,12 +84,6 @@ static async Task<IResult> GetModelsAsync(ModelListService modelList, Cancellati
 
 static async Task<IResult> CreateResponseAsync(CreateResponseRequest request, IResponsesService responsesService, CancellationToken cancellationToken) =>
     new ResponseHttpResultAdapter(await responsesService.CreateAsync(request, cancellationToken));
-
-static async Task<IResult> ProxyChatCompletionsAsync(ChatCompletionRequest request, IModelProvider provider, CancellationToken cancellationToken)
-{
-    var result = await provider.ChatAsync(request, cancellationToken);
-    return Results.Text(result.Body, "application/json", statusCode: result.StatusCode);
-}
 
 public partial class Program;
 

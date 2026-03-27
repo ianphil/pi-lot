@@ -11,10 +11,8 @@ authentication via Copilot CLI credentials in Windows Credential Manager.
 | GET | `/health` | Health check |
 | GET | `/v1/models` | List available models |
 | POST | `/v1/responses` | Create a response |
-| POST | `/v1/chat/completions` | Chat completions (OpenAI-compatible) |
 
-Short paths without the `/v1` prefix also work (`/models`, `/responses`,
-`/chat/completions`).
+Short paths without the `/v1` prefix also work (`/models`, `/responses`).
 
 ---
 

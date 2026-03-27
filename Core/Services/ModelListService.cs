@@ -38,6 +38,6 @@ public sealed class ModelListService
 
     internal static string[] GetProxySupportedEndpoints(ModelDescriptor model) =>
         model.SupportsResponses || model.SupportsChatCompletions
-            ? ["/v1/responses", "/v1/chat/completions"]
+            ? ["/v1/responses"]
             : [];
 }

@@ -11,14 +11,11 @@ GET  /v1/models              → list available models
 GET  /models                 → SDK-friendly alias for model listing
 POST /v1/responses           → send OpenAI Responses API requests
 POST /responses              → SDK-friendly alias for responses
-POST /v1/chat/completions    → send chat completion requests
-POST /chat/completions       → SDK-friendly alias for chat completions
 GET  /health                 → service health check
 ```
 
 **Auto-routing**:
-- `/v1/responses` is the unified surface. Models that only support `/chat/completions` are translated into Responses API output.
-- `/v1/chat/completions` remains available for compatibility, and `/responses`-only models are translated back internally when needed.
+- `/v1/responses` is the unified surface. Models that only support `/chat/completions` upstream are translated into Responses API output automatically.
 
 ## Prerequisites
 
@@ -43,11 +40,6 @@ curl http://localhost:5100/v1/models
 curl http://localhost:5100/v1/responses \
   -H "Content-Type: application/json" \
   -d '{"model": "gpt-5.4", "input": "Hello!"}'
-
-# Chat completion
-curl http://localhost:5100/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"model": "claude-haiku-4.5", "messages": [{"role": "user", "content": "Hello!"}]}'
 ```
 
 ## CLI client
@@ -108,19 +100,6 @@ options.InputItems.Add(ResponseItem.CreateUserMessageItem("Hello!"));
 
 var response = await client.CreateResponseAsync(options);
 Console.WriteLine(((MessageResponseItem)response.OutputItems[0]).Content[0].Text);
-```
-
-Chat Completions clients still work too:
-
-```python
-from openai import OpenAI
-
-client = OpenAI(base_url="http://localhost:5100/v1", api_key="unused")
-response = client.chat.completions.create(
-    model="claude-haiku-4.5",
-    messages=[{"role": "user", "content": "Hello!"}]
-)
-print(response.choices[0].message.content)
 ```
 
 ## Installing as a background service
