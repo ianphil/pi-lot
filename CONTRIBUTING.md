@@ -141,6 +141,17 @@ The service and CLI are versioned **independently** in their respective `.csproj
 - Delete the feature branch after merge.
 - Do not tag on merge — tags are created manually at release time.
 
+## Installing / Upgrading the Service
+
+The install and uninstall scripts require an **elevated (Administrator) PowerShell**:
+
+```powershell
+Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -File .\scripts\install.ps1"
+```
+
+This stops any running instance, publishes the build, registers the scheduled task,
+and starts the proxy. See `README.md` for management commands.
+
 ## Conformance Backlog
 
 `backlog/002-Responses-conformance.json` tracks OpenResponses API spec conformance.

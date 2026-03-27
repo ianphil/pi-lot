@@ -104,9 +104,10 @@ Console.WriteLine(((MessageResponseItem)response.OutputItems[0]).Content[0].Text
 
 ## Installing as a background service
 
+The install script requires an **elevated (Administrator) PowerShell** session:
+
 ```powershell
-# Run as Administrator
-.\scripts\install.ps1
+Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -File .\scripts\install.ps1"
 ```
 
 This publishes the app, creates a scheduled task that starts at logon, and starts it immediately. Manage with:
