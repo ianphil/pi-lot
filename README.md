@@ -125,13 +125,9 @@ print(response.choices[0].message.content)
 
 ## Installing as a background service
 
-### Option A: Scheduled Task (recommended for domain-joined machines)
-
-On corporate machines, Group Policy often blocks "Log on as a service". Use a scheduled task instead:
-
 ```powershell
 # Run as Administrator
-.\scripts\install-task.ps1
+.\scripts\install.ps1
 ```
 
 This publishes the app, creates a scheduled task that starts at logon, and starts it immediately. Manage with:
@@ -139,19 +135,8 @@ This publishes the app, creates a scheduled task that starts at logon, and start
 ```powershell
 Stop-ScheduledTask -TaskName CopilotLlmProxy    # stop
 Start-ScheduledTask -TaskName CopilotLlmProxy   # start
-.\scripts\uninstall-task.ps1                     # remove
+.\scripts\uninstall.ps1                          # remove
 ```
-
-### Option B: Windows Service
-
-```powershell
-# Run as Administrator
-.\scripts\install.ps1
-```
-
-Then open **services.msc** → find **Copilot LLM Proxy** → **Log On** tab → set to your Windows account → **Start**.
-
-> **Note**: Requires "Log on as a service" right, which may be blocked by Group Policy on domain machines.
 
 ## Configuration
 

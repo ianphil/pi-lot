@@ -5,7 +5,7 @@ SETUP
     llm health
 
   If the proxy isn't running, install it:
-    scripts\install-task.ps1    (as admin, registers a scheduled task)
+    scripts\install.ps1        (as admin, registers a scheduled task)
     dotnet run --project .      (for development)
 
   Authentication is handled by the proxy — it reads Copilot credentials

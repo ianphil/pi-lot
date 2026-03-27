@@ -1,40 +1,39 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Stops and removes the Copilot LLM Proxy Windows service.
+    Stops and removes the Copilot LLM Proxy scheduled task.
 .PARAMETER RemoveBinaries
     If set, also deletes the published binaries.
 .PARAMETER InstallPath
-    Where the service binaries are. Default: C:\services\llm-svc
+    Where the binaries are. Default: C:\services\llm-svc
 #>
 param(
     [switch]$RemoveBinaries,
     [string]$InstallPath = "C:\services\llm-svc"
 )
 
-$ServiceName = "CopilotLlmProxy"
+$TaskName = "CopilotLlmProxy"
 $ErrorActionPreference = "Stop"
 
-$existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+$existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
 if (-not $existing) {
-    Write-Host "Service '$ServiceName' not found. Nothing to do." -ForegroundColor Yellow
+    Write-Host "Scheduled task '$TaskName' not found. Nothing to do." -ForegroundColor Yellow
     exit 0
 }
 
-if ($existing.Status -eq "Running") {
-    Write-Host "Stopping service..." -ForegroundColor Yellow
-    sc.exe stop $ServiceName | Out-Null
-    Start-Sleep -Seconds 2
+if ($existing.State -eq "Running") {
+    Write-Host "Stopping task..." -ForegroundColor Yellow
+    Stop-ScheduledTask -TaskName $TaskName
 }
 
-Write-Host "Removing service..." -ForegroundColor Yellow
-sc.exe delete $ServiceName | Out-Null
-Write-Host "Service removed." -ForegroundColor Green
+Write-Host "Removing scheduled task..." -ForegroundColor Yellow
+Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+Write-Host "Task removed." -ForegroundColor Green
 
 # ── Remove Event Log source ──────────────────────────────────────────────────
-if ([System.Diagnostics.EventLog]::SourceExists($ServiceName)) {
+if ([System.Diagnostics.EventLog]::SourceExists($TaskName)) {
     Write-Host "Removing Event Log source..." -ForegroundColor Yellow
-    Remove-EventLog -Source $ServiceName
+    Remove-EventLog -Source $TaskName
     Write-Host "Event Log source removed." -ForegroundColor Green
 }
 
