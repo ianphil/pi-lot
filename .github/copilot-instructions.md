@@ -1,82 +1,90 @@
 # Copilot Instructions for llm-svc
 
-## What This Is
+## The Dependency Rule
 
-A local proxy that translates OpenAI Responses API requests to GitHub Copilot's upstream LLM API. Two projects live in this repo:
+This is the most important thing to understand. All source code dependencies point inward:
 
-- **llm-svc** — the proxy service (primary project). Hexagonal architecture: `Core/` has domain logic behind port interfaces, `Infrastructure/` implements adapters, `Program.cs` wires everything.
-- **llm-cli** — a reference CLI client that talks to the proxy over HTTP. Self-contained, does not reference llm-svc projects.
+```
+Infrastructure → Core ← llm-cli (via HTTP, not project reference)
+                  ↑
+              Program.cs (composition root)
+```
+
+**Core depends on nothing.** Not on Infrastructure, not on HTTP libraries, not on frameworks. Core defines port interfaces; Infrastructure implements them. `Program.cs` wires the two together. If you find yourself adding a `using` for anything outside `Core` inside a `Core/` file, you are violating the dependency rule. Stop.
+
+**llm-cli is a separate deployable.** It talks to the proxy over HTTP. It never references llm-svc projects. It is a reference implementation — proof that the API works from a real client.
+
+## The Boundaries
+
+**Core/Ports/** — the interfaces. `IAuthProvider`, `IModelProvider`, `IResponsesService`. These are the contracts. When you need a new upstream capability, you define the abstraction here first. The interface belongs to the business logic, not to the adapter.
+
+**Core/Services/** — the use cases. `ResponsesService` is the primary use case: it validates the request, resolves the model, and decides whether to pass through natively or translate through `ChatCompletionsTranslator`. The translator is a pure function — request in, response out. No HTTP, no I/O.
+
+**Core/Models/** — data structures. Plain DTOs. No behavior. If you're tempted to add a method to a model, create a service instead.
+
+**Infrastructure/** — the dirty details. `CopilotClient` does the HTTP. `CredentialManager` reads Windows credentials. `Worker` refreshes tokens. These classes implement the port interfaces and are the only place where external dependencies belong.
+
+**Program.cs** — the composition root. This is the only file that knows about both Core and Infrastructure. All DI registration and endpoint mapping lives here. Keep it thin.
+
+## The CLI Boundary
+
+The CLI has its own clean structure:
+
+**AskAgent** — the use case. It takes delegate functions for `createAsync` and `createStreamingAsync`, not a concrete `ResponsesClient`. This makes it testable without HTTP, without a running service, without mocks. Just lambdas and pure logic.
+
+**ToolRegistry** — `ILocalTool` and `IToolRegistry` interfaces. New tools implement `ILocalTool`; the registry dispatches by name. `FetchUrlTool` is the first implementation.
+
+**Tests fake behavior through function delegates**, not framework mocks. A queue of `ResponseResult` objects simulates multi-turn conversations. This is intentional — the test tells you exactly what happens, in order, with no mock framework magic hiding the intent.
 
 ## Build and Test
 
-The proxy runs as a Windows Scheduled Task (`CopilotLlmProxy`) and **locks its binary while running**. Never build or test the full solution while the task is active:
+The proxy runs as a Windows Scheduled Task and **locks its binary**. Never build the full solution while it's running:
 
 ```powershell
-# WRONG — fails if proxy is running
-dotnet test llm-svc.sln
-dotnet build
-
-# RIGHT — target specific projects
+# Target specific projects
 dotnet test llm-cli.Tests\llm-cli.Tests.csproj --no-restore
 dotnet test llm-svc.Tests\llm-svc.Tests.csproj --no-restore   # stop task first
 ```
 
-To run a single test:
+Run a single test:
 
 ```powershell
 dotnet test llm-cli.Tests --filter "FullyQualifiedName~RunNonStreamingAsync" --no-restore
 ```
 
-Smoke tests require the proxy running on `localhost:5100`:
-
-```powershell
-dotnet test --filter "Category=Smoke" --no-restore
-```
-
-Stop/start the scheduled task when you need to rebuild the service:
+Stop the task, build, restart:
 
 ```powershell
 Stop-ScheduledTask -TaskName CopilotLlmProxy
-# ... build/test ...
+# ... build/test the service ...
 Start-ScheduledTask -TaskName CopilotLlmProxy
 ```
 
-## Architecture
+### Test Discipline
 
-### Proxy (llm-svc)
+Tests are categorized by what they couple to:
 
-Hexagonal / ports-and-adapters:
+- **Unit** — pure logic, fakes, no I/O. Always safe to run.
+- **Integration** — `WebApplicationFactory` with fake providers. Safe to run, but exercises real HTTP pipeline in-memory.
+- **Smoke** — tagged `[Trait("Category", "Smoke")]`. Hit `localhost:5100`. Require the running proxy. These prove the deployed system works.
 
-- **Core/Ports/** — interfaces (`IAuthProvider`, `IModelProvider`, `IResponsesService`). Core has zero references to Infrastructure or HTTP libraries.
-- **Core/Services/** — translation logic. `ResponsesService` routes requests: models supporting `/responses` natively get passthrough; chat-only models (Claude, etc.) go through `ChatCompletionsTranslator` / `ChatCompletionsStreamTranslator`.
-- **Core/Models/** — plain DTOs only, no behavior.
-- **Infrastructure/** — adapters: `CopilotClient` (HTTP to upstream API), `CredentialManager` (Windows Credential Manager), `Worker` (background token refresh).
-- **Program.cs** — composition root. All DI wiring and endpoint mapping lives here.
+```powershell
+dotnet test llm-svc.Tests --filter "Category!=Smoke" --no-restore   # CI-safe
+dotnet test --filter "Category=Smoke" --no-restore                   # live verification
+```
 
-When adding a new upstream capability: define the port interface in `Core/Ports/` first, then implement the adapter in `Infrastructure/`.
+Integration tests use `IClassFixture<ResponsesWebApplicationFactory>` — provider state is set per-test, not shared. Each test declares its own preconditions. CLI agent tests suppress `#pragma warning disable OPENAI001` (SDK preview surface).
 
-### CLI (llm-cli)
+## Conventions That Matter
 
-- `Program.cs` — System.CommandLine entry point with `ask`, `models`, `health` commands.
-- `AskAgent.cs` — agent loop supporting tool calls. Delegates to `ResponsesClient` (OpenAI .NET SDK).
-- `ToolRegistry.cs` — `ILocalTool` / `IToolRegistry` interfaces. `LocalToolRegistry.CreateDefault()` registers built-in tools.
-- `FetchUrlTool.cs` — built-in `fetch_url` tool: HTTP GET → strip HTML → truncate → structured JSON.
+**SSE line endings must be `\n`, never `\r\n`.** This broke compliance tests. Windows defaults will betray you.
 
-Agent tests fake the SDK by passing lambda delegates for `createAsync` and `createStreamingAsync` instead of mocking `ResponsesClient`.
+**`JsonSerializerDefaults.Web`** for all JSON serialization. camelCase property names. The spec demands it.
 
-## Key Conventions
+**Event IDs** in `Core/LogEvents.cs` follow numbered ranges: 1xxx lifecycle, 2xxx auth, 3xxx API, 4xxx errors. New events go in the correct range.
 
-**Serialization:** Use `JsonSerializerDefaults.Web` for camelCase JSON. SSE output must use `\n` line endings — never `\r\n` (breaks spec compliance).
+**Versioning** — service and CLI version independently in `.csproj`. Git tags are for the service only (`v0.4.0`). Do not tag CLI changes.
 
-**Event IDs:** `Core/LogEvents.cs` uses 4-digit ranges: 1xxx lifecycle, 2xxx auth, 3xxx API, 4xxx errors. Add new IDs in the correct range.
+**Conformance** — `backlog/002-Responses-conformance.json` tracks OpenResponses spec compliance. Items have priority (P0–P2) and Fibonacci complexity (1–21). Update status when you implement something. Mark upstream-only concerns `out_of_scope`.
 
-**Testing patterns:**
-- Integration tests use `IClassFixture<ResponsesWebApplicationFactory>` with a fake `IModelProvider` whose state is set per-test.
-- Smoke tests are tagged `[Trait("Category", "Smoke")]` and hit `localhost:5100` directly.
-- CLI agent tests use `#pragma warning disable OPENAI001` (SDK preview warning).
-
-**Versioning:** Service (v0.4.0) and CLI (v0.2.0) version independently in their `.csproj` files. Git tags (`v0.4.0`) are for the service only — do not tag CLI-only changes.
-
-**Conformance tracking:** `backlog/002-Responses-conformance.json` tracks OpenResponses spec compliance with P0/P1/P2 priority and Fibonacci complexity (1–21). Update `status` when implementing a requirement; mark upstream-only concerns `out_of_scope`.
-
-**Code style:** .NET 10, nullable enabled, `record` for DTOs, `GeneratedRegex` over `new Regex()`, no comments unless clarification is genuinely needed.
+**Style** — .NET 10, nullable enabled, `record` for DTOs, `GeneratedRegex` over `new Regex()`. Comments only when the code genuinely needs clarification. If you need a comment to explain what the code does, the code isn't clean enough.
