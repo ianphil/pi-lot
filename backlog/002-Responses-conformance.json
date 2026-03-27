@@ -17,8 +17,8 @@
       "spec_requirements": 26,
       "implemented": 8,
       "partial": 10,
-      "not_implemented": 6,
-      "out_of_scope": 2
+      "not_implemented": 2,
+      "out_of_scope": 6
     }
   },
   "spec_requirements": [
@@ -344,7 +344,7 @@
         ],
         "tests": []
       },
-      "notes": "The text.format field is accepted and echoed (defaults to { type: 'text' }), but json_schema and json_object modes are not enforced or translated to chat-completions equivalents.",
+      "notes": "The text.format field is accepted and echoed (defaults to { type: 'text' }), but json_schema and json_object modes are not enforced or translated to chat-completions equivalents. TRANSLATION FOCUS: chat-completions has a direct response_format parameter — this is a real mapping opportunity for structured output through Claude and other translated models.",
       "next_action": "Map json_schema/json_object format modes to the chat-completions response_format parameter for translated models. Native models handle this upstream."
     },
     {
@@ -357,7 +357,7 @@
         "files": [],
         "tests": []
       },
-      "notes": "The spec defines a developer role separate from system. The proxy does not model or translate developer messages to provider-specific formats.",
+      "notes": "The spec defines a developer role separate from system. The proxy does not model or translate developer messages to provider-specific formats. TRANSLATION FOCUS: for translated models, developer role needs to map to system role in chat-completions. Native passthrough handles it upstream. Worth implementing alongside instructions-parameter since both affect system-level context.",
       "next_action": "Add developer role to input message parsing and map to system or developer role depending on provider capabilities."
     },
     {
@@ -365,28 +365,26 @@
       "area": "Items",
       "requirement": "Support the refusal content type as model output, allowing models to explicitly refuse requests with structured refusal text.",
       "spec_reference": "RefusalContent; Content",
-      "status": "not_implemented",
+      "status": "out_of_scope",
       "evidence": {
         "files": [],
         "tests": []
       },
-      "notes": "The spec defines a refusal content type with associated streaming events (response.refusal.delta, response.refusal.done). The proxy does not capture or emit refusal output from upstream providers.",
-      "next_action": "Add refusal content part model and map provider refusal responses (e.g., OpenAI refusal field on message) into the spec-defined type."
+      "notes": "Refusals originate upstream. Native passthrough preserves them unchanged. The proxy's job is to not strip refusal content, not to generate it. No translation-layer work needed."
     },
     {
       "id": "output-text-annotations",
       "area": "Content",
       "requirement": "Support URL citations and annotations on output_text content parts, with start_index, end_index, url, and title.",
       "spec_reference": "Annotation; UrlCitationBody; OutputTextContent",
-      "status": "not_implemented",
+      "status": "out_of_scope",
       "evidence": {
         "files": [
           "Core\\Models\\ResponsesApiModels.cs"
         ],
         "tests": []
       },
-      "notes": "The annotations array exists on output_text parts (always empty). The proxy does not extract citation metadata from upstream responses or emit annotation streaming events.",
-      "next_action": "Parse upstream annotation/citation data and populate the annotations array. Add response.output_text.annotation.added streaming events."
+      "notes": "Annotations originate upstream (web search, citations). Native passthrough preserves them. The annotations array on output_text parts exists for structural compliance. No proxy-side generation needed."
     },
     {
       "id": "instructions-parameter",
@@ -416,7 +414,7 @@
         ],
         "tests": []
       },
-      "notes": "The reasoning field is modeled and echoed in responses. Native passthrough forwards effort/summary settings to upstream. Translation does not map reasoning configuration to chat-completions equivalents.",
+      "notes": "The reasoning field is modeled and echoed in responses. Native passthrough forwards effort/summary settings to upstream. Translation does not map reasoning configuration to chat-completions equivalents. TRANSLATION FOCUS: reasoning-capable models behind chat-completions (e.g., o-series) accept a reasoning_effort parameter — this mapping would unlock reasoning control through the translated path.",
       "next_action": "Map reasoning.effort to the reasoning_effort parameter on chat-completions requests for o-series models."
     },
     {
@@ -424,26 +422,24 @@
       "area": "Request options",
       "requirement": "Support the include parameter to selectively request expensive optional fields like reasoning.encrypted_content or message.output_text.logprobs.",
       "spec_reference": "CreateResponseBody: include; IncludeEnum",
-      "status": "not_implemented",
+      "status": "out_of_scope",
       "evidence": {
         "files": [],
         "tests": []
       },
-      "notes": "The spec defines an include array to opt into fields that are excluded by default. The proxy does not parse or forward this hint.",
-      "next_action": "Accept the include parameter and forward to native providers. For translated models, map to equivalent chat-completions parameters where applicable."
+      "notes": "The include parameter tells the server which expensive fields to compute. The proxy should accept and forward it to upstream — field selection is an upstream concern. Native passthrough handles this transparently."
     },
     {
       "id": "item-reference-input",
       "area": "Items",
       "requirement": "Support item_reference input type to reference prior output items by ID without re-serializing their full content.",
       "spec_reference": "ItemReferenceParam",
-      "status": "not_implemented",
+      "status": "out_of_scope",
       "evidence": {
         "files": [],
         "tests": []
       },
-      "notes": "Requires response persistence (see previous-response-id-continuation). The proxy does not resolve item references since it does not store prior responses.",
-      "next_action": "Depends on implementing response storage. Once previous_response_id is backed by persistence, item references can be resolved from stored output."
+      "notes": "Item reference resolution requires server-side response storage — a platform concern. The proxy is stateless by design. Native passthrough forwards item references to upstream for resolution."
     },
     {
       "id": "background-and-store-modes",
