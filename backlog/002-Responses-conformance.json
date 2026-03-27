@@ -18,11 +18,13 @@
       "P2": "Nice to have. Low urgency or depends on upstream/architectural decisions."
     },
     "complexity_legend": {
-      "XS": "< 1 hour. Config change or trivial mapping.",
-      "S": "1-3 hours. Single-file change, straightforward mapping.",
-      "M": "3-8 hours. Multi-file, needs tests, touches translator and models.",
-      "L": "1-2 days. Architectural change, new subsystem or persistence layer.",
-      "XL": "2+ days. Cross-cutting, multiple subsystems, design decisions required."
+      "1": "Trivial. Config change or one-line mapping.",
+      "2": "Small. Single-file change, straightforward mapping.",
+      "3": "Moderate. Multi-file, needs tests, clear approach.",
+      "5": "Significant. Touches translator and models, multiple test cases.",
+      "8": "Large. Architectural change, new subsystem or persistence layer.",
+      "13": "Very large. Cross-cutting, multiple subsystems, design decisions required.",
+      "21": "Epic. Major feature spanning the full stack."
     },
     "scope_note": "This file tracks Open Responses spec coverage. Project-specific compatibility checks live under adjacent_checks and are not counted as spec conformance.",
     "summary": {
@@ -141,10 +143,9 @@
       "notes": "The data model contains reasoning and summary_text types, but the proxy does not currently map or stream reasoning output from upstream providers.",
       "next_action": "Add non-streaming and streaming reasoning coverage, then map any upstream reasoning-capable models into canonical reasoning items.",
       "priority": "P2",
-      "complexity": "M"
+      "complexity": 5
     },
     {
-      "id": "item-lifecycle-and-incomplete-details",
       "area": "State machines",
       "requirement": "Model response and item lifecycle with in_progress, completed, failed, and incomplete states, including incomplete_details when relevant.",
       "spec_reference": "Items are state machines; State machines",
@@ -226,7 +227,7 @@
       "notes": "The proxy filters the visible tool list before sending translated chat-completions requests. It does not yet verify that returned tool calls remain inside the allowed subset, and native /responses passthrough relies on upstream enforcement.",
       "next_action": "Add server-side validation for returned tool calls and explicit tests for native and translated enforcement paths.",
       "priority": "P1",
-      "complexity": "S"
+      "complexity": 2
     },
     {
       "id": "input-content-unions-and-multimodal",
@@ -244,7 +245,7 @@
       "notes": "The proxy supports string input, message objects, arrays of messages, function_call, function_call_output, and image_url content parts. The image-input compliance test passes. Audio/video modalities are not modeled or translated.",
       "next_action": "Add explicit input unions for audio/video content types, or reject unsupported modalities with precise errors.",
       "priority": "P2",
-      "complexity": "S"
+      "complexity": 2
     },
     {
       "id": "previous-response-id-continuation",
@@ -263,7 +264,7 @@
       "notes": "The field exists and is passed through to native /responses providers. The proxy does not persist prior response state and therefore cannot emulate these semantics for translated chat-completions-only models.",
       "next_action": "Persist response transcripts locally or surface capability metadata that makes the native-only limitation explicit.",
       "priority": "P2",
-      "complexity": "L"
+      "complexity": 8
     },
     {
       "id": "truncation-control",
@@ -282,7 +283,7 @@
       "notes": "The truncation field is accepted on requests, forwarded to native providers, and echoed back in responses (defaults to 'disabled'). Actual truncation enforcement for translated models is not implemented.",
       "next_action": "Implement auto-truncation logic for translated chat-completions models.",
       "priority": "P2",
-      "complexity": "M"
+      "complexity": 5
     },
     {
       "id": "service-tier-hint",
@@ -322,7 +323,7 @@
       "notes": "The envelope shape is solid. The main gap is taxonomy alignment: the implementation still uses the OpenAI-style invalid_request_error label for many 4xx failures, while the current Open Responses spec text also describes invalid_request. This should stay tracked explicitly until the target taxonomy is locked.",
       "next_action": "Normalize error type naming once the project decides whether it is targeting strict Open Responses labels or OpenAI-compatible labels where the two diverge.",
       "priority": "P1",
-      "complexity": "XS"
+      "complexity": 1
     },
     {
       "id": "provider-prefixed-extensions",
@@ -341,7 +342,7 @@
       "notes": "Native streaming passthrough can carry upstream events unchanged, but non-stream normalization and canonical deserialization only know the built-in item/content types. Unknown item types are not yet preserved as opaque extension records.",
       "next_action": "Add opaque extension item/event models or an extension-preserving fallback path for native responses payloads.",
       "priority": "P2",
-      "complexity": "M"
+      "complexity": 5
     },
     {
       "id": "acceptance-suite-automation",
@@ -358,7 +359,7 @@
       "notes": "12/12 compliance tests pass manually (6 gpt-5.4-mini native + 6 claude-haiku-4.5 translated). Process is documented but not yet wired into CI.",
       "next_action": "Wire the compliance tests into CI with both model targets and auto-update this matrix.",
       "priority": "P1",
-      "complexity": "M"
+      "complexity": 5
     },
     {
       "id": "structured-output-formats",
@@ -375,7 +376,7 @@
       "notes": "The text.format field is accepted and echoed (defaults to { type: 'text' }), but json_schema and json_object modes are not enforced or translated to chat-completions equivalents. TRANSLATION FOCUS: chat-completions has a direct response_format parameter — this is a real mapping opportunity for structured output through Claude and other translated models.",
       "next_action": "Map json_schema/json_object format modes to the chat-completions response_format parameter for translated models. Native models handle this upstream.",
       "priority": "P0",
-      "complexity": "S"
+      "complexity": 2
     },
     {
       "id": "developer-message-role",
@@ -390,7 +391,7 @@
       "notes": "The spec defines a developer role separate from system. The proxy does not model or translate developer messages to provider-specific formats. TRANSLATION FOCUS: for translated models, developer role needs to map to system role in chat-completions. Native passthrough handles it upstream. Worth implementing alongside instructions-parameter since both affect system-level context.",
       "next_action": "Add developer role to input message parsing and map to system or developer role depending on provider capabilities.",
       "priority": "P0",
-      "complexity": "S"
+      "complexity": 2
     },
     {
       "id": "refusal-content-type",
@@ -434,7 +435,7 @@
       "notes": "The field is accepted on requests, forwarded to native providers, and echoed in responses. For translated models, instructions are not mapped to a system message in the chat-completions request.",
       "next_action": "Map instructions to a system message for translated chat-completions models.",
       "priority": "P0",
-      "complexity": "XS"
+      "complexity": 1
     },
     {
       "id": "reasoning-effort-control",
@@ -451,7 +452,7 @@
       "notes": "The reasoning field is modeled and echoed in responses. Native passthrough forwards effort/summary settings to upstream. Translation does not map reasoning configuration to chat-completions equivalents. TRANSLATION FOCUS: reasoning-capable models behind chat-completions (e.g., o-series) accept a reasoning_effort parameter — this mapping would unlock reasoning control through the translated path.",
       "next_action": "Map reasoning.effort to the reasoning_effort parameter on chat-completions requests for o-series models.",
       "priority": "P0",
-      "complexity": "S"
+      "complexity": 2
     },
     {
       "id": "include-selective-fields",
