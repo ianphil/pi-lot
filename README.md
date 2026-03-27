@@ -1,6 +1,6 @@
 # llm-svc
 
-A local OpenAI-compatible proxy that routes to GitHub Copilot's LLM API using your Copilot CLI credentials. Runs as a console app or Windows service.
+A local OpenAI-compatible proxy that routes to GitHub Copilot's LLM API using your Copilot CLI credentials. Runs as a console app or Windows service. Includes a CLI client (`llm`) for quick access from the terminal.
 
 ## What it does
 
@@ -49,6 +49,27 @@ curl http://localhost:5100/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "claude-haiku-4.5", "messages": [{"role": "user", "content": "Hello!"}]}'
 ```
+
+## CLI client
+
+The `llm` CLI talks to the proxy from your terminal:
+
+```bash
+# Ask a question (streams by default)
+dotnet run --project llm-cli -- ask "What is the capital of France?"
+
+# Choose a model
+dotnet run --project llm-cli -- ask "Write a haiku" -m claude-haiku-4.5
+
+# System prompt
+dotnet run --project llm-cli -- ask "Review this code" -s "Be direct and concise"
+
+# List models and check health
+dotnet run --project llm-cli -- models
+dotnet run --project llm-cli -- health
+```
+
+Run `llm --help` for full usage, examples, and model guidance.
 
 ## Using with OpenAI SDKs
 
@@ -161,7 +182,7 @@ Edit `appsettings.json` to change the port:
 ## Architecture
 
 ```
-Caller (any OpenAI SDK)
+Caller (any OpenAI SDK or llm CLI)
   │
   ▼
 localhost:5100/v1/responses
@@ -172,4 +193,36 @@ localhost:5100/v1/responses
   └─ chat-only models ──────────→ Copilot /chat/completions
                                    (Claude, MiniMax)
                                    └─ translated into Responses API format
+```
+
+## Project structure
+
+```
+llm-svc/
+├── Program.cs                    Composition root (endpoint wiring)
+├── Core/
+│   ├── LogEvents.cs              Structured event IDs
+│   ├── Models/                   DTOs and shared types
+│   ├── Ports/                    Interfaces (IAuthProvider, IModelProvider, IResponsesService)
+│   └── Services/                 Translation, serialization, business logic
+├── Infrastructure/
+│   ├── CopilotClient.cs          HTTP adapter to Copilot API
+│   ├── CredentialManager.cs      Windows Credential Manager access
+│   └── Worker.cs                 Background auth lifecycle
+├── llm-cli/                      CLI client (System.CommandLine + OpenAI SDK)
+└── llm-svc.Tests/
+    ├── Fakes/                    Test doubles
+    ├── Unit/                     Service-level tests
+    ├── Integration/              WebApplicationFactory tests
+    └── Smoke/                    Live endpoint tests (Category=Smoke)
+```
+
+## Testing
+
+```bash
+# Run all in-memory tests (CI-safe, no proxy needed)
+dotnet test
+
+# Run live smoke tests (requires running proxy with credentials)
+dotnet test --filter "Category=Smoke"
 ```
