@@ -14,11 +14,11 @@
     },
     "scope_note": "This file tracks Open Responses spec coverage. Project-specific compatibility checks live under adjacent_checks and are not counted as spec conformance.",
     "summary": {
-      "spec_requirements": 17,
+      "spec_requirements": 26,
       "implemented": 8,
-      "partial": 8,
-      "not_implemented": 0,
-      "out_of_scope": 1
+      "partial": 10,
+      "not_implemented": 6,
+      "out_of_scope": 2
     }
   },
   "spec_requirements": [
@@ -331,6 +331,133 @@
       },
       "notes": "12/12 compliance tests pass manually (6 gpt-5.4-mini native + 6 claude-haiku-4.5 translated). Process is documented but not yet wired into CI.",
       "next_action": "Wire the compliance tests into CI with both model targets and auto-update this matrix."
+    },
+    {
+      "id": "structured-output-formats",
+      "area": "Response format",
+      "requirement": "Support json_schema and json_object response format modes to constrain model output to valid JSON or a specific schema.",
+      "spec_reference": "TextParam; JsonSchemaResponseFormat; JsonObjectResponseFormat",
+      "status": "not_implemented",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs"
+        ],
+        "tests": []
+      },
+      "notes": "The text.format field is accepted and echoed (defaults to { type: 'text' }), but json_schema and json_object modes are not enforced or translated to chat-completions equivalents.",
+      "next_action": "Map json_schema/json_object format modes to the chat-completions response_format parameter for translated models. Native models handle this upstream."
+    },
+    {
+      "id": "developer-message-role",
+      "area": "Items",
+      "requirement": "Support the developer message role for developer-supplied guidance distinct from system prompts and user messages.",
+      "spec_reference": "DeveloperMessageItemParam; MessageRole",
+      "status": "not_implemented",
+      "evidence": {
+        "files": [],
+        "tests": []
+      },
+      "notes": "The spec defines a developer role separate from system. The proxy does not model or translate developer messages to provider-specific formats.",
+      "next_action": "Add developer role to input message parsing and map to system or developer role depending on provider capabilities."
+    },
+    {
+      "id": "refusal-content-type",
+      "area": "Items",
+      "requirement": "Support the refusal content type as model output, allowing models to explicitly refuse requests with structured refusal text.",
+      "spec_reference": "RefusalContent; Content",
+      "status": "not_implemented",
+      "evidence": {
+        "files": [],
+        "tests": []
+      },
+      "notes": "The spec defines a refusal content type with associated streaming events (response.refusal.delta, response.refusal.done). The proxy does not capture or emit refusal output from upstream providers.",
+      "next_action": "Add refusal content part model and map provider refusal responses (e.g., OpenAI refusal field on message) into the spec-defined type."
+    },
+    {
+      "id": "output-text-annotations",
+      "area": "Content",
+      "requirement": "Support URL citations and annotations on output_text content parts, with start_index, end_index, url, and title.",
+      "spec_reference": "Annotation; UrlCitationBody; OutputTextContent",
+      "status": "not_implemented",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs"
+        ],
+        "tests": []
+      },
+      "notes": "The annotations array exists on output_text parts (always empty). The proxy does not extract citation metadata from upstream responses or emit annotation streaming events.",
+      "next_action": "Parse upstream annotation/citation data and populate the annotations array. Add response.output_text.annotation.added streaming events."
+    },
+    {
+      "id": "instructions-parameter",
+      "area": "Request options",
+      "requirement": "Support the instructions parameter as per-request guidance that is prepended to the conversation context, distinct from input system messages.",
+      "spec_reference": "CreateResponseBody: instructions; ResponseResource: instructions",
+      "status": "partial",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs",
+          "Core\\Services\\ChatCompletionsTranslator.cs"
+        ],
+        "tests": []
+      },
+      "notes": "The field is accepted on requests, forwarded to native providers, and echoed in responses. For translated models, instructions are not mapped to a system message in the chat-completions request.",
+      "next_action": "Map instructions to a system message for translated chat-completions models."
+    },
+    {
+      "id": "reasoning-effort-control",
+      "area": "Request options",
+      "requirement": "Support the reasoning parameter with effort levels (none, low, medium, high, xhigh) and summary modes (concise, detailed, auto) for reasoning-capable models.",
+      "spec_reference": "ReasoningParam; ReasoningEffortEnum; ReasoningSummaryEnum",
+      "status": "partial",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs"
+        ],
+        "tests": []
+      },
+      "notes": "The reasoning field is modeled and echoed in responses. Native passthrough forwards effort/summary settings to upstream. Translation does not map reasoning configuration to chat-completions equivalents.",
+      "next_action": "Map reasoning.effort to the reasoning_effort parameter on chat-completions requests for o-series models."
+    },
+    {
+      "id": "include-selective-fields",
+      "area": "Request options",
+      "requirement": "Support the include parameter to selectively request expensive optional fields like reasoning.encrypted_content or message.output_text.logprobs.",
+      "spec_reference": "CreateResponseBody: include; IncludeEnum",
+      "status": "not_implemented",
+      "evidence": {
+        "files": [],
+        "tests": []
+      },
+      "notes": "The spec defines an include array to opt into fields that are excluded by default. The proxy does not parse or forward this hint.",
+      "next_action": "Accept the include parameter and forward to native providers. For translated models, map to equivalent chat-completions parameters where applicable."
+    },
+    {
+      "id": "item-reference-input",
+      "area": "Items",
+      "requirement": "Support item_reference input type to reference prior output items by ID without re-serializing their full content.",
+      "spec_reference": "ItemReferenceParam",
+      "status": "not_implemented",
+      "evidence": {
+        "files": [],
+        "tests": []
+      },
+      "notes": "Requires response persistence (see previous-response-id-continuation). The proxy does not resolve item references since it does not store prior responses.",
+      "next_action": "Depends on implementing response storage. Once previous_response_id is backed by persistence, item references can be resolved from stored output."
+    },
+    {
+      "id": "background-and-store-modes",
+      "area": "Request options",
+      "requirement": "Support the background parameter for async execution and the store parameter for response persistence and later retrieval.",
+      "spec_reference": "CreateResponseBody: background; CreateResponseBody: store",
+      "status": "out_of_scope",
+      "evidence": {
+        "files": [
+          "Core\\Models\\ResponsesApiModels.cs"
+        ],
+        "tests": []
+      },
+      "notes": "Both fields are accepted and echoed (background defaults to false, store defaults to false). The proxy is a stateless local forwarder — job queuing and response persistence are not part of the current product shape."
     }
   ],
   "adjacent_checks": [
