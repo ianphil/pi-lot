@@ -1,0 +1,84 @@
+LLM CLI — query language models through the local Copilot LLM proxy.
+
+SETUP
+  The proxy (llm-svc) must be running at localhost:5100. To check:
+    llm health
+
+  If the proxy isn't running, install it:
+    scripts\install-task.ps1    (as admin, registers a scheduled task)
+    dotnet run --project .      (for development)
+
+  Authentication is handled by the proxy — it reads Copilot credentials
+  from Windows Credential Manager. No API key needed for llm commands.
+
+ASKING QUESTIONS
+  llm ask "your prompt"                   Stream a response (default)
+  llm ask "your prompt" --no-stream       Wait for the full response
+  llm ask "your prompt" -m gpt-5.4        Use a specific model
+  llm ask "your prompt" -s "Be concise"   Set system instructions
+
+  Streaming prints tokens as they arrive. Use --no-stream when piping
+  output to another command or when you need the complete response at once.
+
+  The prompt is a single positional argument. Wrap it in quotes if it
+  contains spaces or special characters.
+
+MODELS
+  llm models                              List all available models
+
+  Models fall into two categories:
+  - /responses models (GPT-5.x)       — native Responses API
+  - /chat/completions models (Claude)  — translated to Responses format
+
+  Both work transparently through "llm ask". The proxy handles translation.
+
+HEALTH
+  llm health                              Check proxy status
+
+  Returns: status (healthy/degraded), authentication state, endpoint URL.
+  A degraded status means the proxy is running but credentials are missing.
+
+ASK FLAGS
+  <prompt>              The prompt to send (required, positional)
+  -m, --model           Model ID (default: gpt-5.4-mini)
+  -s, --system          System instructions prepended to the conversation
+  --no-stream           Disable streaming, return complete response at once
+
+GLOBAL FLAGS
+  -e, --endpoint        Base URL of the proxy (default: http://localhost:5100)
+
+EXAMPLES
+  # Quick question
+  llm ask "What is the capital of France?"
+
+  # Use a powerful model for complex tasks
+  llm ask "Explain monads in simple terms" -m gpt-5.4
+
+  # System prompt for persona
+  llm ask "Review this code" -s "You are a senior .NET engineer. Be direct."
+
+  # Pipe-friendly (no streaming, clean output)
+  llm ask "Generate a UUID" --no-stream | clip
+
+  # Use Claude via the translation layer
+  llm ask "Write a haiku about shipping code" -m claude-haiku-4.5
+
+  # Check what models are available before choosing
+  llm models
+
+  # Verify the proxy is up before scripting
+  llm health && llm ask "Ready to go"
+
+EXIT CODES
+  0    Success
+  1    Error (proxy unreachable, invalid args, API error)
+
+PROXY DETAILS
+  The proxy runs at http://localhost:5100 and exposes:
+    /health                 Health check
+    /v1/models              OpenAI-compatible model list
+    /v1/responses           OpenAI Responses API
+    /v1/chat/completions    OpenAI Chat Completions API
+
+  llm ask uses /v1/responses exclusively. The proxy translates to
+  /chat/completions upstream when needed (e.g., for Claude models).

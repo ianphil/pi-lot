@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "llm-svc", "llm-svc.csproj",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "llm-svc.Tests", "llm-svc.Tests\llm-svc.Tests.csproj", "{759BC252-D99E-4322-B480-02CD770C62E9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "llm-cli", "llm-cli\llm-cli.csproj", "{F09031FF-749B-404A-9A2B-35D61965338B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,6 +43,18 @@ Global
 		{759BC252-D99E-4322-B480-02CD770C62E9}.Release|x64.Build.0 = Release|Any CPU
 		{759BC252-D99E-4322-B480-02CD770C62E9}.Release|x86.ActiveCfg = Release|Any CPU
 		{759BC252-D99E-4322-B480-02CD770C62E9}.Release|x86.Build.0 = Release|Any CPU
+		{F09031FF-749B-404A-9A2B-35D61965338B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F09031FF-749B-404A-9A2B-35D61965338B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F09031FF-749B-404A-9A2B-35D61965338B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F09031FF-749B-404A-9A2B-35D61965338B}.Debug|x64.Build.0 = Debug|Any CPU
+		{F09031FF-749B-404A-9A2B-35D61965338B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F09031FF-749B-404A-9A2B-35D61965338B}.Debug|x86.Build.0 = Debug|Any CPU
+		{F09031FF-749B-404A-9A2B-35D61965338B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F09031FF-749B-404A-9A2B-35D61965338B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F09031FF-749B-404A-9A2B-35D61965338B}.Release|x64.ActiveCfg = Release|Any CPU
+		{F09031FF-749B-404A-9A2B-35D61965338B}.Release|x64.Build.0 = Release|Any CPU
+		{F09031FF-749B-404A-9A2B-35D61965338B}.Release|x86.ActiveCfg = Release|Any CPU
+		{F09031FF-749B-404A-9A2B-35D61965338B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
