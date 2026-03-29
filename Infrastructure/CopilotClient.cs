@@ -223,6 +223,17 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
                 MaxOutputTokens = request.MaxCompletionTokens ?? request.MaxTokens ?? 4096,
                 Temperature = request.Temperature,
                 TopP = request.TopP,
+                Tools = request.Tools?
+                    .Where(t => t.Function is not null)
+                    .Select(t => new ResponseFunctionToolDefinition
+                    {
+                        Name = t.Function!.Name!,
+                        Description = t.Function.Description,
+                        Parameters = t.Function.Parameters,
+                    }).ToArray(),
+                ToolChoice = request.ToolChoice is not null
+                    ? JsonDocument.Parse(JsonSerializer.Serialize(request.ToolChoice, JsonDefaults.Web)).RootElement.Clone()
+                    : null,
             };
 
             upstream = await SendResponsesAsync(responsesRequest, cancellationToken);
