@@ -1035,4 +1035,343 @@ public sealed class ResponsesServiceTests
     }
 
     private sealed record ParsedSseEvent(string EventName, JsonElement Payload);
+
+    // --- Tool call round-trip tests ---
+
+    [Fact]
+    public async Task CreateAsync_FullConversationWithToolCallOutput_TranslatesCorrectly()
+    {
+        // Simulates what the chat UI sends on resubmission:
+        // user message → assistant message → function_call → function_call_output
+        var provider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelDescriptor
+                {
+                    Id = "claude-sonnet-4.5",
+                    SupportedEndpoints = ["/chat/completions"],
+                },
+            ],
+            ChatCompletionsResult = new ProxyHttpResult(JsonSerializer.Serialize(new ChatCompletionResponse
+            {
+                Id = "chat_final",
+                Model = "claude-sonnet-4.5",
+                Choices =
+                [
+                    new ChatChoice
+                    {
+                        Index = 0,
+                        Message = new ChatMessage
+                        {
+                            Role = "assistant",
+                            Content = "That page is about example domains.",
+                        },
+                        FinishReason = "stop",
+                    },
+                ],
+            }, JsonDefaults.Web), 200),
+        };
+
+        var service = new ResponsesService(provider, new ChatCompletionsTranslator());
+
+        var result = await service.CreateAsync(new CreateResponseRequest
+        {
+            Model = "claude-sonnet-4.5",
+            Input = JsonDocument.Parse("""
+                [
+                  {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "fetch https://example.com and summarize it"}]
+                  },
+                  {
+                    "type": "function_call",
+                    "call_id": "call_abc123",
+                    "name": "web_fetch",
+                    "arguments": "{\"url\":\"https://example.com\"}"
+                  },
+                  {
+                    "type": "function_call_output",
+                    "call_id": "call_abc123",
+                    "output": "{\"title\":\"Example Domain\",\"content\":\"This domain is for illustrative examples.\"}"
+                  }
+                ]
+                """).RootElement.Clone(),
+            Tools =
+            [
+                new ResponseFunctionToolDefinition
+                {
+                    Name = "web_fetch",
+                    Description = "Fetch a web page",
+                    Parameters = JsonDocument.Parse("""{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}""").RootElement.Clone(),
+                },
+            ],
+        });
+
+        Assert.Equal(200, result.StatusCode);
+
+        // Verify the translated chat messages
+        var messages = provider.LastChatRequest!.Messages!;
+        Assert.Equal(3, messages.Length);
+
+        // Message 0: user
+        Assert.Equal("user", messages[0].Role);
+
+        // Message 1: assistant with tool_calls
+        Assert.Equal("assistant", messages[1].Role);
+        Assert.NotNull(messages[1].ToolCalls);
+        Assert.Single(messages[1].ToolCalls!);
+        Assert.Equal("call_abc123", messages[1].ToolCalls![0].Id);
+        Assert.Equal("web_fetch", messages[1].ToolCalls![0].Function?.Name);
+        Assert.Equal("{\"url\":\"https://example.com\"}", messages[1].ToolCalls![0].Function?.Arguments);
+
+        // Message 2: tool result
+        Assert.Equal("tool", messages[2].Role);
+        Assert.Equal("call_abc123", messages[2].ToolCallId);
+
+        // Verify tools were passed through
+        Assert.NotNull(provider.LastChatRequest.Tools);
+        Assert.Single(provider.LastChatRequest.Tools!);
+        Assert.Equal("web_fetch", provider.LastChatRequest.Tools![0].Function?.Name);
+
+        // Verify final response
+        var body = Assert.IsType<string>(result.Body);
+        var response = JsonSerializer.Deserialize<Response>(body, JsonDefaults.Web);
+        Assert.NotNull(response);
+        Assert.Contains("example domains", response!.Output[0] is ResponseMessageItem msg && msg.Content.Length > 0 && msg.Content[0] is ResponseOutputTextPart tp ? tp.Text : "");
+    }
+
+    [Fact]
+    public async Task CreateAsync_FullConversationWithToolCallOutput_StreamingTranslatesCorrectly()
+    {
+        // Same scenario as above but with streaming — the exact flow the chat UI uses
+        var provider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelDescriptor
+                {
+                    Id = "claude-sonnet-4.5",
+                    SupportedEndpoints = ["/chat/completions"],
+                },
+            ],
+            ChatCompletionsStreamResult = new ProxyStreamResult(
+                null,
+                200,
+                "text/event-stream",
+                AsAsyncChunks(
+                    "data: {\"id\":\"chat_final\",\"model\":\"claude-sonnet-4.5\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"That page \"},\"finish_reason\":null}]}\n\n",
+                    "data: {\"id\":\"chat_final\",\"model\":\"claude-sonnet-4.5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"is about examples.\"},\"finish_reason\":null}]}\n\n",
+                    "data: {\"id\":\"chat_final\",\"model\":\"claude-sonnet-4.5\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+                    "data: [DONE]\n\n")),
+        };
+
+        var service = new ResponsesService(provider, new ChatCompletionsTranslator());
+
+        var result = await service.CreateAsync(new CreateResponseRequest
+        {
+            Model = "claude-sonnet-4.5",
+            Stream = true,
+            Input = JsonDocument.Parse("""
+                [
+                  {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "fetch https://example.com and summarize it"}]
+                  },
+                  {
+                    "type": "function_call",
+                    "call_id": "call_abc123",
+                    "name": "web_fetch",
+                    "arguments": "{\"url\":\"https://example.com\"}"
+                  },
+                  {
+                    "type": "function_call_output",
+                    "call_id": "call_abc123",
+                    "output": "{\"title\":\"Example Domain\",\"content\":\"This domain is for illustrative examples.\"}"
+                  }
+                ]
+                """).RootElement.Clone(),
+            Tools =
+            [
+                new ResponseFunctionToolDefinition
+                {
+                    Name = "web_fetch",
+                    Description = "Fetch a web page",
+                    Parameters = JsonDocument.Parse("""{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}""").RootElement.Clone(),
+                },
+            ],
+        });
+
+        // Verify chat messages were correctly translated
+        var messages = provider.LastChatRequest!.Messages!;
+        Assert.Equal(3, messages.Length);
+        Assert.Equal("user", messages[0].Role);
+        Assert.Equal("assistant", messages[1].Role);
+        Assert.NotNull(messages[1].ToolCalls);
+        Assert.Equal("call_abc123", messages[1].ToolCalls![0].Id);
+        Assert.Equal("web_fetch", messages[1].ToolCalls![0].Function?.Name);
+        Assert.Equal("tool", messages[2].Role);
+        Assert.Equal("call_abc123", messages[2].ToolCallId);
+
+        // Verify streaming response content
+        var body = await result.ReadBodyAsync();
+        Assert.Contains("event: response.output_text.delta", body);
+        Assert.Contains("That page ", body);
+        Assert.Contains("is about examples.", body);
+        Assert.Contains("event: response.completed", body);
+    }
+
+    [Fact]
+    public async Task CreateAsync_TextPlusToolCallInSameResponse_MapsCorrectly()
+    {
+        // Model returns both text ("Sure!") AND a tool call in the same response
+        var provider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelDescriptor
+                {
+                    Id = "claude-sonnet-4.5",
+                    SupportedEndpoints = ["/chat/completions"],
+                },
+            ],
+            ChatCompletionsResult = new ProxyHttpResult(JsonSerializer.Serialize(new ChatCompletionResponse
+            {
+                Id = "chat_mixed",
+                Model = "claude-sonnet-4.5",
+                Choices =
+                [
+                    new ChatChoice
+                    {
+                        Index = 0,
+                        Message = new ChatMessage
+                        {
+                            Role = "assistant",
+                            Content = "Sure! Let me fetch that for you.",
+                            ToolCalls =
+                            [
+                                new ChatToolCall
+                                {
+                                    Id = "call_mixed",
+                                    Function = new ChatToolCallFunction
+                                    {
+                                        Name = "web_fetch",
+                                        Arguments = "{\"url\":\"https://example.com\"}",
+                                    },
+                                },
+                            ],
+                        },
+                        FinishReason = "tool_calls",
+                    },
+                ],
+            }, JsonDefaults.Web), 200),
+        };
+
+        var service = new ResponsesService(provider, new ChatCompletionsTranslator());
+
+        var result = await service.CreateAsync(new CreateResponseRequest
+        {
+            Model = "claude-sonnet-4.5",
+            Input = JsonDocument.Parse("\"fetch https://example.com\"").RootElement.Clone(),
+            Tools =
+            [
+                new ResponseFunctionToolDefinition
+                {
+                    Name = "web_fetch",
+                    Description = "Fetch a web page",
+                    Parameters = JsonDocument.Parse("""{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}""").RootElement.Clone(),
+                },
+            ],
+        });
+
+        Assert.Equal(200, result.StatusCode);
+        var body = Assert.IsType<string>(result.Body);
+        var response = JsonSerializer.Deserialize<Response>(body, JsonDefaults.Web);
+        Assert.NotNull(response);
+
+        // Should have both a message item and a function_call item
+        Assert.True(response!.Output.Length >= 1);
+        var hasMessage = response.Output.Any(o => o is ResponseMessageItem);
+        var hasFunctionCall = response.Output.Any(o => o is ResponseFunctionCallItem);
+        Assert.True(hasMessage || hasFunctionCall, "Should have at least a message or function call");
+
+        if (hasFunctionCall)
+        {
+            var fc = response.Output.OfType<ResponseFunctionCallItem>().First();
+            Assert.Equal("web_fetch", fc.Name);
+            Assert.Equal("call_mixed", fc.CallId);
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_StreamingTextPlusToolCall_MapsCorrectly()
+    {
+        // Streaming: model sends text deltas THEN tool call deltas in same response
+        var provider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelDescriptor
+                {
+                    Id = "claude-sonnet-4.5",
+                    SupportedEndpoints = ["/chat/completions"],
+                },
+            ],
+            ChatCompletionsStreamResult = new ProxyStreamResult(
+                null,
+                200,
+                "text/event-stream",
+                AsAsyncChunks(
+                    // Text delta first
+                    "data: {\"id\":\"chat_mixed_stream\",\"model\":\"claude-sonnet-4.5\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Sure!\"},\"finish_reason\":null}]}\n\n",
+                    // Then tool call starts
+                    "data: {\"id\":\"chat_mixed_stream\",\"model\":\"claude-sonnet-4.5\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_mixed\",\"type\":\"function\",\"function\":{\"name\":\"web_fetch\",\"arguments\":\"{\\\"url\\\":\"}}]},\"finish_reason\":null}]}\n\n",
+                    // More arguments
+                    "data: {\"id\":\"chat_mixed_stream\",\"model\":\"claude-sonnet-4.5\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"https://example.com\\\"}\"}}]},\"finish_reason\":null}]}\n\n",
+                    // Finish
+                    "data: {\"id\":\"chat_mixed_stream\",\"model\":\"claude-sonnet-4.5\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n",
+                    "data: [DONE]\n\n")),
+        };
+
+        var service = new ResponsesService(provider, new ChatCompletionsTranslator());
+
+        var result = await service.CreateAsync(new CreateResponseRequest
+        {
+            Model = "claude-sonnet-4.5",
+            Stream = true,
+            Input = JsonDocument.Parse("\"fetch https://example.com\"").RootElement.Clone(),
+            Tools =
+            [
+                new ResponseFunctionToolDefinition
+                {
+                    Name = "web_fetch",
+                    Description = "Fetch a web page",
+                    Parameters = JsonDocument.Parse("""{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}""").RootElement.Clone(),
+                },
+            ],
+        });
+
+        var body = await result.ReadBodyAsync();
+        var events = ParseSseEvents(body);
+
+        // Should have text delta events
+        Assert.Contains(events, e => e.EventName == "response.output_text.delta");
+
+        // Should have function call events
+        Assert.Contains(events, e => e.EventName == "response.function_call_arguments.delta");
+        Assert.Contains(events, e => e.EventName == "response.function_call_arguments.done");
+
+        // Verify the function call details
+        var argsDone = events.First(e => e.EventName == "response.function_call_arguments.done");
+        Assert.Contains("example.com", argsDone.Payload.GetProperty("arguments").GetString());
+
+        // Should have output_item.added for both message and function call
+        var addedEvents = events.Where(e => e.EventName == "response.output_item.added").ToList();
+        Assert.True(addedEvents.Count >= 2, $"Expected at least 2 output_item.added events, got {addedEvents.Count}");
+
+        // Verify completed event has both items
+        Assert.Contains(events, e => e.EventName == "response.completed");
+    }
 }

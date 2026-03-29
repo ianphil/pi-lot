@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -9,6 +9,7 @@
     <OutputType>Exe</OutputType>
     <NoWarn>CA1416</NoWarn>
     <DefaultItemExcludes>$(DefaultItemExcludes);llm-svc.Tests\**;llm-cli\**;llm-cli.Tests\**</DefaultItemExcludes>
+    <UserSecretsId>13f9f324-1cb8-498a-974b-79931682afe6</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
