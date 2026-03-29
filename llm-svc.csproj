@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>llm_svc</RootNamespace>
     <Version>0.4.0</Version>
-    <OutputType>WinExe</OutputType>
+    <OutputType>Exe</OutputType>
     <NoWarn>CA1416</NoWarn>
     <DefaultItemExcludes>$(DefaultItemExcludes);llm-svc.Tests\**;llm-cli\**;llm-cli.Tests\**</DefaultItemExcludes>
   </PropertyGroup>

@@ -10,7 +10,7 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     ContentRootPath = AppContext.BaseDirectory,
 });
 
-if (!builder.Environment.IsEnvironment("Testing"))
+if (!builder.Environment.IsEnvironment("Testing") && OperatingSystem.IsWindows())
 {
     builder.Services.AddWindowsService(options =>
     {

@@ -43,16 +43,34 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
 
     public bool TryLoadCredential()
     {
-        _token = CredentialManager.GetCredential(CredentialPrefix);
-        if (_token is null)
+        // 1. Environment variable (container / cross-platform mode)
+        var envToken = Environment.GetEnvironmentVariable("COPILOT_TOKEN");
+        if (!string.IsNullOrEmpty(envToken))
         {
-            _logger.LogError(LogEvents.CredentialMissing, "No Copilot CLI credential found in Credential Manager. " +
-                "Run `copilot` and complete /login first.");
-            return false;
+            _token = envToken;
+            _logger.LogInformation(LogEvents.CredentialLoaded,
+                "Loaded Copilot token from COPILOT_TOKEN env var ({Prefix}...)", _token[..4]);
+            return true;
         }
 
-        _logger.LogInformation(LogEvents.CredentialLoaded, "Loaded Copilot CLI credential ({Prefix}...)", _token[..4]);
-        return true;
+        // 2. Windows Credential Manager (Windows desktop mode)
+        if (OperatingSystem.IsWindows())
+        {
+            _token = CredentialManager.GetCredential(CredentialPrefix);
+            if (_token is null)
+            {
+                _logger.LogError(LogEvents.CredentialMissing,
+                    "No Copilot CLI credential found in Credential Manager. Run `copilot` and complete /login first.");
+                return false;
+            }
+
+            _logger.LogInformation(LogEvents.CredentialLoaded, "Loaded Copilot CLI credential ({Prefix}...)", _token[..4]);
+            return true;
+        }
+
+        _logger.LogError(LogEvents.CredentialMissing,
+            "No credential source available. Set COPILOT_TOKEN env var or run on Windows with Copilot CLI.");
+        return false;
     }
 
     public async Task<bool> ValidateTokenAsync()

@@ -1,0 +1,11 @@
+bin/
+obj/
+llm-cli/
+llm-cli.Tests/
+llm-svc.Tests/
+.git/
+.vs/
+*.user
+*.sln
+scripts/
+backlog/
