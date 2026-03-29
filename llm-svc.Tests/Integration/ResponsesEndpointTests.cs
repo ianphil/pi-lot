@@ -145,13 +145,13 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
         Assert.NotNull(claude.SupportedEndpoints);
         Assert.NotNull(claude.ProxySupportedEndpoints);
         Assert.Equal(["/chat/completions", "/v1/messages"], claude.SupportedEndpoints);
-        Assert.Equal(["/v1/responses"], claude.ProxySupportedEndpoints);
+        Assert.Equal(["/v1/responses", "/v1/chat/completions"], claude.ProxySupportedEndpoints);
 
         var gpt = Assert.Single(response.Data, model => model.Id == "gpt-5.4");
         Assert.NotNull(gpt.SupportedEndpoints);
         Assert.NotNull(gpt.ProxySupportedEndpoints);
         Assert.Equal(["/responses"], gpt.SupportedEndpoints);
-        Assert.Equal(["/v1/responses"], gpt.ProxySupportedEndpoints);
+        Assert.Equal(["/v1/responses", "/v1/chat/completions"], gpt.ProxySupportedEndpoints);
     }
 
     private static async IAsyncEnumerable<string> AsAsyncChunks(params string[] chunks)

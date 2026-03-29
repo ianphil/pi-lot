@@ -27,8 +27,9 @@ ASKING QUESTIONS
 MODELS
   llm models                              List all available models
 
-  Models fall into two categories based on upstream capability, but all
-  work through /v1/responses. The proxy handles routing automatically.
+  Models fall into two categories:
+  - /responses models (GPT-5.x)       — native Responses API
+  - /chat/completions models (Claude)  — translated to Responses format
 
   Both work transparently through "llm ask". The proxy handles translation.
 
@@ -82,6 +83,7 @@ PROXY DETAILS
     /health                 Health check
     /v1/models              OpenAI-compatible model list
     /v1/responses           OpenAI Responses API
+    /v1/chat/completions    OpenAI Chat Completions API
 
   llm ask uses /v1/responses exclusively. The proxy translates to
   /chat/completions upstream when needed (e.g., for Claude models).

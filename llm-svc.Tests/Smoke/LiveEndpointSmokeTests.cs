@@ -46,6 +46,27 @@ public sealed class LiveEndpointSmokeTests : IDisposable
     }
 
     [Fact]
+    public async Task ChatCompletions_ReturnsAssistantMessage()
+    {
+        var response = await _client.PostAsJsonAsync("/v1/chat/completions", new
+        {
+            model = "gpt-5-mini",
+            messages = new[] { new { role = "user", content = "Respond with only the word 'pong'." } },
+        });
+
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(body);
+
+        var choices = doc.RootElement.GetProperty("choices");
+        Assert.NotEqual(0, choices.GetArrayLength());
+
+        var message = choices[0].GetProperty("message");
+        Assert.Equal("assistant", message.GetProperty("role").GetString());
+        Assert.False(string.IsNullOrEmpty(message.GetProperty("content").GetString()));
+    }
+
+    [Fact]
     public async Task Responses_ReturnsCompletedResponse()
     {
         var response = await _client.PostAsJsonAsync("/v1/responses", new

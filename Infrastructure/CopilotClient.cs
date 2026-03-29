@@ -159,6 +159,70 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         return await SendStreamAsync("/responses", payload, cancellationToken);
     }
 
+    public async Task<ProxyHttpResult> ChatAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
+    {
+        if (_token is null)
+        {
+            return NotAuthenticatedHttpResult();
+        }
+
+        if (string.IsNullOrEmpty(request.Model))
+        {
+            return new ProxyHttpResult(
+                JsonSerializer.Serialize(MakeError("model is required", "invalid_request"), JsonDefaults.Web), 400);
+        }
+
+        var models = await FetchModelsAsync();
+        var model = models.FirstOrDefault(m =>
+            string.Equals(m.Id, request.Model, StringComparison.OrdinalIgnoreCase));
+
+        if (model is null)
+        {
+            return new ProxyHttpResult(
+                JsonSerializer.Serialize(MakeError($"Model '{request.Model}' not found", "model_not_found"), JsonDefaults.Web), 404);
+        }
+
+        var endpoints = model.SupportedEndpoints ?? [];
+        var useResponses = !endpoints.Contains("/chat/completions", StringComparer.OrdinalIgnoreCase) &&
+                           endpoints.Contains("/responses", StringComparer.OrdinalIgnoreCase);
+
+        _logger.LogInformation(LogEvents.RequestProxied, "Routing {Model} to {Endpoint}", request.Model, useResponses ? "/responses" : "/chat/completions");
+
+        ProxyHttpResult upstream;
+        if (useResponses)
+        {
+            var responsesRequest = new CreateResponseRequest
+            {
+                Model = request.Model,
+                Input = JsonDocument.Parse(JsonSerializer.Serialize(
+                    request.Messages?.Select(message => new
+                    {
+                        role = message.Role,
+                        content = ChatCompletionsTranslator.NormalizeMessageContent(message.Content),
+                    }).ToArray() ?? Array.Empty<object>(),
+                    JsonDefaults.Web)).RootElement.Clone(),
+                Stream = false,
+                MaxOutputTokens = request.MaxCompletionTokens ?? request.MaxTokens ?? 4096,
+                Temperature = request.Temperature,
+                TopP = request.TopP,
+            };
+
+            upstream = await SendResponsesAsync(responsesRequest, cancellationToken);
+        }
+        else
+        {
+            upstream = await SendChatCompletionsAsync(request, cancellationToken);
+        }
+
+        var body = upstream.Body;
+        if (useResponses && upstream.StatusCode is >= 200 and < 300)
+        {
+            body = ChatCompletionsTranslator.TranslateResponseBodyToChatCompletion(body);
+        }
+
+        return new ProxyHttpResult(body, upstream.StatusCode);
+    }
+
     private async Task<ProxyHttpResult> SendAsync(string path, object payload, CancellationToken cancellationToken)
     {
         var req = CreatePostRequest(path, payload);
@@ -320,4 +384,9 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         }, JsonDefaults.Web),
         401,
         "application/json");
+
+    private static OpenAIErrorResponse MakeError(string message, string code) => new()
+    {
+        Error = new OpenAIError { Message = message, Code = code, Type = "error" }
+    };
 }
