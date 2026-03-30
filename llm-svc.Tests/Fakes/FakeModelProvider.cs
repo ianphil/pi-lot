@@ -27,6 +27,12 @@ public sealed class FakeModelProvider : IAuthProvider, IModelProvider
 
     public CreateResponseRequest? LastResponsesRequest { get; private set; }
 
+    public void ResetCapturedRequests()
+    {
+        LastChatRequest = null;
+        LastResponsesRequest = null;
+    }
+
     public Task<ModelDescriptor[]> FetchModelsAsync(bool forceRefresh = false, CancellationToken cancellationToken = default) =>
         Task.FromResult(Models);
 

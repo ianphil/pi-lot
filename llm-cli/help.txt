@@ -24,6 +24,17 @@ ASKING QUESTIONS
   The prompt is a single positional argument. Wrap it in quotes if it
   contains spaces or special characters.
 
+CHAT COMPLETIONS
+  llm chat "your prompt"                  Stream via Chat Completions API
+  llm chat "your prompt" --no-stream      Wait for the full response
+  llm chat "your prompt" -m gpt-5-mini    Use a specific model
+  llm chat "your prompt" -s "Be concise"  Set system instructions
+  llm chat "summarize https://..." --tools Enable local fetch_url tool
+
+  Same behavior as "llm ask" but talks /v1/chat/completions directly.
+  Useful for testing the Chat Completions surface, including SSE streaming,
+  tool calls, and responses-to-chat translation.
+
 MODELS
   llm models                              List all available models
 
@@ -42,6 +53,13 @@ HEALTH
 ASK FLAGS
   <prompt>              The prompt to send (required, positional)
   -m, --model           Model ID (default: gpt-5.4-mini)
+  -s, --system          System instructions prepended to the conversation
+  --no-stream           Disable streaming, return complete response at once
+  --tools               Enable local tools (currently: fetch_url)
+
+CHAT FLAGS
+  <prompt>              The prompt to send (required, positional)
+  -m, --model           Model ID (default: gpt-5-mini)
   -s, --system          System instructions prepended to the conversation
   --no-stream           Disable streaming, return complete response at once
   --tools               Enable local tools (currently: fetch_url)
@@ -68,6 +86,15 @@ EXAMPLES
   # Let the model fetch and summarize a web page
   llm ask "Summarize https://openresponses.org/specification" --tools
 
+  # Use Chat Completions API directly
+  llm chat "What is 2+2?" -m gpt-5-mini
+
+  # Chat with streaming disabled (pipe-friendly)
+  llm chat "Generate a UUID" --no-stream | clip
+
+  # Chat with tools
+  llm chat "Summarize https://example.com" --tools
+
   # Check what models are available before choosing
   llm models
 
@@ -87,3 +114,6 @@ PROXY DETAILS
 
   llm ask uses /v1/responses exclusively. The proxy translates to
   /chat/completions upstream when needed (e.g., for Claude models).
+
+  llm chat uses /v1/chat/completions exclusively. The proxy translates
+  to /responses upstream when needed (e.g., for GPT-5.x models).

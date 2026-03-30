@@ -212,13 +212,8 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
             var responsesRequest = new CreateResponseRequest
             {
                 Model = request.Model,
-                Input = JsonDocument.Parse(JsonSerializer.Serialize(
-                    request.Messages?.Select(message => new
-                    {
-                        role = message.Role,
-                        content = ChatCompletionsTranslator.NormalizeMessageContent(message.Content),
-                    }).ToArray() ?? Array.Empty<object>(),
-                    JsonDefaults.Web)).RootElement.Clone(),
+                Input = JsonDocument.Parse(
+                    JsonSerializer.Serialize(MapChatMessagesToResponsesInput(request.Messages), JsonDefaults.Web)).RootElement.Clone(),
                 Stream = false,
                 MaxOutputTokens = request.MaxCompletionTokens ?? request.MaxTokens ?? 4096,
                 Temperature = request.Temperature,
@@ -251,6 +246,114 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
 
         return new ProxyHttpResult(body, upstream.StatusCode);
     }
+
+    private static object[] MapChatMessagesToResponsesInput(ChatMessage[]? messages)
+    {
+        if (messages is not { Length: > 0 })
+        {
+            return [];
+        }
+
+        var items = new List<object>();
+        foreach (var message in messages)
+        {
+            if (message.ToolCalls is { Length: > 0 })
+            {
+                foreach (var toolCall in message.ToolCalls)
+                {
+                    items.Add(new
+                    {
+                        type = "function_call",
+                        call_id = toolCall.Id,
+                        name = toolCall.Function?.Name,
+                        arguments = toolCall.Function?.Arguments ?? "{}",
+                    });
+                }
+            }
+
+            if (string.Equals(message.Role, "tool", StringComparison.OrdinalIgnoreCase))
+            {
+                items.Add(new
+                {
+                    type = "function_call_output",
+                    call_id = message.ToolCallId,
+                    output = ExtractToolOutput(message.Content),
+                });
+                continue;
+            }
+
+            var content = NormalizeResponsesInputContent(message.Content);
+            var hasContent = content is { Length: > 0 };
+            if (!hasContent && message.ToolCalls is { Length: > 0 })
+            {
+                continue;
+            }
+
+            items.Add(new
+            {
+                type = "message",
+                role = message.Role,
+                content = hasContent
+                    ? content
+                    : [new { type = "input_text", text = string.Empty }],
+            });
+        }
+
+        return items.ToArray();
+    }
+
+    private static object[]? NormalizeResponsesInputContent(object? content)
+    {
+        var normalized = ChatCompletionsTranslator.NormalizeMessageContent(content);
+        return normalized switch
+        {
+            null => null,
+            string text => [new { type = "input_text", text }],
+            object[] values => values.SelectMany(MapContentValue).ToArray(),
+            _ => [new { type = "input_text", text = JsonSerializer.Serialize(normalized, JsonDefaults.Web) }],
+        };
+    }
+
+    private static IEnumerable<object> MapContentValue(object? value)
+    {
+        if (value is null)
+        {
+            yield break;
+        }
+
+        if (value is string text)
+        {
+            yield return new { type = "input_text", text };
+            yield break;
+        }
+
+        if (value is JsonElement element)
+        {
+            if (element.ValueKind == JsonValueKind.Object)
+            {
+                yield return JsonSerializer.Deserialize<object>(element.GetRawText(), JsonDefaults.Web)
+                    ?? new { type = "input_text", text = element.GetRawText() };
+                yield break;
+            }
+
+            if (element.ValueKind == JsonValueKind.String)
+            {
+                yield return new { type = "input_text", text = element.GetString() ?? string.Empty };
+                yield break;
+            }
+        }
+
+        yield return new { type = "input_text", text = JsonSerializer.Serialize(value, JsonDefaults.Web) };
+    }
+
+    private static string ExtractToolOutput(object? content) => content switch
+    {
+        null => string.Empty,
+        string text => text,
+        JsonElement element when element.ValueKind == JsonValueKind.String => element.GetString() ?? string.Empty,
+        JsonElement element => element.GetRawText(),
+        _ => JsonSerializer.Serialize(content, JsonDefaults.Web),
+    };
 
     private async Task<ProxyHttpResult> SendAsync(string path, object payload, CancellationToken cancellationToken)
     {

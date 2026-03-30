@@ -5,6 +5,7 @@ using System.CommandLine;
 using System.Reflection;
 using System.Text.Json;
 using OpenAI;
+using OpenAI.Chat;
 using OpenAI.Responses;
 using llm_cli;
 
@@ -80,6 +81,63 @@ askCommand.SetAction(async (parseResult, cancellationToken) =>
 
 root.Subcommands.Add(askCommand);
 
+// ── llm chat ─────────────────────────────────────────────────────────────────
+
+var chatPrompt = new Argument<string>("prompt") { Description = "The prompt to send" };
+var chatModel = new Option<string>("--model", "-m")
+{
+    Description = "Model to use",
+    DefaultValueFactory = _ => "gpt-5-mini",
+};
+var chatSystem = new Option<string?>("--system", "-s")
+{
+    Description = "System instructions",
+};
+var chatNoStream = new Option<bool>("--no-stream")
+{
+    Description = "Disable streaming",
+};
+var chatTools = new Option<bool>("--tools")
+{
+    Description = "Enable local tools (currently: fetch_url)",
+};
+
+var chatCommand = new Command("chat", "Send a prompt via the Chat Completions API (streams by default)")
+{
+    chatPrompt, chatModel, chatSystem, chatNoStream, chatTools, endpointOption,
+};
+
+chatCommand.SetAction(async (parseResult, cancellationToken) =>
+{
+    var prompt = parseResult.GetValue(chatPrompt)!;
+    var model = parseResult.GetValue(chatModel)!;
+    var system = parseResult.GetValue(chatSystem);
+    var noStream = parseResult.GetValue(chatNoStream);
+    var toolsEnabled = parseResult.GetValue(chatTools);
+    var endpoint = parseResult.GetValue(endpointOption)!;
+
+    var client = new ChatClient(
+        model,
+        new ApiKeyCredential("unused"),
+        new OpenAIClientOptions { Endpoint = new Uri(endpoint) });
+
+    using var toolHttpClient = new HttpClient();
+    var toolRegistry = LocalToolRegistry.CreateDefault(toolHttpClient);
+    var chatAgent = ChatAgent.Create(client, toolRegistry, Console.Out);
+    var request = new AskRequest(prompt, model, system, toolsEnabled);
+
+    if (noStream)
+    {
+        Console.WriteLine(await chatAgent.RunNonStreamingAsync(request, cancellationToken));
+    }
+    else
+    {
+        await chatAgent.RunStreamingAsync(request, cancellationToken);
+    }
+});
+
+root.Subcommands.Add(chatCommand);
+
 // ── llm models ───────────────────────────────────────────────────────────────
 
 var modelsCommand = new Command("models", "List available models with their supported endpoints") { endpointOption };
@@ -138,3 +196,5 @@ root.Subcommands.Add(healthCommand);
 
 var parseResult = root.Parse(args);
 return await parseResult.InvokeAsync();
+
+

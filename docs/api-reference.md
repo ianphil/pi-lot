@@ -149,6 +149,50 @@ All 31 spec-required fields are always present. Nullable fields appear as
 
 ---
 
+## POST /v1/chat/completions
+
+### Request body
+
+```json
+{
+  "model": "gpt-5-mini",
+  "messages": [
+    { "role": "user", "content": "What is the capital of France?" }
+  ],
+  "stream": false,
+  "max_completion_tokens": null,
+  "temperature": 1.0,
+  "top_p": 1.0,
+  "tools": [],
+  "tool_choice": "auto"
+}
+```
+
+**Required fields:** `model`, `messages`
+
+### Streaming
+
+Set `"stream": true` to receive Server-Sent Events in OpenAI Chat Completions
+chunk format (`Content-Type: text/event-stream`).
+
+```
+data: {"id":"chatcmpl-abc","model":"gpt-5-mini","choices":[{"index":0,"delta":{"role":"assistant","content":"The "},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-abc","model":"gpt-5-mini","choices":[{"index":0,"delta":{"content":"capital "},"finish_reason":null}]}
+
+...
+
+data: {"id":"chatcmpl-abc","model":"gpt-5-mini","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+```
+
+Models that only support `/responses` upstream are transparently translated —
+the proxy streams via `/responses` and converts the events to Chat Completions
+chunk format.
+
+---
+
 ## Tool calling round-trip
 
 ### Step 1 — Send a request with tools
@@ -357,7 +401,10 @@ the appropriate type (`authentication_error`, `rate_limit_error`,
 
 ## Two code paths
 
-The proxy routes requests based on model capability:
+Both API surfaces route requests based on model capability and translate
+when necessary. Each prefers its native upstream endpoint when available.
+
+### `/v1/responses` routing
 
 ```
 Request → Model supports /responses natively?
@@ -365,9 +412,18 @@ Request → Model supports /responses natively?
   └─ NO  → Translate to /chat/completions, map response back
 ```
 
+### `/v1/chat/completions` routing
+
+```
+Request → Model supports /chat/completions natively?
+  ├─ YES → Passthrough to upstream /chat/completions
+  └─ NO  → Translate to /responses, map response back
+```
+
 | Path | Models | Handler |
 |------|--------|---------|
 | Native | `gpt-5.4-mini`, `gpt-5-mini`, `gpt-5.1`, `gpt-5.2`, etc. | Direct passthrough |
 | Translated | `claude-haiku-4.5`, `claude-sonnet-4.5`, `claude-opus-4.6`, etc. | `ChatCompletionsTranslator` |
 
-Both paths produce identical spec-compliant response envelopes.
+Both paths produce identical spec-compliant response envelopes. Streaming
+is supported on both surfaces with automatic translation when needed.

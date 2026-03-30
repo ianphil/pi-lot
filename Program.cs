@@ -32,6 +32,8 @@ builder.Services.AddSingleton<ChatCompletionsTranslator>();
 builder.Services.AddSingleton<ChatCompletionsStreamTranslator>();
 builder.Services.AddSingleton<ModelListService>();
 builder.Services.AddSingleton<IResponsesService, ResponsesService>();
+builder.Services.AddSingleton<ResponsesStreamToChatTranslator>();
+builder.Services.AddSingleton<IChatCompletionsService, ChatCompletionsService>();
 
 if (!builder.Environment.IsEnvironment("Testing"))
 {
@@ -89,11 +91,8 @@ static async Task<IResult> GetModelsAsync(ModelListService modelList, Cancellati
 static async Task<IResult> CreateResponseAsync(CreateResponseRequest request, IResponsesService responsesService, CancellationToken cancellationToken) =>
     new ResponseHttpResultAdapter(await responsesService.CreateAsync(request, cancellationToken));
 
-static async Task<IResult> ProxyChatCompletionsAsync(ChatCompletionRequest request, IModelProvider provider, CancellationToken cancellationToken)
-{
-    var result = await provider.ChatAsync(request, cancellationToken);
-    return Results.Text(result.Body, "application/json", statusCode: result.StatusCode);
-}
+static async Task<IResult> ProxyChatCompletionsAsync(ChatCompletionRequest request, IChatCompletionsService chatService, CancellationToken cancellationToken) =>
+    new ResponseHttpResultAdapter(await chatService.CreateAsync(request, cancellationToken));
 
 public partial class Program;
 

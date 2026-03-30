@@ -4,6 +4,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using OpenAI.Chat;
 using OpenAI.Responses;
 
 namespace llm_cli;
@@ -47,6 +48,24 @@ public sealed partial class FetchUrlTool : ILocalTool
             additionalProperties = false,
         }),
         strictModeEnabled: true,
+        functionDescription: "Fetch the contents of an HTTP or HTTPS URL and return readable text.");
+
+    public ChatTool ChatDefinition { get; } = ChatTool.CreateFunctionTool(
+        functionName: ToolName,
+        functionParameters: BinaryData.FromObjectAsJson(new
+        {
+            type = "object",
+            properties = new
+            {
+                url = new
+                {
+                    type = "string",
+                    description = "The HTTP or HTTPS URL to fetch.",
+                },
+            },
+            required = new[] { "url" },
+            additionalProperties = false,
+        }),
         functionDescription: "Fetch the contents of an HTTP or HTTPS URL and return readable text.");
 
     public async Task<string> ExecuteAsync(BinaryData arguments, CancellationToken cancellationToken)

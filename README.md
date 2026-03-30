@@ -55,19 +55,28 @@ curl http://localhost:5100/v1/chat/completions \
 The `llm` CLI talks to the proxy from your terminal:
 
 ```bash
-# Ask a question (streams by default)
+# Ask a question via Responses API (streams by default)
 dotnet run --project llm-cli -- ask "What is the capital of France?"
+
+# Chat via Chat Completions API (streams by default)
+dotnet run --project llm-cli -- chat "What is the capital of France?"
 
 # Choose a model
 dotnet run --project llm-cli -- ask "Write a haiku" -m claude-haiku-4.5
+dotnet run --project llm-cli -- chat "Write a haiku" -m gpt-5-mini
 
 # System prompt
 dotnet run --project llm-cli -- ask "Review this code" -s "Be direct and concise"
+
+# Use tools (fetch_url)
+dotnet run --project llm-cli -- chat "Summarize https://example.com" --tools
 
 # List models and check health
 dotnet run --project llm-cli -- models
 dotnet run --project llm-cli -- health
 ```
+
+`llm ask` uses `/v1/responses`. `llm chat` uses `/v1/chat/completions`. Both stream by default and support `--no-stream`, `--model`, `--system`, and `--tools`.
 
 Run `llm --help` for full usage, examples, and model guidance.
 

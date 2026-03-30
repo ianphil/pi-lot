@@ -49,8 +49,19 @@ public sealed class HealthAndProxyEndpointTests : IClassFixture<ResponsesWebAppl
     }
 
     [Fact]
-    public async Task PostChatCompletions_ProxiesToModelProvider()
+    public async Task PostChatCompletions_ChatOnlyModel_ProxiesPlainTextResponse()
     {
+        _factory.Provider.Models =
+        [
+            new ModelDescriptor
+            {
+                Id = "gpt-5-mini",
+                Name = "GPT-5 Mini",
+                OwnedBy = "openai",
+                SupportedEndpoints = ["/chat/completions"],
+            },
+        ];
+
         var fakeResponse = new ChatCompletionResponse
         {
             Id = "chat_proxy_test",
@@ -75,7 +86,7 @@ public sealed class HealthAndProxyEndpointTests : IClassFixture<ResponsesWebAppl
                 TotalTokens = 5,
             },
         };
-        _factory.Provider.ChatResult = new(JsonSerializer.Serialize(fakeResponse, JsonDefaults.Web), 200);
+        _factory.Provider.ChatCompletionsResult = new(JsonSerializer.Serialize(fakeResponse, JsonDefaults.Web), 200);
 
         using var client = _factory.CreateClient();
         var httpResponse = await client.PostAsJsonAsync("/v1/chat/completions", new
@@ -99,7 +110,18 @@ public sealed class HealthAndProxyEndpointTests : IClassFixture<ResponsesWebAppl
     [Fact]
     public async Task PostChatCompletions_AlternateRoute_Works()
     {
-        _factory.Provider.ChatResult = new("{\"id\":\"alt\"}", 200);
+        _factory.Provider.Models =
+        [
+            new ModelDescriptor
+            {
+                Id = "gpt-5-mini",
+                Name = "GPT-5 Mini",
+                OwnedBy = "openai",
+                SupportedEndpoints = ["/chat/completions"],
+            },
+        ];
+
+        _factory.Provider.ChatCompletionsResult = new("{\"id\":\"alt\"}", 200);
 
         using var client = _factory.CreateClient();
         var httpResponse = await client.PostAsJsonAsync("/chat/completions", new
@@ -137,4 +159,5 @@ public sealed class HealthAndProxyEndpointTests : IClassFixture<ResponsesWebAppl
         Assert.NotNull(response);
         Assert.Single(response!.Data, m => m.Id == "test-model");
     }
+
 }
