@@ -19,3 +19,4 @@
 - api-surface: Library v0.2.0 has no `CopilotLlm.Client` or `CopilotLlm.Proxy` namespaces — all types live under `CopilotLlm.Core.*` and `CopilotLlm.Infrastructure`.
 - api-surface: `ResponseHttpResult` carries `Body` (string) or `Chunks` (IAsyncEnumerable<string>) — the SDK client layer must parse both shapes to produce typed results.
 - api-surface: All 15+ SSE event types are serialized as anonymous JSON objects in `ResponseSseSerializer` — no typed event models exist yet; streaming SDK must define and parse them.
+- http: `AddHttpClient()` leaves `HttpClient.Timeout` at the framework default 100 seconds unless the named `CopilotClient` registration overrides it, so the SDK's 120-second default must be applied explicitly.

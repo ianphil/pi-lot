@@ -29,14 +29,14 @@ Phase 1 (Options & DI)
 
 ### Configuration
 
-- [ ] T001 [TEST] `CopilotLlmOptions` has `DefaultModel` and `HttpTimeout` with correct defaults
-- [ ] T002 [IMPL] Create `CopilotLlmOptions` class
-- [ ] T003 [TEST] `AddCopilotLlm(Action<CopilotLlmOptions>)` registers options and applies `HttpTimeout` to HttpClient
-- [ ] T004 [IMPL] Add options overload to `ServiceCollectionExtensions`
-- [ ] T005 [TEST] Parameterless `AddCopilotLlm()` still works and uses default options
-- [ ] T006 [IMPL] Wire parameterless overload to delegate to options overload
-- [ ] T007 [TEST] Options validation rejects invalid `HttpTimeout` and empty `DefaultModel`
-- [ ] T008 [IMPL] Add validation in registration
+- [x] T001 [TEST] `CopilotLlmOptions` has `DefaultModel` and `HttpTimeout` with correct defaults
+- [x] T002 [IMPL] Create `CopilotLlmOptions` class
+- [x] T003 [TEST] `AddCopilotLlm(Action<CopilotLlmOptions>)` registers options and applies `HttpTimeout` to HttpClient
+- [x] T004 [IMPL] Add options overload to `ServiceCollectionExtensions`
+- [x] T005 [TEST] Parameterless `AddCopilotLlm()` still works and uses default options
+- [x] T006 [IMPL] Wire parameterless overload to delegate to options overload
+- [x] T007 [TEST] Options validation rejects invalid `HttpTimeout` and empty `DefaultModel`
+- [x] T008 [IMPL] Add validation in registration
 
 ---
 
