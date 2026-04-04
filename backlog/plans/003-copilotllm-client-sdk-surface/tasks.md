@@ -82,37 +82,37 @@ Phase 1 (Options & DI)
 
 ### Client Registration
 
-- [ ] T027 [TEST] `CopilotLlmClient` is resolvable from DI after `AddCopilotLlm()`
-- [ ] T028 [IMPL] Register `CopilotLlmClient` in `ServiceCollectionExtensions`
+- [x] T027 [TEST] `CopilotLlmClient` is resolvable from DI after `AddCopilotLlm()`
+- [x] T028 [IMPL] Register `CopilotLlmClient` in `ServiceCollectionExtensions`
 
 ### Responses API — Request Object
 
-- [ ] T029 [TEST] `CreateResponseAsync(CreateResponseRequest)` returns deserialized `Response` on success
-- [ ] T030 [TEST] `CreateResponseAsync(CreateResponseRequest)` throws `CopilotLlmException` on error status
-- [ ] T031 [IMPL] Implement `CreateResponseAsync(CreateResponseRequest)`
+- [x] T029 [TEST] `CreateResponseAsync(CreateResponseRequest)` returns deserialized `Response` on success
+- [x] T030 [TEST] `CreateResponseAsync(CreateResponseRequest)` throws `CopilotLlmException` on error status
+- [x] T031 [IMPL] Implement `CreateResponseAsync(CreateResponseRequest)`
 
 ### Responses API — Convenience
 
-- [ ] T032 [TEST] `CreateResponseAsync(model, input)` builds correct `CreateResponseRequest` and returns `Response`
-- [ ] T033 [TEST] `CreateResponseAsync(null, input)` uses `DefaultModel` from options
-- [ ] T034 [TEST] `CreateResponseAsync(null, input)` throws `ArgumentException` when no default model set
-- [ ] T035 [IMPL] Implement `CreateResponseAsync(string, string)`
+- [x] T032 [TEST] `CreateResponseAsync(model, input)` builds correct `CreateResponseRequest` and returns `Response`
+- [x] T033 [TEST] `CreateResponseAsync(null, input)` uses `DefaultModel` from options
+- [x] T034 [TEST] `CreateResponseAsync(null, input)` throws `ArgumentException` when no default model set
+- [x] T035 [IMPL] Implement `CreateResponseAsync(string, string)`
 
 ### Chat Completions API — Request Object
 
-- [ ] T036 [TEST] `CreateChatCompletionAsync(ChatCompletionRequest)` returns deserialized `ChatCompletionResponse`
-- [ ] T037 [TEST] `CreateChatCompletionAsync(ChatCompletionRequest)` throws `CopilotLlmException` on error
-- [ ] T038 [IMPL] Implement `CreateChatCompletionAsync(ChatCompletionRequest)`
+- [x] T036 [TEST] `CreateChatCompletionAsync(ChatCompletionRequest)` returns deserialized `ChatCompletionResponse`
+- [x] T037 [TEST] `CreateChatCompletionAsync(ChatCompletionRequest)` throws `CopilotLlmException` on error
+- [x] T038 [IMPL] Implement `CreateChatCompletionAsync(ChatCompletionRequest)`
 
 ### Chat Completions API — Convenience
 
-- [ ] T039 [TEST] `CreateChatCompletionAsync(model, message)` builds correct request and returns response
-- [ ] T040 [IMPL] Implement `CreateChatCompletionAsync(string, string)`
+- [x] T039 [TEST] `CreateChatCompletionAsync(model, message)` builds correct request and returns response
+- [x] T040 [IMPL] Implement `CreateChatCompletionAsync(string, string)`
 
 ### Models API
 
-- [ ] T041 [TEST] `ListModelsAsync()` returns model list from `ModelListService`
-- [ ] T042 [IMPL] Implement `ListModelsAsync()`
+- [x] T041 [TEST] `ListModelsAsync()` returns model list from `ModelListService`
+- [x] T042 [IMPL] Implement `ListModelsAsync()`
 
 ---
 

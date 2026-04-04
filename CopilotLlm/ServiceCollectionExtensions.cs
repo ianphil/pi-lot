@@ -77,6 +77,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ChatCompletionsTranslator>();
         services.AddSingleton<ChatCompletionsStreamTranslator>();
         services.AddSingleton<ModelListService>();
+        services.AddSingleton<CopilotLlmClient>();
         services.AddSingleton<IResponsesService, ResponsesService>();
         services.AddSingleton<ResponsesStreamToChatTranslator>();
         services.AddSingleton<IChatCompletionsService, ChatCompletionsService>();

@@ -18,9 +18,11 @@ public sealed class ServiceCollectionExtensionsTests
         using var provider = CreateProvider();
 
         var client = provider.GetRequiredService<CopilotClient>();
+        var sdkClient = provider.GetRequiredService<CopilotLlmClient>();
 
         Assert.Same(client, provider.GetRequiredService<IAuthProvider>());
         Assert.Same(client, provider.GetRequiredService<IModelProvider>());
+        Assert.NotNull(sdkClient);
         Assert.IsType<ResponsesService>(provider.GetRequiredService<IResponsesService>());
         Assert.IsType<ChatCompletionsService>(provider.GetRequiredService<IChatCompletionsService>());
         Assert.IsType<ChatCompletionsTranslator>(provider.GetRequiredService<ChatCompletionsTranslator>());
