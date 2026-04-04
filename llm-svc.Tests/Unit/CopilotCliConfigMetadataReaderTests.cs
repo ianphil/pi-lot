@@ -1,4 +1,4 @@
-using LlmSvc.Infrastructure;
+using CopilotLlm.Infrastructure;
 
 namespace llm_svc.Tests.Unit;
 

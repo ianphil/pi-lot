@@ -1,7 +1,7 @@
 using System.Text.Json;
-using LlmSvc.Core.Models;
-using LlmSvc.Core.Ports;
-using LlmSvc.Core.Services;
+using CopilotLlm.Core.Models;
+using CopilotLlm.Core.Ports;
+using CopilotLlm.Core.Services;
 using llm_svc.Tests.Fakes;
 
 namespace llm_svc.Tests.Unit;

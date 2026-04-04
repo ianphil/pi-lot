@@ -1,5 +1,5 @@
-using LlmSvc.Core.Models;
-using LlmSvc.Core.Ports;
+using CopilotLlm.Core.Models;
+using CopilotLlm.Core.Ports;
 
 namespace llm_svc.Tests.Fakes;
 

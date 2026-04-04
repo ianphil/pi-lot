@@ -1,4 +1,4 @@
-using LlmSvc.Infrastructure;
+using CopilotLlm.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace llm_svc.Tests.Unit;

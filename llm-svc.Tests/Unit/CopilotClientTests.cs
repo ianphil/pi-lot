@@ -1,8 +1,8 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using LlmSvc.Core.Models;
-using LlmSvc.Infrastructure;
+using CopilotLlm.Core.Models;
+using CopilotLlm.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace llm_svc.Tests.Unit;
