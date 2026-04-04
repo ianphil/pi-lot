@@ -24,7 +24,7 @@ GET  /health                 → service health check
 
 - [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) installed and logged in (`copilot` → `/login`)
 - .NET 10 SDK
-- Windows (uses Windows Credential Manager for token retrieval)
+- Windows or Linux desktop for automatic Copilot credential reuse, or any platform with `COPILOT_TOKEN`
 
 ## Quick start
 
@@ -164,9 +164,21 @@ Edit `appsettings.json` to change the port:
 }
 ```
 
+## Authentication
+
+Credential resolution always follows this order:
+
+1. `COPILOT_TOKEN` on every platform
+2. Windows Credential Manager entries created by Copilot CLI
+3. Linux Secret Service entries created by Copilot CLI
+
+Linux desktop lookup prefers the account referenced by `~/.copilot/config.json` `last_logged_in_user`, but only as non-secret metadata for account selection. The token itself still comes from Secret Service.
+
+Headless or container Linux should use `COPILOT_TOKEN`. If the session bus or keyring is unavailable, the service stays in the existing degraded unauthenticated mode instead of prompting or crashing.
+
 ## How it works
 
-1. Reads your Copilot CLI OAuth token from Windows Credential Manager (`copilot-cli/https://github.com:*`)
+1. Resolves your Copilot CLI OAuth token from `COPILOT_TOKEN`, Windows Credential Manager, or Linux Secret Service
 2. Sends requests directly to `https://api.enterprise.githubcopilot.com`
 3. Routes requests to `/responses` or `/chat/completions` based on model capabilities
 4. Translates between Chat Completions and Responses API formats as needed
@@ -202,6 +214,9 @@ llm-svc/
 │   └── Services/                 Translation, serialization, business logic
 ├── Infrastructure/
 │   ├── CopilotClient.cs          HTTP adapter to Copilot API
+│   ├── ICopilotCredentialStore.cs Platform credential-store abstraction
+│   ├── WindowsCredentialStore.cs Windows Credential Manager wrapper
+│   ├── LinuxSecretServiceCredentialStore.cs Linux Secret Service lookup
 │   ├── CredentialManager.cs      Windows Credential Manager access
 │   └── Worker.cs                 Background auth lifecycle
 ├── llm-cli/                      CLI client (System.CommandLine + OpenAI SDK)

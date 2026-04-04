@@ -13,13 +13,12 @@ namespace LlmSvc.Infrastructure;
 
 /// <summary>
 /// Singleton client that handles Copilot API auth and request proxying.
-/// Reads the Copilot CLI credential from Windows Credential Manager and
+/// Reads the Copilot CLI credential from the configured secure store and
 /// sends requests directly to api.enterprise.githubcopilot.com.
 /// </summary>
 public sealed class CopilotClient : IAuthProvider, IModelProvider
 {
     private const string BaseUrl = "https://api.enterprise.githubcopilot.com";
-    private const string CredentialPrefix = "copilot-cli/https://github.com";
 
     private static readonly Dictionary<string, string> CopilotHeaders = new()
     {
@@ -28,48 +27,51 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
     };
 
     private readonly HttpClient _http;
+    private readonly ICopilotCredentialStore _credentialStore;
     private readonly ILogger<CopilotClient> _logger;
     private CopilotModelInfo[]? _models;
     private DateTime _modelsLastFetched = DateTime.MinValue;
     private string? _token;
 
-    public CopilotClient(ILogger<CopilotClient> logger, IHttpClientFactory httpClientFactory)
+    public CopilotClient(ILogger<CopilotClient> logger, IHttpClientFactory httpClientFactory, ICopilotCredentialStore credentialStore)
     {
         _logger = logger;
         _http = httpClientFactory.CreateClient(nameof(CopilotClient));
+        _credentialStore = credentialStore;
     }
 
     public bool IsAuthenticated => _token is not null;
 
     public bool TryLoadCredential()
     {
-        // 1. Environment variable (container / cross-platform mode)
-        var envToken = Environment.GetEnvironmentVariable("COPILOT_TOKEN");
-        if (!string.IsNullOrEmpty(envToken))
+        var envToken = Environment.GetEnvironmentVariable(CopilotCredentialConstants.EnvironmentVariableName);
+        if (!string.IsNullOrWhiteSpace(envToken))
         {
             _token = envToken;
             _logger.LogInformation(LogEvents.CredentialLoaded,
-                "Loaded Copilot token from COPILOT_TOKEN env var ({Prefix}...)", _token[..4]);
+                "Loaded Copilot token from {EnvironmentVariable} ({Prefix}...)",
+                CopilotCredentialConstants.EnvironmentVariableName,
+                FormatTokenPrefix(_token));
             return true;
         }
 
-        // 2. Windows Credential Manager (Windows desktop mode)
-        if (OperatingSystem.IsWindows())
+        var storeToken = _credentialStore.GetCredential();
+        if (!string.IsNullOrWhiteSpace(storeToken))
         {
-            _token = CredentialManager.GetCredential(CredentialPrefix);
-            if (_token is null)
-            {
-                _logger.LogError(LogEvents.CredentialMissing,
-                    "No Copilot CLI credential found in Credential Manager. Run `copilot` and complete /login first.");
-                return false;
-            }
-
-            _logger.LogInformation(LogEvents.CredentialLoaded, "Loaded Copilot CLI credential ({Prefix}...)", _token[..4]);
+            _token = storeToken;
+            _logger.LogInformation(
+                LogEvents.CredentialLoaded,
+                "Loaded Copilot CLI credential from {CredentialStore} ({Prefix}...)",
+                _credentialStore.DisplayName,
+                FormatTokenPrefix(_token));
             return true;
         }
 
+        _token = null;
         _logger.LogError(LogEvents.CredentialMissing,
-            "No credential source available. Set COPILOT_TOKEN env var or run on Windows with Copilot CLI.");
+            "No Copilot CLI credential found via {CredentialStore}. Set {EnvironmentVariable} or complete `copilot` /login.",
+            _credentialStore.DisplayName,
+            CopilotCredentialConstants.EnvironmentVariableName);
         return false;
     }
 
@@ -87,7 +89,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            _logger.LogWarning(LogEvents.TokenExpired, "Copilot token is invalid or expired. Attempting to reload from Credential Manager.");
+            _logger.LogWarning(LogEvents.TokenExpired, "Copilot token is invalid or expired. Attempting to reload from configured credential sources.");
             return TryLoadCredential();
         }
         catch (Exception ex)
@@ -521,4 +523,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
     {
         Error = new OpenAIError { Message = message, Code = code, Type = "error" }
     };
+
+    private static string FormatTokenPrefix(string token) =>
+        token[..Math.Min(4, token.Length)];
 }
