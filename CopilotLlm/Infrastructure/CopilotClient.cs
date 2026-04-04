@@ -18,6 +18,7 @@ namespace CopilotLlm.Infrastructure;
 public sealed class CopilotClient : IAuthProvider, IModelProvider
 {
     private const string BaseUrl = "https://api.enterprise.githubcopilot.com";
+    private static readonly TimeSpan TokenTtl = TimeSpan.FromMinutes(30);
 
     private static readonly Dictionary<string, string> CopilotHeaders = new()
     {
@@ -28,15 +29,22 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
     private readonly HttpClient _http;
     private readonly ICopilotCredentialStore _credentialStore;
     private readonly ILogger<CopilotClient> _logger;
+    private readonly TimeProvider _timeProvider;
     private CopilotModelInfo[]? _models;
     private DateTime _modelsLastFetched = DateTime.MinValue;
     private string? _token;
+    private DateTimeOffset _tokenLoadedAt = DateTimeOffset.MinValue;
 
-    public CopilotClient(ILogger<CopilotClient> logger, IHttpClientFactory httpClientFactory, ICopilotCredentialStore credentialStore)
+    public CopilotClient(
+        ILogger<CopilotClient> logger,
+        IHttpClientFactory httpClientFactory,
+        ICopilotCredentialStore credentialStore,
+        TimeProvider? timeProvider = null)
     {
         _logger = logger;
         _http = httpClientFactory.CreateClient(nameof(CopilotClient));
         _credentialStore = credentialStore;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public bool IsAuthenticated => _token is not null;
@@ -47,6 +55,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         if (!string.IsNullOrWhiteSpace(envToken))
         {
             _token = envToken;
+            _tokenLoadedAt = _timeProvider.GetUtcNow();
             _logger.LogInformation(LogEvents.CredentialLoaded,
                 "Loaded Copilot token from {EnvironmentVariable} ({Prefix}...)",
                 CopilotCredentialConstants.EnvironmentVariableName,
@@ -58,6 +67,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         if (!string.IsNullOrWhiteSpace(storeToken))
         {
             _token = storeToken;
+            _tokenLoadedAt = _timeProvider.GetUtcNow();
             _logger.LogInformation(
                 LogEvents.CredentialLoaded,
                 "Loaded Copilot CLI credential from {CredentialStore} ({Prefix}...)",
@@ -67,6 +77,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         }
 
         _token = null;
+        _tokenLoadedAt = DateTimeOffset.MinValue;
         _logger.LogError(LogEvents.CredentialMissing,
             "No Copilot CLI credential found via {CredentialStore}. Set {EnvironmentVariable} or complete `copilot` /login.",
             _credentialStore.DisplayName,
@@ -76,6 +87,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
 
     public async Task<bool> ValidateTokenAsync()
     {
+        EnsureCredential();
         if (_token is null)
         {
             return false;
@@ -105,8 +117,19 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
             return _models;
         }
 
-        var req = CreateRequest(HttpMethod.Get, "/models");
-        var resp = await _http.SendAsync(req);
+        EnsureCredential();
+        if (_token is null)
+        {
+            return [];
+        }
+
+        var resp = await SendModelsRequestAsync();
+        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && TryReloadCredentialAfterUnauthorized())
+        {
+            resp.Dispose();
+            resp = await SendModelsRequestAsync();
+        }
+
         resp.EnsureSuccessStatusCode();
 
         var result = await resp.Content.ReadFromJsonAsync<CopilotModelsResponse>();
@@ -136,6 +159,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
 
     public async Task<ProxyHttpResult> SendChatCompletionsAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
     {
+        EnsureCredential();
         if (_token is null)
         {
             return NotAuthenticatedHttpResult();
@@ -147,6 +171,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
 
     public async Task<ProxyHttpResult> SendResponsesAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
     {
+        EnsureCredential();
         if (_token is null)
         {
             return NotAuthenticatedHttpResult();
@@ -158,6 +183,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
 
     public async Task<ProxyStreamResult> StreamChatCompletionsAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
     {
+        EnsureCredential();
         if (_token is null)
         {
             return NotAuthenticatedStreamResult();
@@ -169,6 +195,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
 
     public async Task<ProxyStreamResult> StreamResponsesAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
     {
+        EnsureCredential();
         if (_token is null)
         {
             return NotAuthenticatedStreamResult();
@@ -180,6 +207,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
 
     public async Task<ProxyHttpResult> ChatAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
     {
+        EnsureCredential();
         if (_token is null)
         {
             return NotAuthenticatedHttpResult();
@@ -246,6 +274,16 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         }
 
         return new ProxyHttpResult(body, upstream.StatusCode);
+    }
+
+    private void EnsureCredential()
+    {
+        if (_token is not null && _timeProvider.GetUtcNow() - _tokenLoadedAt < TokenTtl)
+        {
+            return;
+        }
+
+        TryLoadCredential();
     }
 
     private static object[] MapChatMessagesToResponsesInput(ChatMessage[]? messages)
@@ -358,21 +396,25 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
 
     private async Task<ProxyHttpResult> SendAsync(string path, object payload, CancellationToken cancellationToken)
     {
-        var req = CreatePostRequest(path, payload);
-        var resp = await _http.SendAsync(req, cancellationToken);
+        var resp = await SendPostAsync(path, payload, cancellationToken);
+        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && TryReloadCredentialAfterUnauthorized())
+        {
+            resp.Dispose();
+            resp = await SendPostAsync(path, payload, cancellationToken);
+        }
+
         var body = await resp.Content.ReadAsStringAsync(cancellationToken);
-
-        HandleUnauthorized(resp.StatusCode);
-
         return new ProxyHttpResult(body, (int)resp.StatusCode, resp.Content.Headers.ContentType?.MediaType ?? "application/json");
     }
 
     private async Task<ProxyStreamResult> SendStreamAsync(string path, object payload, CancellationToken cancellationToken)
     {
-        var req = CreatePostRequest(path, payload);
-        var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-
-        HandleUnauthorized(resp.StatusCode);
+        var resp = await SendStreamPostAsync(path, payload, cancellationToken);
+        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && TryReloadCredentialAfterUnauthorized())
+        {
+            resp.Dispose();
+            resp = await SendStreamPostAsync(path, payload, cancellationToken);
+        }
 
         var contentType = resp.Content.Headers.ContentType?.MediaType ?? "text/event-stream";
         if (!resp.IsSuccessStatusCode)
@@ -383,6 +425,24 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         }
 
         return new ProxyStreamResult(null, (int)resp.StatusCode, contentType, ReadEventChunks(resp, cancellationToken));
+    }
+
+    private Task<HttpResponseMessage> SendPostAsync(string path, object payload, CancellationToken cancellationToken)
+    {
+        var req = CreatePostRequest(path, payload);
+        return _http.SendAsync(req, cancellationToken);
+    }
+
+    private Task<HttpResponseMessage> SendModelsRequestAsync()
+    {
+        var req = CreateRequest(HttpMethod.Get, "/models");
+        return _http.SendAsync(req);
+    }
+
+    private Task<HttpResponseMessage> SendStreamPostAsync(string path, object payload, CancellationToken cancellationToken)
+    {
+        var req = CreatePostRequest(path, payload);
+        return _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
     }
 
     private static async IAsyncEnumerable<string> ReadEventChunks(HttpResponseMessage response, [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -484,13 +544,10 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         return req;
     }
 
-    private void HandleUnauthorized(System.Net.HttpStatusCode statusCode)
+    private bool TryReloadCredentialAfterUnauthorized()
     {
-        if (statusCode == System.Net.HttpStatusCode.Unauthorized)
-        {
-            _logger.LogWarning(LogEvents.TokenExpired, "Got 401 from Copilot API. Reloading credential.");
-            TryLoadCredential();
-        }
+        _logger.LogWarning(LogEvents.TokenExpired, "Got 401 from Copilot API. Reloading credential and retrying once.");
+        return TryLoadCredential();
     }
 
     private static ProxyHttpResult NotAuthenticatedHttpResult() => new(

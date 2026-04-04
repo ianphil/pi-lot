@@ -14,3 +14,5 @@
 - architecture: `CopilotClient` (Infrastructure) was calling `ChatCompletionsTranslator` (Core/Services) for two pure static transforms — a dependency rule violation. Static helpers that only depend on Core/Models belong in Core/Models, not Core/Services.
 - testing: Duplicated test fakes across test projects (identical 73-line classes) should be consolidated into a single shared fake in the library test project, referenced by the host test project.
 - release: `main` currently carries aligned `svc-v0.6.1`, `lib-v0.1.0`, and `cli-v0.3.0` tags on the library-extraction baseline commit.
+- auth: Request-level refresh has to cover `GET /models` too, because `ChatAsync` resolves model capabilities before routing and can hit the same 401 race as LLM POSTs.
+- testing: Injecting `TimeProvider` into `CopilotClient` is enough to test token TTL behavior deterministically without expanding the public SDK surface.

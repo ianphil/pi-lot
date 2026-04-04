@@ -12,7 +12,7 @@ A .NET library for accessing GitHub Copilot's LLM API with OpenAI-compatible Res
 
 ## CopilotLlm library
 
-`CopilotLlm` is the reusable core product in this repo. It handles Copilot credential resolution, model discovery, native `/responses` routing, `/chat/completions` fallback, and translation between the two API shapes.
+`CopilotLlm` is the reusable core product in this repo. It handles Copilot credential resolution, request-level credential refresh and retry, model discovery, native `/responses` routing, `/chat/completions` fallback, and translation between the two API shapes.
 
 The library integrates through a single DI entry point:
 
@@ -50,6 +50,8 @@ Credential resolution for the library follows the same order as the proxy:
 1. `COPILOT_TOKEN` on every platform
 2. Windows Credential Manager entries created by Copilot CLI
 3. Linux Secret Service entries created by Copilot CLI
+
+Library consumers do not need to register a background worker for token refresh. `CopilotClient` reloads credentials before requests when needed and retries once on a 401 with a freshly loaded credential.
 
 ## llm-svc proxy
 
