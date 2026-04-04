@@ -44,16 +44,16 @@ Phase 1 (Options & DI)
 
 ### Response Extensions
 
-- [ ] T009 [TEST] `GetOutputText()` returns text from first message output item
-- [ ] T010 [TEST] `GetOutputText()` returns null when no message items exist
-- [ ] T011 [TEST] `GetOutputText()` returns null when message has no text content parts
-- [ ] T012 [IMPL] Create `ResponseExtensions.GetOutputText()`
+- [x] T009 [TEST] `GetOutputText()` returns text from first message output item
+- [x] T010 [TEST] `GetOutputText()` returns null when no message items exist
+- [x] T011 [TEST] `GetOutputText()` returns null when message has no text content parts
+- [x] T012 [IMPL] Create `ResponseExtensions.GetOutputText()`
 
 ### ChatCompletion Extensions
 
-- [ ] T013 [TEST] `GetMessageText()` returns content from first choice
-- [ ] T014 [TEST] `GetMessageText()` returns null when no choices exist
-- [ ] T015 [IMPL] Create `ChatCompletionExtensions.GetMessageText()`
+- [x] T013 [TEST] `GetMessageText()` returns content from first choice
+- [x] T014 [TEST] `GetMessageText()` returns null when no choices exist
+- [x] T015 [IMPL] Create `ChatCompletionExtensions.GetMessageText()`
 
 ---
 
