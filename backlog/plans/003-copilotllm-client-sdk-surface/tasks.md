@@ -61,20 +61,20 @@ Phase 1 (Options & DI)
 
 ### Exception Hierarchy
 
-- [ ] T016 [TEST] `CopilotLlmException` carries `ErrorCode`, `ErrorType`, `Param`, `StatusCode`
-- [ ] T017 [IMPL] Create `CopilotLlmException` base class
-- [ ] T018 [TEST] `ModelNotFoundException` is a `CopilotLlmException`
-- [ ] T019 [TEST] `AuthenticationException` is a `CopilotLlmException`
-- [ ] T020 [TEST] `RateLimitException` carries `RetryAfter` TimeSpan
-- [ ] T021 [IMPL] Create `ModelNotFoundException`, `AuthenticationException`, `RateLimitException`
+- [x] T016 [TEST] `CopilotLlmException` carries `ErrorCode`, `ErrorType`, `Param`, `StatusCode`
+- [x] T017 [IMPL] Create `CopilotLlmException` base class
+- [x] T018 [TEST] `ModelNotFoundException` is a `CopilotLlmException`
+- [x] T019 [TEST] `AuthenticationException` is a `CopilotLlmException`
+- [x] T020 [TEST] `RateLimitException` carries `RetryAfter` TimeSpan
+- [x] T021 [IMPL] Create `ModelNotFoundException`, `AuthenticationException`, `RateLimitException`
 
 ### Error Parsing
 
-- [ ] T022 [TEST] Error JSON with `model_not_found` code maps to `ModelNotFoundException`
-- [ ] T023 [TEST] 401 status maps to `AuthenticationException`
-- [ ] T024 [TEST] 429 status maps to `RateLimitException` with RetryAfter
-- [ ] T025 [TEST] Unknown error maps to base `CopilotLlmException`
-- [ ] T026 [IMPL] Create `CopilotLlmExceptionFactory` that parses error JSON and returns correct subtype
+- [x] T022 [TEST] Error JSON with `model_not_found` code maps to `ModelNotFoundException`
+- [x] T023 [TEST] 401 status maps to `AuthenticationException`
+- [x] T024 [TEST] 429 status maps to `RateLimitException` with RetryAfter
+- [x] T025 [TEST] Unknown error maps to base `CopilotLlmException`
+- [x] T026 [IMPL] Create `CopilotLlmExceptionFactory` that parses error JSON and returns correct subtype
 
 ---
 

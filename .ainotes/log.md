@@ -21,3 +21,4 @@
 - api-surface: All 15+ SSE event types are serialized as anonymous JSON objects in `ResponseSseSerializer` — no typed event models exist yet; streaming SDK must define and parse them.
 - http: `AddHttpClient()` leaves `HttpClient.Timeout` at the framework default 100 seconds unless the named `CopilotClient` registration overrides it, so the SDK's 120-second default must be applied explicitly.
 - serialization: `ChatMessage.Content` deserializes as `object?`, so SDK helpers like `GetMessageText()` should handle both plain `string` and string-valued `JsonElement`.
+- transport: `ProxyHttpResult` and `ResponseHttpResult` do not carry response headers, so SDK `RateLimitException.RetryAfter` can only be populated from error JSON until header support exists.
