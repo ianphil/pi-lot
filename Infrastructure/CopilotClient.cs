@@ -525,5 +525,5 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
     };
 
     private static string FormatTokenPrefix(string token) =>
-        token.Length <= 4 ? token : token[..4];
+        token[..Math.Min(4, token.Length)];
 }

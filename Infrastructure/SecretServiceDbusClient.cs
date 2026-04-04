@@ -5,34 +5,34 @@ namespace LlmSvc.Infrastructure;
 
 internal sealed class SecretServiceDbusClient : ISecretServiceClient
 {
-    public IReadOnlyList<SecretServiceItem> SearchItems(string serviceName)
+    private static readonly TimeSpan s_timeout = TimeSpan.FromSeconds(5);
+
+    public string? GetCredentialSecret(string serviceName, Func<IReadOnlyList<SecretServiceItem>, SecretServiceItem?> selector)
     {
         using var connection = CreateConnection();
-        connection.ConnectAsync().GetAwaiter().GetResult();
+        connection.ConnectAsync().AsTask().WaitAsync(s_timeout).GetAwaiter().GetResult();
 
         var (unlockedItems, lockedItems) = SearchItemPaths(connection, serviceName);
         var items = new List<SecretServiceItem>(unlockedItems.Length + lockedItems.Length);
 
-        foreach (var itemPath in unlockedItems.OrderBy(static path => path.ToString(), StringComparer.Ordinal))
+        foreach (var itemPath in unlockedItems)
         {
             items.Add(ReadItem(connection, itemPath, isLocked: false));
         }
 
-        foreach (var itemPath in lockedItems.OrderBy(static path => path.ToString(), StringComparer.Ordinal))
+        foreach (var itemPath in lockedItems)
         {
             items.Add(ReadItem(connection, itemPath, isLocked: true));
         }
 
-        return items;
-    }
-
-    public string? GetSecret(string itemPath)
-    {
-        using var connection = CreateConnection();
-        connection.ConnectAsync().GetAwaiter().GetResult();
+        var selected = selector(items);
+        if (selected is null)
+        {
+            return null;
+        }
 
         var sessionPath = OpenPlainSession(connection);
-        return ReadSecret(connection, itemPath, sessionPath);
+        return ReadSecret(connection, selected.ItemPath, sessionPath);
     }
 
     private static DBusConnection CreateConnection()
@@ -52,7 +52,7 @@ internal sealed class SecretServiceDbusClient : ISecretServiceClient
         {
             var reader = message.GetBodyReader();
             return (reader.ReadArrayOfObjectPath(), reader.ReadArrayOfObjectPath());
-        }).GetAwaiter().GetResult();
+        }).WaitAsync(s_timeout).GetAwaiter().GetResult();
 
         MessageBuffer CreateMessage()
         {
@@ -79,7 +79,7 @@ internal sealed class SecretServiceDbusClient : ISecretServiceClient
         var properties = connection.CallMethodAsync(CreateMessage(), static (message, _) =>
         {
             return message.GetBodyReader().ReadDictionaryOfStringToVariantValue();
-        }).GetAwaiter().GetResult();
+        }).WaitAsync(s_timeout).GetAwaiter().GetResult();
 
         var label = properties.TryGetValue("Label", out var labelValue) ? labelValue.GetString() : null;
         var locked = properties.TryGetValue("Locked", out var lockedValue) ? lockedValue.GetBool() : isLocked;
@@ -114,7 +114,7 @@ internal sealed class SecretServiceDbusClient : ISecretServiceClient
             var reader = message.GetBodyReader();
             _ = reader.ReadVariantValue();
             return reader.ReadObjectPathAsString();
-        }).GetAwaiter().GetResult();
+        }).WaitAsync(s_timeout).GetAwaiter().GetResult();
 
         MessageBuffer CreateMessage()
         {
@@ -143,7 +143,7 @@ internal sealed class SecretServiceDbusClient : ISecretServiceClient
             _ = reader.ReadString();
 
             return secretBytes.Length == 0 ? null : Encoding.UTF8.GetString(secretBytes);
-        }).GetAwaiter().GetResult();
+        }).WaitAsync(s_timeout).GetAwaiter().GetResult();
 
         MessageBuffer CreateMessage()
         {

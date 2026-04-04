@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace llm_svc.Tests.Unit;
 
 [Trait("Category", "Unit")]
+[Collection("EnvironmentTests")]
 public sealed class CopilotClientTests
 {
     [Fact]

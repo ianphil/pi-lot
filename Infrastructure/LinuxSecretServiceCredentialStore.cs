@@ -26,43 +26,34 @@ public sealed class LinuxSecretServiceCredentialStore : ICopilotCredentialStore
         try
         {
             var metadata = _metadataReader.Read();
-            var candidates = _secretServiceClient.SearchItems(CopilotCredentialConstants.SecretServiceName)
-                .Where(static item => !item.IsLocked)
-                .Where(static item => !string.IsNullOrWhiteSpace(item.Account))
-                .Where(static item => item.Account!.StartsWith(CopilotCredentialConstants.GitHubAccountPrefix, StringComparison.Ordinal))
-                .OrderBy(static item => item.Account, StringComparer.Ordinal)
-                .ThenBy(static item => item.Label ?? string.Empty, StringComparer.Ordinal)
-                .ThenBy(static item => item.ItemPath, StringComparer.Ordinal)
-                .ToArray();
-
-            if (candidates.Length == 0)
-            {
-                return null;
-            }
-
-            var selectedItem = SelectItem(candidates, metadata);
-            var credential = _secretServiceClient.GetSecret(selectedItem.ItemPath);
+            var credential = _secretServiceClient.GetCredentialSecret(
+                CopilotCredentialConstants.SecretServiceName,
+                items => SelectCandidate(items, metadata));
             return string.IsNullOrWhiteSpace(credential) ? null : credential;
         }
-        catch (DBusExceptionBase ex)
-        {
-            _logger.LogWarning(LogEvents.CredentialMissing, ex, "Linux Secret Service lookup failed.");
-            return null;
-        }
-        catch (IOException ex)
-        {
-            _logger.LogWarning(LogEvents.CredentialMissing, ex, "Linux Secret Service lookup failed.");
-            return null;
-        }
-        catch (UnauthorizedAccessException ex)
+        catch (Exception ex) when (ex is DBusExceptionBase or IOException or UnauthorizedAccessException or TimeoutException)
         {
             _logger.LogWarning(LogEvents.CredentialMissing, ex, "Linux Secret Service lookup failed.");
             return null;
         }
     }
 
-    private static SecretServiceItem SelectItem(SecretServiceItem[] candidates, CopilotCliLoginMetadata metadata)
+    private static SecretServiceItem? SelectCandidate(IReadOnlyList<SecretServiceItem> items, CopilotCliLoginMetadata metadata)
     {
+        var candidates = items
+            .Where(static item => !item.IsLocked)
+            .Where(static item => !string.IsNullOrWhiteSpace(item.Account))
+            .Where(static item => item.Account!.StartsWith(CopilotCredentialConstants.GitHubAccountPrefix, StringComparison.Ordinal))
+            .OrderBy(static item => item.Account, StringComparer.Ordinal)
+            .ThenBy(static item => item.Label ?? string.Empty, StringComparer.Ordinal)
+            .ThenBy(static item => item.ItemPath, StringComparer.Ordinal)
+            .ToArray();
+
+        if (candidates.Length == 0)
+        {
+            return null;
+        }
+
         var preferredAccount = metadata.PreferredAccount;
         if (preferredAccount is not null)
         {

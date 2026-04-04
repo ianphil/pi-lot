@@ -2,7 +2,5 @@ namespace LlmSvc.Infrastructure;
 
 public interface ISecretServiceClient
 {
-    IReadOnlyList<SecretServiceItem> SearchItems(string serviceName);
-
-    string? GetSecret(string itemPath);
+    string? GetCredentialSecret(string serviceName, Func<IReadOnlyList<SecretServiceItem>, SecretServiceItem?> selector);
 }

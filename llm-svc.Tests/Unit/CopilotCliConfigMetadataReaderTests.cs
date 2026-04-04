@@ -3,8 +3,18 @@ using LlmSvc.Infrastructure;
 namespace llm_svc.Tests.Unit;
 
 [Trait("Category", "Unit")]
-public sealed class CopilotCliConfigMetadataReaderTests
+public sealed class CopilotCliConfigMetadataReaderTests : IDisposable
 {
+    private readonly List<string> _tempDirectories = [];
+
+    public void Dispose()
+    {
+        foreach (var dir in _tempDirectories)
+        {
+            try { Directory.Delete(dir, recursive: true); } catch { }
+        }
+    }
+
     [Fact]
     public void Read_WhenConfigFileIsMissing_ReturnsNoPreference()
     {
@@ -95,10 +105,11 @@ public sealed class CopilotCliConfigMetadataReaderTests
         Assert.Equal("https://github.com:octocat", metadata.PreferredAccount);
     }
 
-    private static string CreateTempDirectory()
+    private string CreateTempDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(path);
+        _tempDirectories.Add(path);
         return path;
     }
 }

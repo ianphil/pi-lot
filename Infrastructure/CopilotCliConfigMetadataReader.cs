@@ -34,15 +34,7 @@ public sealed class CopilotCliConfigMetadataReader
 
             return new CopilotCliLoginMetadata(lastLoggedInUser, loggedInUsers, _configPath);
         }
-        catch (IOException)
-        {
-            return new CopilotCliLoginMetadata(null, [], _configPath);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return new CopilotCliLoginMetadata(null, [], _configPath);
-        }
-        catch (JsonException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             return new CopilotCliLoginMetadata(null, [], _configPath);
         }
