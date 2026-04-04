@@ -11,6 +11,74 @@ namespace llm_svc.Tests.Unit;
 public sealed class CopilotClientTests
 {
     [Fact]
+    public void TryLoadCredential_WhenEnvVarIsSet_DoesNotConsultCredentialStore()
+    {
+        var store = new StubCredentialStore(["store-token"]);
+        var client = CreateClient(_ => throw new InvalidOperationException("HTTP should not be called"), envToken: "env-token", credentialStore: store);
+
+        Assert.True(client.IsAuthenticated);
+        Assert.Equal(0, store.CallCount);
+    }
+
+    [Fact]
+    public async Task ValidateTokenAsync_WhenUpstreamReturnsUnauthorized_ReloadsCredentialFromStore()
+    {
+        var bearerTokens = new List<string>();
+        var store = new StubCredentialStore(["expired-token", "fresh-token"]);
+        var client = CreateClient(request =>
+        {
+            if (request.RequestUri?.AbsolutePath != "/models")
+            {
+                throw new InvalidOperationException($"Unexpected request path: {request.RequestUri?.AbsolutePath}");
+            }
+
+            var token = request.Headers.Authorization?.Parameter
+                ?? throw new Xunit.Sdk.XunitException("Missing bearer token");
+            bearerTokens.Add(token);
+
+            return Task.FromResult(token switch
+            {
+                "expired-token" => new HttpResponseMessage(HttpStatusCode.Unauthorized),
+                "fresh-token" => JsonResponse(
+                    """
+                    {
+                      "data": [
+                        {
+                          "id": "gpt-5.4-mini",
+                          "name": "GPT-5.4 Mini",
+                          "supported_endpoints": ["/responses"]
+                        }
+                      ]
+                    }
+                    """),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected bearer token '{token}'"),
+            });
+        }, envToken: null, credentialStore: store);
+
+        Assert.True(await client.ValidateTokenAsync());
+        var models = await client.FetchModelsAsync(forceRefresh: true);
+
+        Assert.Equal(2, store.CallCount);
+        Assert.Equal(["expired-token", "fresh-token"], bearerTokens);
+        Assert.Single(models);
+    }
+
+    [Fact]
+    public void TryLoadCredential_WhenStoreReturnsNull_ReturnsFalseAndClearsAuthentication()
+    {
+        var store = new StubCredentialStore([]);
+        var client = CreateClient(
+            _ => throw new InvalidOperationException("HTTP should not be called"),
+            envToken: null,
+            credentialStore: store,
+            loadCredential: false);
+
+        Assert.False(client.TryLoadCredential());
+        Assert.False(client.IsAuthenticated);
+        Assert.Equal(1, store.CallCount);
+    }
+
+    [Fact]
     public async Task ChatAsync_WhenResponsesModelReceivesToolConversation_PreservesToolCallContext()
     {
         HttpRequestMessage? responsesRequest = null;
@@ -393,10 +461,14 @@ public sealed class CopilotClientTests
         Assert.Equal("Tool mapping verified.", bodyDocument.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString());
     }
 
-    private static CopilotClient CreateClient(Func<HttpRequestMessage, Task<HttpResponseMessage>> responder)
+    private static CopilotClient CreateClient(
+        Func<HttpRequestMessage, Task<HttpResponseMessage>> responder,
+        string? envToken = "test-token",
+        ICopilotCredentialStore? credentialStore = null,
+        bool loadCredential = true)
     {
         var originalToken = Environment.GetEnvironmentVariable("COPILOT_TOKEN");
-        Environment.SetEnvironmentVariable("COPILOT_TOKEN", "test-token");
+        Environment.SetEnvironmentVariable("COPILOT_TOKEN", envToken);
 
         try
         {
@@ -405,8 +477,16 @@ public sealed class CopilotClientTests
                 BaseAddress = new Uri("https://api.enterprise.githubcopilot.com"),
             };
 
-            var client = new CopilotClient(NullLogger<CopilotClient>.Instance, new StubHttpClientFactory(httpClient));
-            Assert.True(client.TryLoadCredential());
+            var client = new CopilotClient(
+                NullLogger<CopilotClient>.Instance,
+                new StubHttpClientFactory(httpClient),
+                credentialStore ?? new StubCredentialStore([]));
+
+            if (loadCredential)
+            {
+                Assert.True(client.TryLoadCredential());
+            }
+
             return client;
         }
         finally
@@ -449,6 +529,21 @@ public sealed class CopilotClientTests
     private sealed class StubHttpClientFactory(HttpClient client) : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => client;
+    }
+
+    private sealed class StubCredentialStore(IEnumerable<string> credentials) : ICopilotCredentialStore
+    {
+        private readonly Queue<string> _credentials = new(credentials);
+
+        public string DisplayName => "stub";
+
+        public int CallCount { get; private set; }
+
+        public string? GetCredential()
+        {
+            CallCount++;
+            return _credentials.Count > 0 ? _credentials.Dequeue() : null;
+        }
     }
 
     private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> responder) : HttpMessageHandler

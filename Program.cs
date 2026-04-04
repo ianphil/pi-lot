@@ -25,6 +25,22 @@ if (!builder.Environment.IsEnvironment("Testing") && OperatingSystem.IsWindows()
 }
 
 builder.Services.AddHttpClient();
+builder.Services.AddSingleton<CopilotCliConfigMetadataReader>();
+builder.Services.AddSingleton<ISecretServiceClient, SecretServiceDbusClient>();
+builder.Services.AddSingleton<ICopilotCredentialStore>(static sp =>
+{
+    if (OperatingSystem.IsWindows())
+    {
+        return new WindowsCredentialStore();
+    }
+
+    if (OperatingSystem.IsLinux())
+    {
+        return ActivatorUtilities.CreateInstance<LinuxSecretServiceCredentialStore>(sp);
+    }
+
+    return new NoOpCopilotCredentialStore();
+});
 builder.Services.AddSingleton<CopilotClient>();
 builder.Services.AddSingleton<IAuthProvider>(sp => sp.GetRequiredService<CopilotClient>());
 builder.Services.AddSingleton<IModelProvider>(sp => sp.GetRequiredService<CopilotClient>());

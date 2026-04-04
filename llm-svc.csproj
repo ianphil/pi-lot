@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.5" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.91.1" />
   </ItemGroup>
 
 </Project>
