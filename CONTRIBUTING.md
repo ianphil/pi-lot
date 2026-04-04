@@ -129,20 +129,30 @@ The library, service, and CLI are versioned **independently** in their respectiv
 <Version>0.1.0</Version>
 
 <!-- llm-svc.csproj -->
-<Version>0.4.0</Version>
+<Version>0.6.0</Version>
 
 <!-- llm-cli/llm-cli.csproj -->
-<Version>0.2.0</Version>
+<Version>0.3.0</Version>
 ```
 
 **Rules:**
 
 - All three follow [SemVer 2.0](https://semver.org/).
 - Bump the version in the `.csproj` when shipping a meaningful change.
-- **Service tags** use `v{version}` (e.g., `v0.4.0`).
-- **Library publish tags** use `lib-v{version}` (e.g., `lib-v0.1.0`).
-- Do not create git tags for CLI-only changes.
-- A PR that changes both service and library may bump both versions and may use both tag formats when releasing them separately.
+- Each component uses a prefixed tag format:
+
+| Component | Tag format | Example |
+|---|---|---|
+| Service | `svc-v{version}` | `svc-v0.6.0` |
+| Library | `lib-v{version}` | `lib-v0.1.0` |
+| CLI | `cli-v{version}` | `cli-v0.3.0` |
+
+- A PR that changes multiple components may bump multiple versions and use
+  multiple tag formats when releasing them separately.
+- Filter tags by component: `git tag -l "svc-v*"`, `git tag -l "lib-v*"`,
+  `git tag -l "cli-v*"`.
+- Legacy tags using bare `v{version}` (before this convention) refer to service
+  releases. They are kept as-is; new service releases use `svc-v{version}`.
 
 **When to bump:**
 
