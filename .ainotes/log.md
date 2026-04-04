@@ -13,3 +13,4 @@
 - scripts: `scripts/test-linux-auth.sh` advertises default port `5110`, but the script variable still defaults to `5100`, so smoke runs should pass `--port` explicitly until that mismatch is fixed.
 - architecture: `CopilotClient` (Infrastructure) was calling `ChatCompletionsTranslator` (Core/Services) for two pure static transforms — a dependency rule violation. Static helpers that only depend on Core/Models belong in Core/Models, not Core/Services.
 - testing: Duplicated test fakes across test projects (identical 73-line classes) should be consolidated into a single shared fake in the library test project, referenced by the host test project.
+- release: `main` currently carries aligned `svc-v0.6.1`, `lib-v0.1.0`, and `cli-v0.3.0` tags on the library-extraction baseline commit.

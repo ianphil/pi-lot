@@ -1,10 +1,59 @@
-# llm-svc
+# CopilotLlm
 
-A local OpenAI-compatible proxy that routes to GitHub Copilot's LLM API using your Copilot CLI credentials. Runs as a console app or Windows service. Includes a CLI client (`llm`) for quick access from the terminal.
+A .NET library for accessing GitHub Copilot's LLM API with OpenAI-compatible Responses and Chat Completions services. This repository also ships `llm-svc`, a local OpenAI-compatible proxy, and `llm`, a CLI reference client for the proxy.
 
-## What it does
+## What this repo ships
 
-Exposes a local HTTP API on `http://localhost:5100` that any OpenAI-compatible tool can use:
+| Component | What it is | Use it when |
+|---|---|---|
+| **CopilotLlm** | Reusable .NET library with auth, model discovery, routing, and translation | You want to embed Copilot-backed LLM access directly in your own .NET app or host |
+| **llm-svc** | Local HTTP proxy exposing OpenAI-compatible endpoints on `localhost` | You want existing SDKs, tools, or agents to talk to Copilot through an OpenAI-shaped API |
+| **llm** | Terminal client for the proxy | You want a quick terminal workflow or a reference client implementation |
+
+## CopilotLlm library
+
+`CopilotLlm` is the reusable core product in this repo. It handles Copilot credential resolution, model discovery, native `/responses` routing, `/chat/completions` fallback, and translation between the two API shapes.
+
+The library integrates through a single DI entry point:
+
+- `services.AddCopilotLlm()`
+- `IResponsesService` for Responses API requests
+- `IChatCompletionsService` for Chat Completions requests
+- `IModelProvider` for model discovery and direct upstream access
+
+If you are working inside this repo, reference `CopilotLlm/CopilotLlm.csproj`. If you are consuming published packages, use package ID `CopilotLlm`.
+
+```csharp
+using System.Text.Json;
+using CopilotLlm;
+using CopilotLlm.Core.Models;
+using CopilotLlm.Core.Ports;
+using Microsoft.Extensions.DependencyInjection;
+
+var services = new ServiceCollection();
+services.AddCopilotLlm();
+
+using var provider = services.BuildServiceProvider();
+
+var responses = provider.GetRequiredService<IResponsesService>();
+var result = await responses.CreateAsync(new CreateResponseRequest
+{
+    Model = "gpt-5.4-mini",
+    Input = JsonDocument.Parse("\"Hello!\"").RootElement.Clone(),
+});
+
+Console.WriteLine(await result.ReadBodyAsync());
+```
+
+Credential resolution for the library follows the same order as the proxy:
+
+1. `COPILOT_TOKEN` on every platform
+2. Windows Credential Manager entries created by Copilot CLI
+3. Linux Secret Service entries created by Copilot CLI
+
+## llm-svc proxy
+
+`llm-svc` exposes a local HTTP API on `http://localhost:5100` that any OpenAI-compatible tool can use:
 
 ```
 GET  /v1/models              → list available models
@@ -20,13 +69,13 @@ GET  /health                 → service health check
 - `/v1/responses` is the unified surface. Models that only support `/chat/completions` are translated into Responses API output.
 - `/v1/chat/completions` remains available for compatibility, and `/responses`-only models are translated back internally when needed.
 
-## Prerequisites
+## llm-svc prerequisites
 
 - [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) installed and logged in (`copilot` → `/login`)
 - .NET 10 SDK
 - Windows or Linux desktop for automatic Copilot credential reuse, or any platform with `COPILOT_TOKEN`
 
-## Quick start
+## llm-svc quick start
 
 ```bash
 cd llm-svc
@@ -50,7 +99,7 @@ curl http://localhost:5100/v1/chat/completions \
   -d '{"model": "claude-haiku-4.5", "messages": [{"role": "user", "content": "Hello!"}]}'
 ```
 
-## CLI client
+## llm CLI
 
 The `llm` CLI talks to the proxy from your terminal:
 
@@ -80,7 +129,7 @@ dotnet run --project llm-cli -- health
 
 Run `llm --help` for full usage, examples, and model guidance.
 
-## Using with OpenAI SDKs
+## Using llm-svc with OpenAI SDKs
 
 Point any OpenAI SDK at the local proxy:
 
