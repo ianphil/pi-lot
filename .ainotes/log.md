@@ -10,3 +10,4 @@
 - deployment: Framework-dependent publish on Linux requires `DOTNET_ROOT` in the unit file when dotnet is managed by mise (not at `/usr/share/dotnet`).
 - deployment: `dotnet publish` must target the `.csproj`, not the `.sln` — solution-level `--output` copies all projects to the same directory.
 - testing: `SecretServiceDbusClient` is intentionally internal to the library, so DI tests should assert the public `ISecretServiceClient` registration rather than depend on the concrete type.
+- scripts: `scripts/test-linux-auth.sh` advertises default port `5110`, but the script variable still defaults to `5100`, so smoke runs should pass `--port` explicitly until that mismatch is fixed.

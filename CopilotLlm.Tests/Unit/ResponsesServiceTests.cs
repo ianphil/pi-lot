@@ -2,9 +2,10 @@ using System.Text.Json;
 using CopilotLlm.Core.Models;
 using CopilotLlm.Core.Ports;
 using CopilotLlm.Core.Services;
-using llm_svc.Tests.Fakes;
+using CopilotLlm.Tests.Fakes;
+using FakeModelProvider = CopilotLlm.Tests.Fakes.TestModelProvider;
 
-namespace llm_svc.Tests.Unit;
+namespace CopilotLlm.Tests.Unit;
 
 [Trait("Category", "Unit")]
 public sealed class ResponsesServiceTests
@@ -12,7 +13,7 @@ public sealed class ResponsesServiceTests
     [Fact]
     public async Task CreateAsync_TranslatesChatCompletionIntoResponsesShape()
     {
-        var provider = new FakeModelProvider
+        var provider = new TestModelProvider
         {
             Models =
             [
@@ -83,7 +84,7 @@ public sealed class ResponsesServiceTests
     [Fact]
     public async Task CreateAsync_ReturnsIncompleteDetailsWhenChatCompletionStopsForLength()
     {
-        var provider = new FakeModelProvider
+        var provider = new TestModelProvider
         {
             Models =
             [
@@ -148,7 +149,7 @@ public sealed class ResponsesServiceTests
     [Fact]
     public async Task CreateAsync_MarksOnlyLastNonStreamingOutputItemIncomplete()
     {
-        var provider = new FakeModelProvider
+        var provider = new TestModelProvider
         {
             Models =
             [
@@ -220,7 +221,7 @@ public sealed class ResponsesServiceTests
     [Fact]
     public async Task CreateAsync_EmitsSpecLikeSseWhenStreamingRequested()
     {
-        var provider = new FakeModelProvider
+        var provider = new TestModelProvider
         {
             Models =
             [

@@ -5,31 +5,36 @@ Rules are explicit and unambiguous — follow them literally.
 
 ## Project Structure
 
-**llm-svc** is the primary project — a local proxy that translates OpenAI Responses API
-requests to upstream providers. **llm-cli** is a reference implementation client that
-demonstrates how to consume the proxy. Changes to the proxy are the main concern;
-CLI changes support or demonstrate proxy capabilities.
+**llm-svc** is the primary deployable host — a local proxy that translates OpenAI
+Responses API requests to upstream providers. **CopilotLlm** is the reusable class
+library that contains the translation engine, auth, model discovery, and upstream HTTP
+adapter. **llm-cli** is a reference implementation client that demonstrates how to
+consume the proxy. Changes to the host or library are the main concern; CLI changes
+support or demonstrate proxy capabilities.
 
 ```
 llm-svc/
-├── Program.cs                         Composition root, endpoint wiring
-├── Core/                              Domain logic (no external dependencies)
+├── CopilotLlm/                        Reusable library (packable NuGet)
+│   ├── ServiceCollectionExtensions.cs DI entry point for hosts
 │   ├── LogEvents.cs                   Structured event IDs for Windows Event Log
-│   ├── Models/                        DTOs, request/response types, helpers
-│   ├── Ports/                         Interfaces (IAuthProvider, IModelProvider, IResponsesService)
-│   └── Services/                      Translation, serialization, business logic
-├── Infrastructure/                    External adapters (HTTP, credentials, hosting)
-│   ├── CopilotClient.cs              HTTP adapter to upstream Copilot API
-│   ├── CredentialManager.cs           Windows Credential Manager access
-│   └── Worker.cs                      Background auth lifecycle
+│   ├── Core/                          Domain logic (no external dependencies)
+│   │   ├── Models/                    DTOs, request/response types, helpers
+│   │   ├── Ports/                     Interfaces (IAuthProvider, IModelProvider, IResponsesService)
+│   │   └── Services/                  Translation, serialization, business logic
+│   └── Infrastructure/                External adapters (HTTP, credentials)
+│       ├── CopilotClient.cs           HTTP adapter to upstream Copilot API
+│       └── CredentialManager.cs       Windows Credential Manager access
+├── Program.cs                         Host composition root and endpoint wiring
+├── Worker.cs                          Host-only background auth lifecycle
 ├── llm-cli/                           Reference CLI client
 │   ├── Program.cs                     Entry point (System.CommandLine)
 │   ├── AskAgent.cs                    Agent loop with tool-calling support
 │   ├── FetchUrlTool.cs                Built-in fetch_url tool
 │   └── ToolRegistry.cs               Tool registration and dispatch
+├── CopilotLlm.Tests/                  Library unit tests
+│   └── Unit/                          Pure library tests
 ├── llm-svc.Tests/                     Service tests
 │   ├── Fakes/                         Test doubles
-│   ├── Unit/                          Pure logic tests
 │   ├── Integration/                   WebApplicationFactory tests
 │   └── Smoke/                         Live endpoint tests (Category=Smoke)
 ├── llm-cli.Tests/                     CLI tests
@@ -41,14 +46,19 @@ llm-svc/
 
 ## Architecture Rules
 
-The proxy uses a hexagonal (ports & adapters) pattern:
+The proxy and library use a hexagonal (ports & adapters) pattern:
 
-- **Core/** has zero references to Infrastructure or external HTTP libraries.
+- **CopilotLlm/Core/** has zero references to Infrastructure or external HTTP libraries.
   All external concerns are behind interfaces in `Core/Ports/`.
-- **Infrastructure/** implements those interfaces and is wired in `Program.cs`.
+- **CopilotLlm/Infrastructure/** implements those interfaces and is wired by
+  `ServiceCollectionExtensions.AddCopilotLlm()`.
 - **Models/** are plain DTOs. Do not add behavior to model classes.
 - When adding a new upstream capability, define the port interface first,
   then implement the adapter in Infrastructure.
+
+`llm-svc` is a thin host: `Program.cs` calls `AddCopilotLlm()`, maps HTTP
+endpoints, and registers `Worker`. Keep hosting concerns there; keep reusable
+logic in `CopilotLlm/`.
 
 The CLI is self-contained in `llm-cli/` and depends only on the OpenAI .NET SDK.
 It does not reference `llm-svc` projects — it talks to the proxy over HTTP.
@@ -60,12 +70,14 @@ It does not reference `llm-svc` projects — it talks to the proxy over HTTP.
 The proxy typically runs as a Windows Scheduled Task. While it is running,
 `llm-svc.exe` is locked. Do not run `dotnet build` or `dotnet test` against
 the solution or the `llm-svc` / `llm-svc.Tests` projects while the task is active.
+Target `CopilotLlm` / `CopilotLlm.Tests` directly for library-only changes.
 
 ```powershell
 # WRONG — will fail if proxy is running
 dotnet test llm-svc.sln
 
-# RIGHT — build and test CLI projects independently
+# RIGHT — build and test library / CLI projects independently
+dotnet test CopilotLlm.Tests\CopilotLlm.Tests.csproj --no-restore
 dotnet test llm-cli.Tests\llm-cli.Tests.csproj --no-restore
 ```
 
@@ -89,6 +101,7 @@ Start-ScheduledTask -TaskName CopilotLlmProxy
 Run CI-safe tests (unit + integration):
 
 ```powershell
+dotnet test CopilotLlm.Tests --no-restore
 dotnet test llm-svc.Tests --filter "Category!=Smoke" --no-restore
 dotnet test llm-cli.Tests --filter "Category!=Smoke" --no-restore
 ```
@@ -101,16 +114,20 @@ dotnet test --filter "Category=Smoke" --no-restore
 
 ### What to Test Before Submitting
 
-- If you changed **Core/** or **Infrastructure/**: run `llm-svc.Tests` (stop task first).
+- If you changed **CopilotLlm/**: run `CopilotLlm.Tests`.
+- If you changed **Program.cs** or **Worker.cs**: run `llm-svc.Tests` (stop task first).
 - If you changed **llm-cli/**: run `llm-cli.Tests`.
 - If you changed response serialization or translation: run smoke tests against both
   a GPT model (native `/responses`) and a Claude model (translated from `/chat/completions`).
 
 ## Versioning
 
-The service and CLI are versioned **independently** in their respective `.csproj` files:
+The library, service, and CLI are versioned **independently** in their respective `.csproj` files:
 
 ```xml
+<!-- CopilotLlm/CopilotLlm.csproj -->
+<Version>0.1.0</Version>
+
 <!-- llm-svc.csproj -->
 <Version>0.4.0</Version>
 
@@ -120,11 +137,12 @@ The service and CLI are versioned **independently** in their respective `.csproj
 
 **Rules:**
 
-- Both follow [SemVer 2.0](https://semver.org/).
+- All three follow [SemVer 2.0](https://semver.org/).
 - Bump the version in the `.csproj` when shipping a meaningful change.
-- **Git tags are for the service only.** Tag format: `v{version}` (e.g., `v0.4.0`).
+- **Service tags** use `v{version}` (e.g., `v0.4.0`).
+- **Library publish tags** use `lib-v{version}` (e.g., `lib-v0.1.0`).
 - Do not create git tags for CLI-only changes.
-- A PR that changes both projects may bump both versions but only tags the service version.
+- A PR that changes both service and library may bump both versions and may use both tag formats when releasing them separately.
 
 **When to bump:**
 
@@ -133,6 +151,14 @@ The service and CLI are versioned **independently** in their respective `.csproj
 | Bug fix, minor tweak | Patch (`0.4.0` → `0.4.1`) |
 | New feature, endpoint, or capability | Minor (`0.4.0` → `0.5.0`) |
 | Breaking API change | Major (`0.4.0` → `1.0.0`) |
+
+### Library Publishing
+
+`CopilotLlm` publishes to GitHub Packages using `.github/workflows/publish-copilotllm.yml`.
+
+- Push a tag matching the library version, like `lib-v0.1.0`, to publish automatically.
+- Or run the workflow manually with **workflow_dispatch** to publish the current library version.
+- The workflow publishes to `https://nuget.pkg.github.com/{owner}/index.json` using `GITHUB_TOKEN`.
 
 ## Branch and PR Workflow
 

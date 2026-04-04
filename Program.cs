@@ -1,8 +1,9 @@
+using CopilotLlm;
 using CopilotLlm.Core;
 using CopilotLlm.Core.Models;
 using CopilotLlm.Core.Ports;
 using CopilotLlm.Core.Services;
-using CopilotLlm.Infrastructure;
+using llm_svc;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
@@ -24,35 +25,7 @@ if (!builder.Environment.IsEnvironment("Testing") && OperatingSystem.IsWindows()
     });
 }
 
-builder.Services.AddHttpClient();
-if (OperatingSystem.IsLinux())
-{
-    builder.Services.AddSingleton<CopilotCliConfigMetadataReader>();
-    builder.Services.AddSingleton<ISecretServiceClient, SecretServiceDbusClient>();
-}
-builder.Services.AddSingleton<ICopilotCredentialStore>(static sp =>
-{
-    if (OperatingSystem.IsWindows())
-    {
-        return new WindowsCredentialStore();
-    }
-
-    if (OperatingSystem.IsLinux())
-    {
-        return ActivatorUtilities.CreateInstance<LinuxSecretServiceCredentialStore>(sp);
-    }
-
-    return new NoOpCopilotCredentialStore();
-});
-builder.Services.AddSingleton<CopilotClient>();
-builder.Services.AddSingleton<IAuthProvider>(sp => sp.GetRequiredService<CopilotClient>());
-builder.Services.AddSingleton<IModelProvider>(sp => sp.GetRequiredService<CopilotClient>());
-builder.Services.AddSingleton<ChatCompletionsTranslator>();
-builder.Services.AddSingleton<ChatCompletionsStreamTranslator>();
-builder.Services.AddSingleton<ModelListService>();
-builder.Services.AddSingleton<IResponsesService, ResponsesService>();
-builder.Services.AddSingleton<ResponsesStreamToChatTranslator>();
-builder.Services.AddSingleton<IChatCompletionsService, ChatCompletionsService>();
+builder.Services.AddCopilotLlm();
 
 if (!builder.Environment.IsEnvironment("Testing"))
 {

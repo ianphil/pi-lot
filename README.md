@@ -206,23 +206,17 @@ localhost:5100/v1/responses
 
 ```
 llm-svc/
-├── Program.cs                    Composition root (endpoint wiring)
-├── Core/
-│   ├── LogEvents.cs              Structured event IDs
-│   ├── Models/                   DTOs and shared types
-│   ├── Ports/                    Interfaces (IAuthProvider, IModelProvider, IResponsesService)
-│   └── Services/                 Translation, serialization, business logic
-├── Infrastructure/
-│   ├── CopilotClient.cs          HTTP adapter to Copilot API
-│   ├── ICopilotCredentialStore.cs Platform credential-store abstraction
-│   ├── WindowsCredentialStore.cs Windows Credential Manager wrapper
-│   ├── LinuxSecretServiceCredentialStore.cs Linux Secret Service lookup
-│   ├── CredentialManager.cs      Windows Credential Manager access
-│   └── Worker.cs                 Background auth lifecycle
+├── CopilotLlm/                   Reusable library for translation, auth, and upstream access
+│   ├── ServiceCollectionExtensions.cs
+│   ├── LogEvents.cs
+│   ├── Core/
+│   └── Infrastructure/
+├── Program.cs                    Host composition root (calls AddCopilotLlm)
+├── Worker.cs                     Host-only background auth lifecycle
 ├── llm-cli/                      CLI client (System.CommandLine + OpenAI SDK)
+├── CopilotLlm.Tests/             Library unit tests
 └── llm-svc.Tests/
-    ├── Fakes/                    Test doubles
-    ├── Unit/                     Service-level tests
+    ├── Fakes/                    Test doubles for the host
     ├── Integration/              WebApplicationFactory tests
     └── Smoke/                    Live endpoint tests (Category=Smoke)
 ```
@@ -230,8 +224,9 @@ llm-svc/
 ## Testing
 
 ```bash
-# Run all in-memory tests (CI-safe, no proxy needed)
-dotnet test
+# Run CI-safe library and host tests
+dotnet test CopilotLlm.Tests/CopilotLlm.Tests.csproj
+dotnet test llm-svc.Tests/llm-svc.Tests.csproj --filter "Category!=Smoke"
 
 # Run live smoke tests (requires running proxy with credentials)
 dotnet test --filter "Category=Smoke"

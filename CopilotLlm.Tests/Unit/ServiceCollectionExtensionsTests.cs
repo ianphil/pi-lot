@@ -5,7 +5,7 @@ using CopilotLlm.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace llm_svc.Tests.Unit;
+namespace CopilotLlm.Tests.Unit;
 
 [Trait("Category", "Unit")]
 public sealed class ServiceCollectionExtensionsTests

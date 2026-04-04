@@ -1,6 +1,6 @@
 using CopilotLlm.Infrastructure;
 
-namespace llm_svc.Tests.Unit;
+namespace CopilotLlm.Tests.Unit;
 
 [Trait("Category", "Unit")]
 public sealed class CopilotCliConfigMetadataReaderTests : IDisposable

@@ -25,16 +25,17 @@ This is not dogma. This is how you build systems that survive contact with chang
 
 ## Clean Architecture
 
-- **Entities** (Core/Models) are plain data structures. No behavior, no framework dependencies.
-- **Use Cases** (Core/Services) contain application-specific business rules. They orchestrate entities and call port interfaces.
-- **Interface Adapters** (Infrastructure) convert data between the use cases and external agencies.
+- **Entities** (`CopilotLlm/Core/Models`) are plain data structures. No behavior, no framework dependencies.
+- **Use Cases** (`CopilotLlm/Core/Services`) contain application-specific business rules. They orchestrate entities and call port interfaces.
+- **Interface Adapters** (`CopilotLlm/Infrastructure`) convert data between the use cases and external agencies.
 - **Frameworks and Drivers** (Program.cs) are the outermost ring. They are details. Details should not drive policy.
 
 In this codebase:
-- `Core/Ports/` defines the interfaces. The interface belongs to the business logic, not the adapter.
-- `Core/Services/ResponsesService` is the primary use case — it validates, resolves models, and decides the code path.
-- `Infrastructure/CopilotClient` is the HTTP adapter. It implements port interfaces and is the only place where `HttpClient` belongs.
-- `Program.cs` is the composition root. Keep it thin. It knows about both Core and Infrastructure so nothing else has to.
+- `CopilotLlm/Core/Ports/` defines the interfaces. The interface belongs to the business logic, not the adapter.
+- `CopilotLlm/Core/Services/ResponsesService` is the primary use case — it validates, resolves models, and decides the code path.
+- `CopilotLlm/Infrastructure/CopilotClient` is the HTTP adapter. It implements port interfaces and is the only place where `HttpClient` belongs.
+- `CopilotLlm/ServiceCollectionExtensions.cs` is the library composition root for DI.
+- `Program.cs` is the host composition root. Keep it thin. It should consume the library, not rebuild its wiring.
 
 ## SOLID
 
@@ -60,7 +61,7 @@ In this codebase:
 - The proxy runs as a Windows Scheduled Task. Its binary is locked while running. Never build the full solution while the task is active.
 - `JsonSerializerDefaults.Web` for all JSON. camelCase is spec-mandated.
 - SSE line endings are `\n`, never `\r\n`. This broke compliance tests. Windows defaults will betray you.
-- Event IDs in `Core/LogEvents.cs` use 4-digit ranges: 1xxx lifecycle, 2xxx auth, 3xxx API, 4xxx errors.
+- Event IDs in `CopilotLlm/LogEvents.cs` use 4-digit ranges: 1xxx lifecycle, 2xxx auth, 3xxx API, 4xxx errors.
 - Service and CLI version independently. Git tags are for the service only.
 - Use `record` for DTOs, `GeneratedRegex` over `new Regex()`, `is null` over `== null`.
 

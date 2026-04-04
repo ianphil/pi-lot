@@ -5,7 +5,7 @@ using CopilotLlm.Core.Models;
 using CopilotLlm.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace llm_svc.Tests.Unit;
+namespace CopilotLlm.Tests.Unit;
 
 [Trait("Category", "Unit")]
 [Collection("EnvironmentTests")]
