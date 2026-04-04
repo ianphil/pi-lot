@@ -1,3 +1,5 @@
+using CopilotLlm.Core.Ports;
+
 namespace CopilotLlm.Infrastructure;
 
 public sealed class NoOpCopilotCredentialStore : ICopilotCredentialStore

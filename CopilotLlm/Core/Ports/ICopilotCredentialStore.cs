@@ -1,4 +1,4 @@
-namespace CopilotLlm.Infrastructure;
+namespace CopilotLlm.Core.Ports;
 
 public interface ICopilotCredentialStore
 {

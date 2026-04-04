@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using CopilotLlm.Core.Models;
+using CopilotLlm.Core.Ports;
 using CopilotLlm.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 

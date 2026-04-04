@@ -26,12 +26,15 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         ["Copilot-Integration-Id"] = "copilot-developer-cli",
     };
 
+    private static readonly TimeSpan ModelCacheTtl = TimeSpan.FromMinutes(5);
+
     private readonly HttpClient _http;
     private readonly ICopilotCredentialStore _credentialStore;
     private readonly ILogger<CopilotClient> _logger;
     private readonly TimeProvider _timeProvider;
+    private readonly Lock _credentialLock = new();
     private CopilotModelInfo[]? _models;
-    private DateTime _modelsLastFetched = DateTime.MinValue;
+    private DateTimeOffset _modelsLastFetched = DateTimeOffset.MinValue;
     private string? _token;
     private DateTimeOffset _tokenLoadedAt = DateTimeOffset.MinValue;
 
@@ -39,17 +42,25 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         ILogger<CopilotClient> logger,
         IHttpClientFactory httpClientFactory,
         ICopilotCredentialStore credentialStore,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         _logger = logger;
         _http = httpClientFactory.CreateClient(nameof(CopilotClient));
         _credentialStore = credentialStore;
-        _timeProvider = timeProvider ?? TimeProvider.System;
+        _timeProvider = timeProvider;
     }
 
     public bool IsAuthenticated => _token is not null;
 
     public bool TryLoadCredential()
+    {
+        lock (_credentialLock)
+        {
+            return TryLoadCredentialUnsafe();
+        }
+    }
+
+    private bool TryLoadCredentialUnsafe()
     {
         var envToken = Environment.GetEnvironmentVariable(CopilotCredentialConstants.EnvironmentVariableName);
         if (!string.IsNullOrWhiteSpace(envToken))
@@ -98,11 +109,6 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
             var models = await FetchModelsAsync(forceRefresh: true);
             return models.Length > 0;
         }
-        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-        {
-            _logger.LogWarning(LogEvents.TokenExpired, "Copilot token is invalid or expired. Attempting to reload from configured credential sources.");
-            return TryLoadCredential();
-        }
         catch (Exception ex)
         {
             _logger.LogError(LogEvents.TokenValidationFailed, ex, "Failed to validate Copilot token");
@@ -112,7 +118,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
 
     public async Task<CopilotModelInfo[]> FetchModelsAsync(bool forceRefresh = false)
     {
-        if (!forceRefresh && _models is not null && DateTime.UtcNow - _modelsLastFetched < TimeSpan.FromMinutes(5))
+        if (!forceRefresh && _models is not null && _timeProvider.GetUtcNow() - _modelsLastFetched < ModelCacheTtl)
         {
             return _models;
         }
@@ -136,7 +142,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         _models = result?.Data?
             .Where(m => m.SupportedEndpoints is { Length: > 0 })
             .ToArray() ?? [];
-        _modelsLastFetched = DateTime.UtcNow;
+        _modelsLastFetched = _timeProvider.GetUtcNow();
 
         _logger.LogInformation(LogEvents.ModelsFetched, "Fetched {Count} models from Copilot API", _models.Length);
         return _models;
@@ -278,12 +284,15 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
 
     private void EnsureCredential()
     {
-        if (_token is not null && _timeProvider.GetUtcNow() - _tokenLoadedAt < TokenTtl)
+        lock (_credentialLock)
         {
-            return;
-        }
+            if (_token is not null && _timeProvider.GetUtcNow() - _tokenLoadedAt < TokenTtl)
+            {
+                return;
+            }
 
-        TryLoadCredential();
+            TryLoadCredentialUnsafe();
+        }
     }
 
     private static object[] MapChatMessagesToResponsesInput(ChatMessage[]? messages)
