@@ -1,0 +1,68 @@
+name: Publish CopilotLlm package
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "lib-v*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PACKAGES_SOURCE: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.201
+
+      - name: Restore solution
+        run: dotnet restore llm-svc.sln
+
+      - name: Verify package version matches tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          version="$(dotnet msbuild CopilotLlm/CopilotLlm.csproj -nologo -getProperty:Version)"
+          expected_tag="lib-v${version}"
+
+          if [[ "${GITHUB_REF_NAME}" != "${expected_tag}" ]]; then
+            echo "Expected tag ${expected_tag}, got ${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi
+
+      - name: Run CI-safe tests
+        run: |
+          dotnet test CopilotLlm.Tests/CopilotLlm.Tests.csproj --no-restore
+          dotnet test llm-svc.Tests/llm-svc.Tests.csproj --filter "Category!=Smoke" --no-restore
+          dotnet test llm-cli.Tests/llm-cli.Tests.csproj --filter "Category!=Smoke" --no-restore
+
+      - name: Pack CopilotLlm
+        run: dotnet pack CopilotLlm/CopilotLlm.csproj -c Release --no-restore -o artifacts
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: copilotllm-nupkg
+          path: artifacts/*.nupkg
+
+      - name: Authenticate to GitHub Packages
+        run: >
+          dotnet nuget add source
+          --username "${{ github.actor }}"
+          --password "${{ secrets.GITHUB_TOKEN }}"
+          --store-password-in-clear-text
+          --name github
+          "${GITHUB_PACKAGES_SOURCE}"
+
+      - name: Publish package
+        run: dotnet nuget push artifacts/*.nupkg --source github --skip-duplicate

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>CopilotLlm</RootNamespace>
+    <Version>0.1.0</Version>
+    <PackageId>CopilotLlm</PackageId>
+    <Authors>ianphil</Authors>
+    <Description>A .NET library for accessing GitHub Copilot's LLM API with OpenAI-compatible Responses and Chat Completions services.</Description>
+    <RepositoryUrl>https://github.com/ianphil/copilot-llm-svc</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <IsPackable>true</IsPackable>
+    <NoWarn>CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.5" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.91.1" />
+  </ItemGroup>
+
+</Project>

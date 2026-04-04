@@ -1,5 +1,5 @@
-using LlmSvc.Core.Ports;
-using llm_svc.Tests.Fakes;
+using CopilotLlm.Core.Ports;
+using CopilotLlm.Tests.Fakes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;

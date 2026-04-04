@@ -2,7 +2,7 @@
 
 using System.ClientModel;
 using System.Text.Json;
-using LlmSvc.Core.Models;
+using CopilotLlm.Core.Models;
 using OpenAI;
 using OpenAI.Responses;
 

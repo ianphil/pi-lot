@@ -1,6 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
-using LlmSvc.Core.Models;
+using CopilotLlm.Core.Models;
 
 namespace llm_svc.Tests.Integration;
 
