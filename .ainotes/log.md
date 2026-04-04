@@ -16,3 +16,6 @@
 - release: `main` currently carries aligned `svc-v0.6.1`, `lib-v0.1.0`, and `cli-v0.3.0` tags on the library-extraction baseline commit.
 - auth: Request-level refresh has to cover `GET /models` too, because `ChatAsync` resolves model capabilities before routing and can hit the same 401 race as LLM POSTs.
 - testing: Injecting `TimeProvider` into `CopilotClient` is enough to test token TTL behavior deterministically without expanding the public SDK surface.
+- api-surface: Library v0.2.0 has no `CopilotLlm.Client` or `CopilotLlm.Proxy` namespaces — all types live under `CopilotLlm.Core.*` and `CopilotLlm.Infrastructure`.
+- api-surface: `ResponseHttpResult` carries `Body` (string) or `Chunks` (IAsyncEnumerable<string>) — the SDK client layer must parse both shapes to produce typed results.
+- api-surface: All 15+ SSE event types are serialized as anonymous JSON objects in `ResponseSseSerializer` — no typed event models exist yet; streaming SDK must define and parse them.
