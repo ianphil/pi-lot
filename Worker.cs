@@ -3,6 +3,10 @@ using CopilotLlm.Core.Ports;
 
 namespace llm_svc;
 
+/// <summary>
+/// Background service that periodically validates the Copilot token
+/// and reloads credentials if needed.
+/// </summary>
 public sealed class Worker : BackgroundService
 {
     private readonly IAuthProvider _auth;

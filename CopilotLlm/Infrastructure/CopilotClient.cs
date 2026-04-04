@@ -6,7 +6,6 @@ using System.Text.Json;
 using CopilotLlm.Core;
 using CopilotLlm.Core.Models;
 using CopilotLlm.Core.Ports;
-using CopilotLlm.Core.Services;
 using static CopilotLlm.Core.Models.JsonElementHelpers;
 
 namespace CopilotLlm.Infrastructure;
@@ -243,7 +242,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         var body = upstream.Body;
         if (useResponses && upstream.StatusCode is >= 200 and < 300)
         {
-            body = ChatCompletionsTranslator.TranslateResponseBodyToChatCompletion(body);
+            body = ChatCompletionBodyTranslator.TranslateResponseBodyToChatCompletion(body);
         }
 
         return new ProxyHttpResult(body, upstream.StatusCode);
@@ -306,7 +305,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
 
     private static object[]? NormalizeResponsesInputContent(object? content)
     {
-        var normalized = ChatCompletionsTranslator.NormalizeMessageContent(content);
+        var normalized = ChatCompletionBodyTranslator.NormalizeMessageContent(content);
         return normalized switch
         {
             null => null,

@@ -11,3 +11,5 @@
 - deployment: `dotnet publish` must target the `.csproj`, not the `.sln` — solution-level `--output` copies all projects to the same directory.
 - testing: `SecretServiceDbusClient` is intentionally internal to the library, so DI tests should assert the public `ISecretServiceClient` registration rather than depend on the concrete type.
 - scripts: `scripts/test-linux-auth.sh` advertises default port `5110`, but the script variable still defaults to `5100`, so smoke runs should pass `--port` explicitly until that mismatch is fixed.
+- architecture: `CopilotClient` (Infrastructure) was calling `ChatCompletionsTranslator` (Core/Services) for two pure static transforms — a dependency rule violation. Static helpers that only depend on Core/Models belong in Core/Models, not Core/Services.
+- testing: Duplicated test fakes across test projects (identical 73-line classes) should be consolidated into a single shared fake in the library test project, referenced by the host test project.

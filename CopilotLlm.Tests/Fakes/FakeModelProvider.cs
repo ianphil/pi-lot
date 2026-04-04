@@ -3,7 +3,7 @@ using CopilotLlm.Core.Ports;
 
 namespace CopilotLlm.Tests.Fakes;
 
-public sealed class TestModelProvider : IAuthProvider, IModelProvider
+public sealed class FakeModelProvider : IAuthProvider, IModelProvider
 {
     public bool IsAuthenticated { get; set; } = true;
 

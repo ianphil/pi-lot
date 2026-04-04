@@ -31,7 +31,7 @@ public sealed class ServiceCollectionExtensionsTests
         {
             Assert.IsType<LinuxSecretServiceCredentialStore>(provider.GetRequiredService<ICopilotCredentialStore>());
             Assert.IsType<CopilotCliConfigMetadataReader>(provider.GetRequiredService<CopilotCliConfigMetadataReader>());
-            Assert.Equal("SecretServiceDbusClient", provider.GetRequiredService<ISecretServiceClient>().GetType().Name);
+            Assert.IsType<SecretServiceDbusClient>(provider.GetRequiredService<ISecretServiceClient>());
             return;
         }
 

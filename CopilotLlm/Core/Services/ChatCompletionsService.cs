@@ -108,7 +108,7 @@ public sealed class ChatCompletionsService : IChatCompletionsService
         var body = upstream.Body;
         if (useResponses && upstream.StatusCode is >= 200 and < 300)
         {
-            body = ChatCompletionsTranslator.TranslateResponseBodyToChatCompletion(body);
+            body = ChatCompletionBodyTranslator.TranslateResponseBodyToChatCompletion(body);
         }
 
         return ResponseHttpResult.FromBody(body, upstream.StatusCode, "application/json");
@@ -207,7 +207,7 @@ public sealed class ChatCompletionsService : IChatCompletionsService
 
     private static object[]? NormalizeResponsesContent(object? content, string contentType)
     {
-        var normalized = ChatCompletionsTranslator.NormalizeMessageContent(content);
+        var normalized = ChatCompletionBodyTranslator.NormalizeMessageContent(content);
         return normalized switch
         {
             null => null,

@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CopilotLlm\CopilotLlm.csproj" />
+    <ProjectReference Include="..\CopilotLlm.Tests\CopilotLlm.Tests.csproj" />
     <ProjectReference Include="..\llm-svc.csproj" />
   </ItemGroup>
 
