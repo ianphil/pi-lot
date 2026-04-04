@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using CopilotLlm.Core.Models;
+using CopilotLlm.Core.Ports;
 using CopilotLlm.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -57,11 +58,237 @@ public sealed class CopilotClientTests
         }, envToken: null, credentialStore: store);
 
         Assert.True(await client.ValidateTokenAsync());
+
+        Assert.Equal(2, store.CallCount);
+        Assert.Equal(["expired-token", "fresh-token"], bearerTokens);
+    }
+
+    [Fact]
+    public async Task FetchModelsAsync_WhenUpstreamReturnsUnauthorized_RetriesWithFreshCredential()
+    {
+        var bearerTokens = new List<string>();
+        var store = new StubCredentialStore(["expired-token", "fresh-token"]);
+        var client = CreateClient(request =>
+        {
+            if (request.RequestUri?.AbsolutePath != "/models")
+            {
+                throw new InvalidOperationException($"Unexpected request path: {request.RequestUri?.AbsolutePath}");
+            }
+
+            var token = request.Headers.Authorization?.Parameter
+                ?? throw new Xunit.Sdk.XunitException("Missing bearer token");
+            bearerTokens.Add(token);
+
+            return Task.FromResult(token switch
+            {
+                "expired-token" => new HttpResponseMessage(HttpStatusCode.Unauthorized),
+                "fresh-token" => JsonResponse(
+                    """
+                    {
+                      "data": [
+                        {
+                          "id": "gpt-5.4-mini",
+                          "name": "GPT-5.4 Mini",
+                          "supported_endpoints": ["/responses"]
+                        }
+                      ]
+                    }
+                    """),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected bearer token '{token}'"),
+            });
+        }, envToken: null, credentialStore: store);
+
         var models = await client.FetchModelsAsync(forceRefresh: true);
 
         Assert.Equal(2, store.CallCount);
         Assert.Equal(["expired-token", "fresh-token"], bearerTokens);
         Assert.Single(models);
+    }
+
+    [Fact]
+    public async Task SendResponsesAsync_WhenTokenIsMissing_LoadsCredentialOnDemand()
+    {
+        var bearerTokens = new List<string>();
+        var store = new StubCredentialStore(["fresh-token"]);
+        var client = CreateClient(request =>
+        {
+            if (request.RequestUri?.AbsolutePath != "/responses")
+            {
+                throw new InvalidOperationException($"Unexpected request path: {request.RequestUri?.AbsolutePath}");
+            }
+
+            var token = request.Headers.Authorization?.Parameter
+                ?? throw new Xunit.Sdk.XunitException("Missing bearer token");
+            bearerTokens.Add(token);
+
+            return Task.FromResult(JsonResponse(CompletedResponseJson));
+        }, envToken: null, credentialStore: store, loadCredential: false);
+
+        var result = await client.SendResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+        });
+
+        Assert.Equal(200, result.StatusCode);
+        Assert.True(client.IsAuthenticated);
+        Assert.Equal(1, store.CallCount);
+        Assert.Equal(["fresh-token"], bearerTokens);
+    }
+
+    [Fact]
+    public async Task SendResponsesAsync_WhenTokenIsFresh_DoesNotReloadCredential()
+    {
+        var bearerTokens = new List<string>();
+        var timeProvider = new ManualTimeProvider(new DateTimeOffset(2026, 04, 04, 21, 00, 00, TimeSpan.Zero));
+        var store = new StubCredentialStore(["loaded-token", "unexpected-token"]);
+        var client = CreateClient(request =>
+        {
+            if (request.RequestUri?.AbsolutePath != "/responses")
+            {
+                throw new InvalidOperationException($"Unexpected request path: {request.RequestUri?.AbsolutePath}");
+            }
+
+            var token = request.Headers.Authorization?.Parameter
+                ?? throw new Xunit.Sdk.XunitException("Missing bearer token");
+            bearerTokens.Add(token);
+
+            return Task.FromResult(JsonResponse(CompletedResponseJson));
+        }, envToken: null, credentialStore: store, timeProvider: timeProvider);
+
+        var result = await client.SendResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+        });
+
+        Assert.Equal(200, result.StatusCode);
+        Assert.Equal(1, store.CallCount);
+        Assert.Equal(["loaded-token"], bearerTokens);
+    }
+
+    [Fact]
+    public async Task SendResponsesAsync_WhenTokenIsStale_ReloadsCredential()
+    {
+        var bearerTokens = new List<string>();
+        var timeProvider = new ManualTimeProvider(new DateTimeOffset(2026, 04, 04, 21, 00, 00, TimeSpan.Zero));
+        var store = new StubCredentialStore(["stale-token", "fresh-token"]);
+        var client = CreateClient(request =>
+        {
+            if (request.RequestUri?.AbsolutePath != "/responses")
+            {
+                throw new InvalidOperationException($"Unexpected request path: {request.RequestUri?.AbsolutePath}");
+            }
+
+            var token = request.Headers.Authorization?.Parameter
+                ?? throw new Xunit.Sdk.XunitException("Missing bearer token");
+            bearerTokens.Add(token);
+
+            return Task.FromResult(JsonResponse(CompletedResponseJson));
+        }, envToken: null, credentialStore: store, timeProvider: timeProvider);
+
+        timeProvider.Advance(TimeSpan.FromMinutes(31));
+
+        var result = await client.SendResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+        });
+
+        Assert.Equal(200, result.StatusCode);
+        Assert.Equal(2, store.CallCount);
+        Assert.Equal(["fresh-token"], bearerTokens);
+    }
+
+    [Fact]
+    public async Task SendResponsesAsync_WhenUpstreamReturnsUnauthorized_RetriesWithFreshCredential()
+    {
+        var bearerTokens = new List<string>();
+        var store = new StubCredentialStore(["expired-token", "fresh-token"]);
+        var client = CreateClient(request =>
+        {
+            if (request.RequestUri?.AbsolutePath != "/responses")
+            {
+                throw new InvalidOperationException($"Unexpected request path: {request.RequestUri?.AbsolutePath}");
+            }
+
+            var token = request.Headers.Authorization?.Parameter
+                ?? throw new Xunit.Sdk.XunitException("Missing bearer token");
+            bearerTokens.Add(token);
+
+            return Task.FromResult(token switch
+            {
+                "expired-token" => UnauthorizedResponse(),
+                "fresh-token" => JsonResponse(CompletedResponseJson),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected bearer token '{token}'"),
+            });
+        }, envToken: null, credentialStore: store);
+
+        var result = await client.SendResponsesAsync(CreateMinimalResponseRequest());
+
+        Assert.Equal(200, result.StatusCode);
+        Assert.Equal(2, store.CallCount);
+        Assert.Equal(["expired-token", "fresh-token"], bearerTokens);
+    }
+
+    [Fact]
+    public async Task SendResponsesAsync_WhenRetryAlsoReturnsUnauthorized_ReturnsSingleUnauthorizedResult()
+    {
+        var bearerTokens = new List<string>();
+        var store = new StubCredentialStore(["expired-token", "still-expired-token"]);
+        var client = CreateClient(request =>
+        {
+            if (request.RequestUri?.AbsolutePath != "/responses")
+            {
+                throw new InvalidOperationException($"Unexpected request path: {request.RequestUri?.AbsolutePath}");
+            }
+
+            var token = request.Headers.Authorization?.Parameter
+                ?? throw new Xunit.Sdk.XunitException("Missing bearer token");
+            bearerTokens.Add(token);
+
+            return Task.FromResult(UnauthorizedResponse());
+        }, envToken: null, credentialStore: store);
+
+        var result = await client.SendResponsesAsync(CreateMinimalResponseRequest());
+
+        Assert.Equal(401, result.StatusCode);
+        Assert.Equal(2, store.CallCount);
+        Assert.Equal(["expired-token", "still-expired-token"], bearerTokens);
+        Assert.Equal("""{"error":"unauthorized"}""", result.Body);
+    }
+
+    [Fact]
+    public async Task StreamResponsesAsync_WhenUpstreamReturnsUnauthorized_RetriesWithFreshCredential()
+    {
+        var bearerTokens = new List<string>();
+        var store = new StubCredentialStore(["expired-token", "fresh-token"]);
+        var client = CreateClient(request =>
+        {
+            if (request.RequestUri?.AbsolutePath != "/responses")
+            {
+                throw new InvalidOperationException($"Unexpected request path: {request.RequestUri?.AbsolutePath}");
+            }
+
+            var token = request.Headers.Authorization?.Parameter
+                ?? throw new Xunit.Sdk.XunitException("Missing bearer token");
+            bearerTokens.Add(token);
+
+            return Task.FromResult(token switch
+            {
+                "expired-token" => UnauthorizedResponse(),
+                "fresh-token" => EventStreamResponse("data: hello\n\n"),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected bearer token '{token}'"),
+            });
+        }, envToken: null, credentialStore: store);
+
+        var result = await client.StreamResponsesAsync(CreateMinimalResponseRequest());
+
+        Assert.Equal(200, result.StatusCode);
+        Assert.Equal(2, store.CallCount);
+        Assert.Equal(["expired-token", "fresh-token"], bearerTokens);
+        Assert.NotNull(result.Chunks);
+        Assert.Equal(["data: hello\n\n"], await ReadChunksAsync(result.Chunks!));
     }
 
     [Fact]
@@ -466,7 +693,8 @@ public sealed class CopilotClientTests
         Func<HttpRequestMessage, Task<HttpResponseMessage>> responder,
         string? envToken = "test-token",
         ICopilotCredentialStore? credentialStore = null,
-        bool loadCredential = true)
+        bool loadCredential = true,
+        TimeProvider? timeProvider = null)
     {
         var originalToken = Environment.GetEnvironmentVariable("COPILOT_TOKEN");
         Environment.SetEnvironmentVariable("COPILOT_TOKEN", envToken);
@@ -481,7 +709,8 @@ public sealed class CopilotClientTests
             var client = new CopilotClient(
                 NullLogger<CopilotClient>.Instance,
                 new StubHttpClientFactory(httpClient),
-                credentialStore ?? new StubCredentialStore([]));
+                credentialStore ?? new StubCredentialStore([]),
+                timeProvider ?? TimeProvider.System);
 
             if (loadCredential)
             {
@@ -495,6 +724,40 @@ public sealed class CopilotClientTests
             Environment.SetEnvironmentVariable("COPILOT_TOKEN", originalToken);
         }
     }
+
+    private const string CompletedResponseJson =
+        """
+        {
+          "id": "resp_123",
+          "object": "response",
+          "status": "completed",
+          "model": "gpt-5.4-mini",
+          "output": [],
+          "tools": [],
+          "tool_choice": "auto",
+          "truncation": "disabled",
+          "parallel_tool_calls": true,
+          "text": {
+            "format": {
+              "type": "text"
+            }
+          },
+          "temperature": 1.0,
+          "top_p": 1.0,
+          "presence_penalty": 0.0,
+          "frequency_penalty": 0.0,
+          "top_logprobs": 0,
+          "store": false,
+          "background": false,
+          "service_tier": "default"
+        }
+        """;
+
+    private static CreateResponseRequest CreateMinimalResponseRequest() => new()
+    {
+        Model = "gpt-5.4-mini",
+        Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+    };
 
     private static HttpRequestMessage CloneRequest(HttpRequestMessage request)
     {
@@ -527,6 +790,27 @@ public sealed class CopilotClientTests
         Content = new StringContent(json, Encoding.UTF8, "application/json"),
     };
 
+    private static HttpResponseMessage UnauthorizedResponse() => new(HttpStatusCode.Unauthorized)
+    {
+        Content = new StringContent("""{"error":"unauthorized"}""", Encoding.UTF8, "application/json"),
+    };
+
+    private static HttpResponseMessage EventStreamResponse(string body) => new(HttpStatusCode.OK)
+    {
+        Content = new StringContent(body, Encoding.UTF8, "text/event-stream"),
+    };
+
+    private static async Task<string[]> ReadChunksAsync(IAsyncEnumerable<string> chunks)
+    {
+        var result = new List<string>();
+        await foreach (var chunk in chunks)
+        {
+            result.Add(chunk);
+        }
+
+        return result.ToArray();
+    }
+
     private sealed class StubHttpClientFactory(HttpClient client) : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => client;
@@ -551,5 +835,14 @@ public sealed class CopilotClientTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             responder(request);
+    }
+
+    private sealed class ManualTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        private DateTimeOffset _utcNow = utcNow;
+
+        public override DateTimeOffset GetUtcNow() => _utcNow;
+
+        public void Advance(TimeSpan timeSpan) => _utcNow = _utcNow.Add(timeSpan);
     }
 }

@@ -34,7 +34,9 @@ public static class ServiceCollectionExtensions
             return new NoOpCopilotCredentialStore();
         });
 
-        services.AddSingleton<CopilotClient>();
+        services.AddSingleton<CopilotClient>(sp => ActivatorUtilities.CreateInstance<CopilotClient>(
+            sp,
+            sp.GetService<TimeProvider>() ?? TimeProvider.System));
         services.AddSingleton<IAuthProvider>(sp => sp.GetRequiredService<CopilotClient>());
         services.AddSingleton<IModelProvider>(sp => sp.GetRequiredService<CopilotClient>());
         services.AddSingleton<ChatCompletionsTranslator>();

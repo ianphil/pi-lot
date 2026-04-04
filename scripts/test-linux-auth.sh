@@ -44,7 +44,7 @@ Starts llm-svc on a temporary local endpoint, checks /health,
 lists models, runs a single llm ask prompt, and then shuts down the service.
 
 Options:
-  --port <port>         Port to use (default: 5110)
+  --port <port>         Port to use (default: 5100)
   --host <host>         Host to bind (default: 127.0.0.1)
   --model <model>       Model for llm ask (default: gpt-5.4-mini)
   --prompt <text>       Prompt for llm ask
