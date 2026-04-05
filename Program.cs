@@ -1,8 +1,8 @@
 using CopilotLlm;
 using CopilotLlm.Core;
 using CopilotLlm.Core.Models;
-using CopilotLlm.Core.Ports;
 using CopilotLlm.Core.Services;
+using CopilotLlm.Proxy;
 using llm_svc;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions

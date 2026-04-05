@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace CopilotLlm.Core.Ports;
+namespace CopilotLlm.Proxy;
 
 public sealed class ResponseHttpResult
 {

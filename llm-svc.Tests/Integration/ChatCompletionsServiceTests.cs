@@ -198,7 +198,7 @@ public sealed class ChatCompletionsServiceTests : IClassFixture<ResponsesWebAppl
         var body = await httpResponse.Content.ReadAsStringAsync();
         Assert.Contains("\"name\":\"get_weather\"", body);
         Assert.Contains("call_abc", body);
-        Assert.Contains("\"finish_reason\":\"stop\"", body);
+        Assert.Contains("\"finish_reason\":\"tool_calls\"", body);
         Assert.Contains("[DONE]", body);
 
         Assert.NotNull(_factory.Provider.LastResponsesRequest);

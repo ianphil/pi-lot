@@ -1,5 +1,5 @@
 using CopilotLlm.Core.Models;
-using CopilotLlm.Core.Ports;
+using CopilotLlm.Proxy;
 
 namespace CopilotLlm.Core.Services;
 

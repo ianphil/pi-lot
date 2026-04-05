@@ -1,6 +1,6 @@
 using CopilotLlm.Core.Models;
 
-namespace CopilotLlm.Core.Ports;
+namespace CopilotLlm.Proxy;
 
 public interface IChatCompletionsService
 {

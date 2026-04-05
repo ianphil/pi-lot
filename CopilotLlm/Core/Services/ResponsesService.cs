@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using CopilotLlm.Core.Models;
-using CopilotLlm.Core.Ports;
+using CopilotLlm.Proxy;
 using static CopilotLlm.Core.Models.JsonElementHelpers;
 
 namespace CopilotLlm.Core.Services;

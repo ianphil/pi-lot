@@ -16,3 +16,21 @@
 - release: `main` currently carries aligned `svc-v0.6.1`, `lib-v0.1.0`, and `cli-v0.3.0` tags on the library-extraction baseline commit.
 - auth: Request-level refresh has to cover `GET /models` too, because `ChatAsync` resolves model capabilities before routing and can hit the same 401 race as LLM POSTs.
 - testing: Injecting `TimeProvider` into `CopilotClient` is enough to test token TTL behavior deterministically without expanding the public SDK surface.
+- api-surface: Library v0.2.0 has no `CopilotLlm.Client` or `CopilotLlm.Proxy` namespaces — all types live under `CopilotLlm.Core.*` and `CopilotLlm.Infrastructure`.
+- api-surface: `ResponseHttpResult` carries `Body` (string) or `Chunks` (IAsyncEnumerable<string>) — the SDK client layer must parse both shapes to produce typed results.
+- api-surface: All 15+ SSE event types are serialized as anonymous JSON objects in `ResponseSseSerializer` — no typed event models exist yet; streaming SDK must define and parse them.
+- http: `AddHttpClient()` leaves `HttpClient.Timeout` at the framework default 100 seconds unless the named `CopilotClient` registration overrides it, so the SDK's 120-second default must be applied explicitly.
+- serialization: `ChatMessage.Content` deserializes as `object?`, so SDK helpers like `GetMessageText()` should handle both plain `string` and string-valued `JsonElement`.
+- transport: `ProxyHttpResult` and `ResponseHttpResult` do not carry response headers, so SDK `RateLimitException.RetryAfter` can only be populated from error JSON until header support exists.
+- sdk: Convenience response overloads can build string input with `JsonSerializer.SerializeToElement(..., JsonDefaults.Web)` instead of `JsonDocument.Parse(...).RootElement.Clone()`, avoiding temporary document lifetime handling.
+- models: `ModelListService.GetModelsAsync()` already filters out models without proxy-supported endpoints and projects to `OpenAIModelInfo`, so the SDK client can safely expose `response.Data` directly.
+- streaming: Chat completion streams still arrive as SSE envelopes (`data: {...}\n\n` plus `[DONE]`), so SDK consumers need envelope parsing before `ChatCompletionChunk` deserialization even when the payload is already chat-shaped.
+- serialization: Anonymous payloads that embed a concrete `ResponseMessageItem` lose the polymorphic `type` discriminator unless the value is serialized through the abstract `ResponseItem` base, which matters for SSE parser tests and round-tripping.
+
+## 2026-04-05
+- api-surface: The public proxy contracts now live in `CopilotLlm.Proxy`, but their source files still sit under `CopilotLlm/Core/Ports`, so namespace is now a more reliable boundary signal than folder path.
+- docs: Public-surface namespace changes need matching updates in usage snippets like `README.md`, otherwise onboarding examples drift even when the implementation is correct.
+- streaming: `ResponseStreamEvent.Parse()` must not throw on unrecognized SSE event names — the OpenResponses spec union grows regularly (58 schema files at last count), so an `UnknownStreamEvent` fallback is essential for forward compatibility.
+- streaming: OpenResponses error SSE events nest the error object under an `error` key (`{ type, sequence_number, error: { message, type, code, param } }`), not flat at the top level — error payload parsing must try nested first.
+- translator: `ResponsesStreamToChatTranslator` must track tool calls by `output_index` → `chatToolCallIndex` mapping, not a rolling counter, because argument deltas for multiple tool calls can interleave.
+- translator: When a responses stream completes with function_call items in the output, the chat completions `finish_reason` must be `"tool_calls"`, not `"stop"` — chat clients use this to decide whether to execute tools.

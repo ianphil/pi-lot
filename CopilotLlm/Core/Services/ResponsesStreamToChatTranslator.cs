@@ -14,12 +14,13 @@ public sealed class ResponsesStreamToChatTranslator
     {
         var id = $"chatcmpl-{Guid.NewGuid():N}";
         var model = request.Model ?? "unknown";
-        var toolCallIndex = -1;
+        var outputIndexToToolCallIndex = new Dictionary<int, int>();
+        var nextToolCallIndex = 0;
         var started = false;
 
         await foreach (var chunk in chunks.WithCancellation(cancellationToken))
         {
-            var parsed = ParseSseChunk(chunk);
+            var parsed = SseChunkParser.Parse(chunk);
             if (parsed is null)
             {
                 continue;
@@ -55,7 +56,7 @@ public sealed class ResponsesStreamToChatTranslator
                 {
                     var doc = JsonDocument.Parse(data);
                     var argDelta = doc.RootElement.TryGetProperty("delta", out var d) ? d.GetString() : null;
-                    var itemId = doc.RootElement.TryGetProperty("item_id", out var iid) ? iid.GetString() : null;
+                    var outputIndex = doc.RootElement.TryGetProperty("output_index", out var oi) ? oi.GetInt32() : -1;
 
                     if (!started)
                     {
@@ -63,13 +64,15 @@ public sealed class ResponsesStreamToChatTranslator
                         started = true;
                     }
 
+                    var chatIndex = outputIndexToToolCallIndex.GetValueOrDefault(outputIndex, -1);
+
                     yield return SerializeChunk(id, model, new ChatChunkDelta
                     {
                         ToolCalls =
                         [
                             new ChatChunkToolCall
                             {
-                                Index = toolCallIndex,
+                                Index = chatIndex,
                                 Function = new ChatChunkToolCallFunction { Arguments = argDelta },
                             },
                         ],
@@ -85,7 +88,12 @@ public sealed class ResponsesStreamToChatTranslator
                         item.TryGetProperty("type", out var type) &&
                         string.Equals(type.GetString(), "function_call", StringComparison.Ordinal))
                     {
-                        toolCallIndex++;
+                        var outputIndex = doc.RootElement.TryGetProperty("output_index", out var oi) ? oi.GetInt32() : -1;
+                        var chatIndex = nextToolCallIndex++;
+                        if (outputIndex >= 0)
+                        {
+                            outputIndexToToolCallIndex[outputIndex] = chatIndex;
+                        }
 
                         if (!started)
                         {
@@ -102,7 +110,7 @@ public sealed class ResponsesStreamToChatTranslator
                             [
                                 new ChatChunkToolCall
                                 {
-                                    Index = toolCallIndex,
+                                    Index = chatIndex,
                                     Id = callId,
                                     Type = "function",
                                     Function = new ChatChunkToolCallFunction { Name = name, Arguments = "" },
@@ -118,12 +126,7 @@ public sealed class ResponsesStreamToChatTranslator
                 case "response.failed":
                 case "response.incomplete":
                 {
-                    var finishReason = eventName switch
-                    {
-                        "response.incomplete" => "length",
-                        "response.failed" => "stop",
-                        _ => "stop",
-                    };
+                    var finishReason = DetermineFinishReason(eventName, data, outputIndexToToolCallIndex.Count > 0);
 
                     if (!started)
                     {
@@ -139,6 +142,21 @@ public sealed class ResponsesStreamToChatTranslator
         }
 
         yield return "data: [DONE]\n\n";
+    }
+
+    private static string DetermineFinishReason(string eventName, string data, bool hasToolCalls)
+    {
+        if (eventName == "response.incomplete")
+        {
+            return "length";
+        }
+
+        if (eventName == "response.completed" && hasToolCalls)
+        {
+            return "tool_calls";
+        }
+
+        return "stop";
     }
 
     private static string SerializeChunk(string id, string model, ChatChunkDelta delta)
@@ -219,39 +237,4 @@ public sealed class ResponsesStreamToChatTranslator
         return null;
     }
 
-    private static (string? EventName, string Data)? ParseSseChunk(string chunk)
-    {
-        if (string.IsNullOrWhiteSpace(chunk))
-        {
-            return null;
-        }
-
-        using var reader = new StringReader(chunk);
-        string? eventName = null;
-        var data = new StringBuilder();
-        string? line;
-        while ((line = reader.ReadLine()) is not null)
-        {
-            if (line.StartsWith("event:", StringComparison.OrdinalIgnoreCase))
-            {
-                eventName = line[6..].Trim();
-            }
-            else if (line.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-            {
-                if (data.Length > 0)
-                {
-                    data.Append('\n');
-                }
-
-                data.Append(line[5..].TrimStart());
-            }
-        }
-
-        if (eventName is null && data.Length == 0)
-        {
-            return null;
-        }
-
-        return (eventName, data.ToString());
-    }
 }

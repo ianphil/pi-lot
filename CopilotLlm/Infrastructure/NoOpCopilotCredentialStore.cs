@@ -1,4 +1,4 @@
-using CopilotLlm.Core.Ports;
+using CopilotLlm.Proxy;
 
 namespace CopilotLlm.Infrastructure;
 
