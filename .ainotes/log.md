@@ -48,3 +48,5 @@
 - planning: `ask` defaults to `gpt-5.4-mini` but `chat` defaults to `gpt-5-mini` — SDK command defaults should match their proxy counterparts, not use a single default.
 - testing: `tests/llm-cli.Tests` includes a live smoke test that expects a proxy on `localhost:5100`, so routine CLI validation should use `--filter "Category!=Smoke"`.
 - scripts: Shared CLI matrix runners need conditional `--endpoint` injection because `sdk-ask` and `sdk-chat` bypass the proxy and do not accept proxy-only flags.
+- streaming: Native `/responses` SSE chunks can put the polymorphic `type` discriminator last inside nested `item` and `part` payloads, so SDK parsing needs `AllowOutOfOrderMetadataProperties` enabled.
+- tooling: VS Code's C#/.NET services can hold `src/llm-cli/bin/Debug/net10.0` artifacts open and make `dotnet build` fail during `scripts/test-matrix.sh`; closing the repo window and clearing stale `bin/obj` fixes it.
