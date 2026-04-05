@@ -42,3 +42,7 @@
 - rename: When renaming a library across a .NET solution, `using static` directives are missed by a simple `s/using OldName/using NewName/` sed — they need a separate pass.
 - rename: `InternalsVisibleTo` in `AssemblyInfo.cs` must reference the assembly name (which follows the csproj file name), not the namespace — so `llm-sdk.Tests` not `LlmSdk.Tests`.
 - naming: Infrastructure types referencing an upstream service (CopilotClient, ICopilotCredentialStore) should keep the service name even when the library is renamed — they describe *what they connect to*, not *what library they belong to*.
+- planning: Critic caught that `AddLlmSdk()` alone is insufficient for standalone CLI DI — `AddLogging()` is required because `CopilotClient` and credential stores depend on `ILogger<T>`.
+- planning: `ChatCompletionChunk.Choices`, `.Delta`, and `.Delta.Content` can all be null in streaming responses (role-only chunks, terminal chunks) — streaming consumers must be null-safe at every level.
+- planning: `CreateResponseRequest.Input` is `JsonElement`, not `string` — CLI agents must serialize the user prompt to `JsonElement` before building the request.
+- planning: `ask` defaults to `gpt-5.4-mini` but `chat` defaults to `gpt-5-mini` — SDK command defaults should match their proxy counterparts, not use a single default.
