@@ -1,4 +1,4 @@
-namespace CopilotLlm.Core.Ports;
+namespace CopilotLlm.Proxy;
 
 public interface IAuthProvider
 {

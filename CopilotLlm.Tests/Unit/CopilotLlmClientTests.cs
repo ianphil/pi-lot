@@ -1,8 +1,8 @@
 using System.Text.Json;
 using CopilotLlm.Client;
 using CopilotLlm.Core.Models;
-using CopilotLlm.Core.Ports;
 using CopilotLlm.Core.Services;
+using CopilotLlm.Proxy;
 using CopilotLlm.Tests.Fakes;
 using Microsoft.Extensions.Options;
 

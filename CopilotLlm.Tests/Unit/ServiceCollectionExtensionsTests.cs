@@ -1,8 +1,8 @@
 using CopilotLlm;
 using CopilotLlm.Client;
-using CopilotLlm.Core.Ports;
 using CopilotLlm.Core.Services;
 using CopilotLlm.Infrastructure;
+using CopilotLlm.Proxy;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;

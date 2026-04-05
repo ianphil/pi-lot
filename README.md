@@ -27,7 +27,7 @@ If you are working inside this repo, reference `CopilotLlm/CopilotLlm.csproj`. I
 using System.Text.Json;
 using CopilotLlm;
 using CopilotLlm.Core.Models;
-using CopilotLlm.Core.Ports;
+using CopilotLlm.Proxy;
 using Microsoft.Extensions.DependencyInjection;
 
 var services = new ServiceCollection();

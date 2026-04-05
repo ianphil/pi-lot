@@ -26,3 +26,7 @@
 - models: `ModelListService.GetModelsAsync()` already filters out models without proxy-supported endpoints and projects to `OpenAIModelInfo`, so the SDK client can safely expose `response.Data` directly.
 - streaming: Chat completion streams still arrive as SSE envelopes (`data: {...}\n\n` plus `[DONE]`), so SDK consumers need envelope parsing before `ChatCompletionChunk` deserialization even when the payload is already chat-shaped.
 - serialization: Anonymous payloads that embed a concrete `ResponseMessageItem` lose the polymorphic `type` discriminator unless the value is serialized through the abstract `ResponseItem` base, which matters for SSE parser tests and round-tripping.
+
+## 2026-04-05
+- api-surface: The public proxy contracts now live in `CopilotLlm.Proxy`, but their source files still sit under `CopilotLlm/Core/Ports`, so namespace is now a more reliable boundary signal than folder path.
+- docs: Public-surface namespace changes need matching updates in usage snippets like `README.md`, otherwise onboarding examples drift even when the implementation is correct.

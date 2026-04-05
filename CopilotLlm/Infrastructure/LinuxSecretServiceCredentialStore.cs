@@ -1,5 +1,5 @@
 using CopilotLlm.Core;
-using CopilotLlm.Core.Ports;
+using CopilotLlm.Proxy;
 using Tmds.DBus.Protocol;
 
 namespace CopilotLlm.Infrastructure;

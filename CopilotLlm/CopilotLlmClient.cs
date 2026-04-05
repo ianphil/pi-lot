@@ -1,8 +1,8 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using CopilotLlm.Core.Models;
-using CopilotLlm.Core.Ports;
 using CopilotLlm.Core.Services;
+using CopilotLlm.Proxy;
 using Microsoft.Extensions.Options;
 
 namespace CopilotLlm.Client;

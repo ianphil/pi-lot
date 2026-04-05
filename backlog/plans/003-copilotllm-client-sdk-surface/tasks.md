@@ -150,20 +150,20 @@ Phase 1 (Options & DI)
 
 ### Namespace Moves
 
-- [ ] T060 [TEST] Verify solution builds after namespace changes (build test)
-- [ ] T061 [IMPL] Move `Core/Ports/` types to `CopilotLlm.Proxy` namespace
-- [ ] T062 [IMPL] Move new client types to `CopilotLlm.Client` namespace
-- [ ] T063 [IMPL] Update all `using` statements in `CopilotLlm/` source files
-- [ ] T064 [IMPL] Update all `using` statements in `Program.cs`, `Worker.cs`
-- [ ] T065 [IMPL] Update all `using` statements in `CopilotLlm.Tests/`
-- [ ] T066 [IMPL] Update all `using` statements in `llm-svc.Tests/`
-- [ ] T067 [IMPL] Bump `CopilotLlm.csproj` version to `0.3.0`
+- [x] T060 [TEST] Verify solution builds after namespace changes (build test)
+- [x] T061 [IMPL] Move `Core/Ports/` types to `CopilotLlm.Proxy` namespace
+- [x] T062 [IMPL] Move new client types to `CopilotLlm.Client` namespace
+- [x] T063 [IMPL] Update all `using` statements in `CopilotLlm/` source files
+- [x] T064 [IMPL] Update all `using` statements in `Program.cs`, `Worker.cs`
+- [x] T065 [IMPL] Update all `using` statements in `CopilotLlm.Tests/`
+- [x] T066 [IMPL] Update all `using` statements in `llm-svc.Tests/`
+- [x] T067 [IMPL] Bump `CopilotLlm.csproj` version to `0.3.0`
 
 ### Final Validation
 
-- [ ] T068 [TEST] Full solution build succeeds
-- [ ] T069 [TEST] All `CopilotLlm.Tests` pass
-- [ ] T070 [TEST] All `llm-svc.Tests` (Category!=Smoke) pass
+- [x] T068 [TEST] Full solution build succeeds
+- [x] T069 [TEST] All `CopilotLlm.Tests` pass
+- [x] T070 [TEST] All `llm-svc.Tests` (Category!=Smoke) pass
 
 ---
 
@@ -183,6 +183,6 @@ Phase 1 (Options & DI)
 
 After all implementation phases are complete:
 
-- [ ] `mise x dotnet@10.0.201 -- dotnet build llm-svc.sln --no-restore` passes
-- [ ] `mise x dotnet@10.0.201 -- dotnet test CopilotLlm.Tests/CopilotLlm.Tests.csproj --no-restore` passes
-- [ ] `mise x dotnet@10.0.201 -- dotnet test llm-svc.Tests/llm-svc.Tests.csproj --filter "Category!=Smoke" --no-restore` passes
+- [x] `mise x dotnet@10.0.201 -- dotnet build llm-svc.sln --no-restore` passes
+- [x] `mise x dotnet@10.0.201 -- dotnet test CopilotLlm.Tests/CopilotLlm.Tests.csproj --no-restore` passes
+- [x] `mise x dotnet@10.0.201 -- dotnet test llm-svc.Tests/llm-svc.Tests.csproj --filter "Category!=Smoke" --no-restore` passes
