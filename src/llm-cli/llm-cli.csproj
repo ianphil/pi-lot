@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>llm_cli</RootNamespace>
     <AssemblyName>llm</AssemblyName>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <NoWarn>OPENAI001</NoWarn>
   </PropertyGroup>
 

@@ -137,13 +137,13 @@ The library, service, and CLI are versioned **independently** in their respectiv
 
 ```xml
 <!-- src/llm-sdk/llm-sdk.csproj -->
-<Version>0.1.0</Version>
+<Version>0.3.1</Version>
 
 <!-- src/llm-svc/llm-svc.csproj -->
-<Version>0.6.0</Version>
+<Version>0.6.1</Version>
 
 <!-- src/llm-cli/llm-cli.csproj -->
-<Version>0.3.0</Version>
+<Version>0.4.0</Version>
 ```
 
 **Rules:**
@@ -154,9 +154,9 @@ The library, service, and CLI are versioned **independently** in their respectiv
 
 | Component | Tag format | Example |
 |---|---|---|
-| Service | `svc-v{version}` | `svc-v0.6.0` |
-| Library | `lib-v{version}` | `lib-v0.1.0` |
-| CLI | `cli-v{version}` | `cli-v0.3.0` |
+| Service | `svc-v{version}` | `svc-v0.6.1` |
+| Library | `lib-v{version}` | `lib-v0.3.1` |
+| CLI | `cli-v{version}` | `cli-v0.4.0` |
 
 - A PR that changes multiple components may bump multiple versions and use
   multiple tag formats when releasing them separately.
@@ -177,7 +177,7 @@ The library, service, and CLI are versioned **independently** in their respectiv
 
 `LlmSdk` publishes to GitHub Packages using `.github/workflows/publish-llm-sdk.yml`.
 
-- Push a tag matching the library version, like `lib-v0.1.0`, to publish automatically.
+- Push a tag matching the library version, like `lib-v0.3.1`, to publish automatically.
 - Or run the workflow manually with **workflow_dispatch** to publish the current library version.
 - The workflow publishes to `https://nuget.pkg.github.com/{owner}/index.json` using `GITHUB_TOKEN`.
 
