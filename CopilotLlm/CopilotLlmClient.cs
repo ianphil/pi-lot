@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using CopilotLlm.Core.Models;
 using CopilotLlm.Core.Ports;
@@ -55,6 +56,45 @@ public sealed class CopilotLlmClient
         }, cancellationToken);
     }
 
+    public async IAsyncEnumerable<ResponseStreamEvent> CreateResponseStreamAsync(
+        CreateResponseRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var normalizedRequest = Normalize(request, stream: true);
+        var result = await _responsesService.CreateAsync(normalizedRequest, cancellationToken);
+        await EnsureSuccessAsync(result, cancellationToken);
+
+        if (result.Chunks is null)
+        {
+            throw new InvalidOperationException("The response stream did not contain any chunks.");
+        }
+
+        await foreach (var chunk in result.Chunks.WithCancellation(cancellationToken))
+        {
+            var streamEvent = ResponseStreamEvent.Parse(chunk);
+            if (streamEvent is not null)
+            {
+                yield return streamEvent;
+            }
+        }
+    }
+
+    public IAsyncEnumerable<ResponseStreamEvent> CreateResponseStreamAsync(
+        string? model,
+        string input,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        return CreateResponseStreamAsync(new CreateResponseRequest
+        {
+            Model = model,
+            Input = JsonSerializer.SerializeToElement(input, JsonDefaults.Web),
+        }, cancellationToken);
+    }
+
     public async Task<ChatCompletionResponse> CreateChatCompletionAsync(
         ChatCompletionRequest request,
         CancellationToken cancellationToken = default)
@@ -87,6 +127,60 @@ public sealed class CopilotLlmClient
         }, cancellationToken);
     }
 
+    public async IAsyncEnumerable<ChatCompletionChunk> CreateChatCompletionStreamAsync(
+        ChatCompletionRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var normalizedRequest = Normalize(request, stream: true);
+        var result = await _chatCompletionsService.CreateAsync(normalizedRequest, cancellationToken);
+        await EnsureSuccessAsync(result, cancellationToken);
+
+        if (result.Chunks is null)
+        {
+            throw new InvalidOperationException("The chat completion stream did not contain any chunks.");
+        }
+
+        await foreach (var chunk in result.Chunks.WithCancellation(cancellationToken))
+        {
+            var envelope = SseChunkParser.Parse(chunk);
+            if (envelope is null)
+            {
+                continue;
+            }
+
+            if (string.Equals(envelope.Value.Data, "[DONE]", StringComparison.Ordinal))
+            {
+                yield break;
+            }
+
+            yield return JsonSerializer.Deserialize<ChatCompletionChunk>(envelope.Value.Data, JsonDefaults.Web)
+                         ?? throw new InvalidOperationException("The chat completion stream chunk could not be deserialized.");
+        }
+    }
+
+    public IAsyncEnumerable<ChatCompletionChunk> CreateChatCompletionStreamAsync(
+        string? model,
+        string message,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+
+        return CreateChatCompletionStreamAsync(new ChatCompletionRequest
+        {
+            Model = model,
+            Messages =
+            [
+                new ChatMessage
+                {
+                    Role = "user",
+                    Content = message,
+                },
+            ],
+        }, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<OpenAIModelInfo>> ListModelsAsync(
         CancellationToken cancellationToken = default)
     {
@@ -94,13 +188,13 @@ public sealed class CopilotLlmClient
         return response.Data;
     }
 
-    private CreateResponseRequest Normalize(CreateResponseRequest request)
+    private CreateResponseRequest Normalize(CreateResponseRequest request, bool stream = false)
     {
         return new CreateResponseRequest
         {
             Model = ResolveModel(request.Model),
             Input = request.Input,
-            Stream = false,
+            Stream = stream,
             Instructions = request.Instructions,
             MaxOutputTokens = request.MaxOutputTokens,
             Temperature = request.Temperature,
@@ -123,13 +217,13 @@ public sealed class CopilotLlmClient
         };
     }
 
-    private ChatCompletionRequest Normalize(ChatCompletionRequest request)
+    private ChatCompletionRequest Normalize(ChatCompletionRequest request, bool stream = false)
     {
         return new ChatCompletionRequest
         {
             Model = ResolveModel(request.Model),
             Messages = request.Messages,
-            Stream = false,
+            Stream = stream,
             MaxCompletionTokens = request.MaxCompletionTokens,
             MaxTokens = request.MaxTokens,
             Temperature = request.Temperature,
@@ -152,6 +246,19 @@ public sealed class CopilotLlmClient
         }
 
         throw new ArgumentException("A model must be provided when no default model is configured.", "model");
+    }
+
+    private static async Task EnsureSuccessAsync(
+        ResponseHttpResult result,
+        CancellationToken cancellationToken)
+    {
+        if (result.StatusCode is >= 200 and < 300)
+        {
+            return;
+        }
+
+        var body = await result.ReadBodyAsync(cancellationToken);
+        throw CopilotLlmExceptionFactory.Create(result.StatusCode, body);
     }
 
     private static async Task<T> DeserializeAsync<T>(

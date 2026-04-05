@@ -182,6 +182,137 @@ public sealed class CopilotLlmClientTests
     }
 
     [Fact]
+    public async Task CreateResponseStreamAsync_WithRequest_YieldsParsedResponseStreamEvents()
+    {
+        var response = CreateResponse("resp_stream_123", "Streaming hello");
+        var service = new StubResponsesService(ResponseHttpResult.FromStream(ToAsyncEnumerable(
+            SplitSseBody(ResponseSseSerializer.Serialize(response)).ToArray())));
+        var client = CreateClient(responsesService: service);
+
+        var events = await CollectAsync(client.CreateResponseStreamAsync(CreateResponseRequest()));
+
+        Assert.NotEmpty(events);
+        Assert.Contains(events, e => e is OutputTextDeltaEvent delta && delta.Delta == "Streaming hello");
+        Assert.Contains(events, e => e is ResponseCompletedEvent completed && completed.Response.Id == response.Id);
+        Assert.Equal("gpt-5.4-mini", service.LastRequest?.Model);
+        Assert.True(service.LastRequest?.Stream);
+    }
+
+    [Fact]
+    public async Task CreateResponseStreamAsync_WithRequest_ThrowsOnErrorStatusBeforeStreaming()
+    {
+        var body = JsonSerializer.Serialize(new ResponseErrorEnvelope
+        {
+            Error = new ResponseError
+            {
+                Message = "Model not found.",
+                Type = ErrorTypes.InvalidRequestError,
+                Param = "model",
+                Code = ErrorCodes.ModelNotFound,
+            },
+        }, JsonDefaults.Web);
+        var service = new StubResponsesService(ResponseHttpResult.FromBody(body, 404, "application/json"));
+        var client = CreateClient(responsesService: service);
+
+        var exception = await Assert.ThrowsAsync<ModelNotFoundException>(async () =>
+            await CollectAsync(client.CreateResponseStreamAsync(CreateResponseRequest())));
+
+        Assert.Equal("Model not found.", exception.Message);
+        Assert.Equal("model", exception.Param);
+    }
+
+    [Fact]
+    public async Task CreateResponseStreamAsync_WithModelAndInput_BuildsStreamingRequest()
+    {
+        var service = new StubResponsesService(ResponseHttpResult.FromStream(ToAsyncEnumerable(
+            ResponseSseSerializer.SerializeEvent("response.output_text.delta", new
+            {
+                type = "response.output_text.delta",
+                sequence_number = 1,
+                item_id = "msg_123",
+                output_index = 0,
+                content_index = 0,
+                delta = "Hello!",
+            }),
+            ResponseSseSerializer.SerializeDone())));
+        var client = CreateClient(responsesService: service);
+
+        var events = await CollectAsync(client.CreateResponseStreamAsync("gpt-5.4-mini", "Hello!"));
+
+        var delta = Assert.Single(events);
+        Assert.IsType<OutputTextDeltaEvent>(delta);
+        Assert.Equal("gpt-5.4-mini", service.LastRequest?.Model);
+        Assert.Equal("Hello!", service.LastRequest?.Input.GetString());
+        Assert.True(service.LastRequest?.Stream);
+    }
+
+    [Fact]
+    public async Task CreateChatCompletionStreamAsync_WithRequest_YieldsChatCompletionChunks()
+    {
+        var service = new StubChatCompletionsService(ResponseHttpResult.FromStream(ToAsyncEnumerable(
+            SerializeChatChunk(new ChatCompletionChunk
+            {
+                Id = "chatcmpl_stream_123",
+                Model = "gpt-5.4-mini",
+                Choices =
+                [
+                    new ChatChunkChoice
+                    {
+                        Index = 0,
+                        Delta = new ChatChunkDelta
+                        {
+                            Role = "assistant",
+                            Content = "Hello from stream",
+                        },
+                    },
+                ],
+            }),
+            "data: [DONE]\n\n")));
+        var client = CreateClient(chatService: service);
+
+        var chunks = await CollectAsync(client.CreateChatCompletionStreamAsync(CreateChatCompletionRequest()));
+
+        var chunk = Assert.Single(chunks);
+        Assert.Equal("chatcmpl_stream_123", chunk.Id);
+        Assert.Equal("Hello from stream", chunk.Choices?[0].Delta?.Content);
+        Assert.Equal("gpt-5.4-mini", service.LastRequest?.Model);
+        Assert.True(service.LastRequest?.Stream);
+    }
+
+    [Fact]
+    public async Task CreateChatCompletionStreamAsync_WithModelAndMessage_BuildsStreamingRequest()
+    {
+        var service = new StubChatCompletionsService(ResponseHttpResult.FromStream(ToAsyncEnumerable(
+            SerializeChatChunk(new ChatCompletionChunk
+            {
+                Id = "chatcmpl_stream_234",
+                Choices =
+                [
+                    new ChatChunkChoice
+                    {
+                        Index = 0,
+                        Delta = new ChatChunkDelta
+                        {
+                            Content = "Convenience stream",
+                        },
+                    },
+                ],
+            }),
+            "data: [DONE]\n\n")));
+        var client = CreateClient(chatService: service);
+
+        var chunks = await CollectAsync(client.CreateChatCompletionStreamAsync("gpt-5.4-mini", "Hello!"));
+
+        var chunk = Assert.Single(chunks);
+        Assert.Equal("chatcmpl_stream_234", chunk.Id);
+        Assert.Equal("gpt-5.4-mini", service.LastRequest?.Model);
+        Assert.Single(service.LastRequest?.Messages ?? []);
+        Assert.Equal("user", service.LastRequest?.Messages?[0].Role);
+        Assert.Equal("Hello!", service.LastRequest?.Messages?[0].Content);
+        Assert.True(service.LastRequest?.Stream);
+    }
+
+    [Fact]
     public async Task ListModelsAsync_ReturnsModelListFromModelListService()
     {
         var modelProvider = new FakeModelProvider
@@ -272,6 +403,37 @@ public sealed class CopilotLlmClientTests
             ],
         };
     }
+
+    private static async Task<List<T>> CollectAsync<T>(IAsyncEnumerable<T> values)
+    {
+        var items = new List<T>();
+        await foreach (var value in values)
+        {
+            items.Add(value);
+        }
+
+        return items;
+    }
+
+    private static async IAsyncEnumerable<string> ToAsyncEnumerable(params string[] values)
+    {
+        foreach (var value in values)
+        {
+            yield return value;
+            await Task.Yield();
+        }
+    }
+
+    private static IEnumerable<string> SplitSseBody(string body)
+    {
+        foreach (var chunk in body.Split("\n\n", StringSplitOptions.RemoveEmptyEntries))
+        {
+            yield return $"{chunk}\n\n";
+        }
+    }
+
+    private static string SerializeChatChunk(ChatCompletionChunk chunk) =>
+        $"data: {JsonSerializer.Serialize(chunk, JsonDefaults.Web)}\n\n";
 
     private sealed class StubResponsesService(ResponseHttpResult result) : IResponsesService
     {

@@ -17,7 +17,7 @@ public sealed class ChatCompletionsStreamTranslator
 
         await foreach (var chunk in chunks.WithCancellation(cancellationToken))
         {
-            var envelope = ParseSseChunk(chunk);
+            var envelope = SseChunkParser.Parse(chunk);
             if (envelope is null)
             {
                 continue;
@@ -104,42 +104,6 @@ public sealed class ChatCompletionsStreamTranslator
             errorMessage = $"Upstream chat completion stream could not be parsed: {ex.Message}";
             return false;
         }
-    }
-
-    private static (string? EventName, string Data)? ParseSseChunk(string chunk)
-    {
-        if (string.IsNullOrWhiteSpace(chunk))
-        {
-            return null;
-        }
-
-        using var reader = new StringReader(chunk);
-        string? eventName = null;
-        var data = new StringBuilder();
-        string? line;
-        while ((line = reader.ReadLine()) is not null)
-        {
-            if (line.StartsWith("event:", StringComparison.OrdinalIgnoreCase))
-            {
-                eventName = line[6..].Trim();
-            }
-            else if (line.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-            {
-                if (data.Length > 0)
-                {
-                    data.Append('\n');
-                }
-
-                data.Append(line[5..].TrimStart());
-            }
-        }
-
-        if (eventName is null && data.Length == 0)
-        {
-            return null;
-        }
-
-        return (eventName, data.ToString());
     }
 
     private sealed class ChatCompletionResponseStreamState

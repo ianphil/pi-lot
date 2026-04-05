@@ -120,29 +120,29 @@ Phase 1 (Options & DI)
 
 ### ResponseStreamEvent Hierarchy
 
-- [ ] T043 [TEST] `ResponseStreamEvent.Parse` parses `response.output_text.delta` SSE chunk into `OutputTextDelta`
-- [ ] T044 [TEST] `ResponseStreamEvent.Parse` parses `response.completed` SSE chunk into `ResponseCompleted`
-- [ ] T045 [TEST] `ResponseStreamEvent.Parse` parses `response.function_call_arguments.delta` into `FunctionCallArgumentsDelta`
-- [ ] T046 [TEST] `ResponseStreamEvent.Parse` handles `[DONE]` sentinel
-- [ ] T047 [TEST] `ResponseStreamEvent.Parse` parses all lifecycle events (`created`, `in_progress`, `failed`, `incomplete`)
-- [ ] T048 [TEST] `ResponseStreamEvent.Parse` parses content part events (`added`, `done`)
-- [ ] T049 [TEST] `ResponseStreamEvent.Parse` parses output item events (`added`, `done`)
-- [ ] T050 [IMPL] Create `ResponseStreamEvent` hierarchy and `Parse` method
+- [x] T043 [TEST] `ResponseStreamEvent.Parse` parses `response.output_text.delta` SSE chunk into `OutputTextDelta`
+- [x] T044 [TEST] `ResponseStreamEvent.Parse` parses `response.completed` SSE chunk into `ResponseCompleted`
+- [x] T045 [TEST] `ResponseStreamEvent.Parse` parses `response.function_call_arguments.delta` into `FunctionCallArgumentsDelta`
+- [x] T046 [TEST] `ResponseStreamEvent.Parse` handles `[DONE]` sentinel
+- [x] T047 [TEST] `ResponseStreamEvent.Parse` parses all lifecycle events (`created`, `in_progress`, `failed`, `incomplete`)
+- [x] T048 [TEST] `ResponseStreamEvent.Parse` parses content part events (`added`, `done`)
+- [x] T049 [TEST] `ResponseStreamEvent.Parse` parses output item events (`added`, `done`)
+- [x] T050 [IMPL] Create `ResponseStreamEvent` hierarchy and `Parse` method
 
 ### Streaming Responses API
 
-- [ ] T051 [TEST] `CreateResponseStreamAsync(CreateResponseRequest)` yields parsed `ResponseStreamEvent` objects
-- [ ] T052 [TEST] `CreateResponseStreamAsync` throws on error status before streaming
-- [ ] T053 [IMPL] Implement `CreateResponseStreamAsync(CreateResponseRequest)`
-- [ ] T054 [TEST] `CreateResponseStreamAsync(model, input)` convenience overload works
-- [ ] T055 [IMPL] Implement `CreateResponseStreamAsync(string, string)`
+- [x] T051 [TEST] `CreateResponseStreamAsync(CreateResponseRequest)` yields parsed `ResponseStreamEvent` objects
+- [x] T052 [TEST] `CreateResponseStreamAsync` throws on error status before streaming
+- [x] T053 [IMPL] Implement `CreateResponseStreamAsync(CreateResponseRequest)`
+- [x] T054 [TEST] `CreateResponseStreamAsync(model, input)` convenience overload works
+- [x] T055 [IMPL] Implement `CreateResponseStreamAsync(string, string)`
 
 ### Streaming Chat Completions API
 
-- [ ] T056 [TEST] `CreateChatCompletionStreamAsync(ChatCompletionRequest)` yields `ChatCompletionChunk` objects
-- [ ] T057 [IMPL] Implement `CreateChatCompletionStreamAsync(ChatCompletionRequest)`
-- [ ] T058 [TEST] `CreateChatCompletionStreamAsync(model, message)` convenience overload works
-- [ ] T059 [IMPL] Implement `CreateChatCompletionStreamAsync(string, string)`
+- [x] T056 [TEST] `CreateChatCompletionStreamAsync(ChatCompletionRequest)` yields `ChatCompletionChunk` objects
+- [x] T057 [IMPL] Implement `CreateChatCompletionStreamAsync(ChatCompletionRequest)`
+- [x] T058 [TEST] `CreateChatCompletionStreamAsync(model, message)` convenience overload works
+- [x] T059 [IMPL] Implement `CreateChatCompletionStreamAsync(string, string)`
 
 ---
 

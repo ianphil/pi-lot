@@ -24,3 +24,5 @@
 - transport: `ProxyHttpResult` and `ResponseHttpResult` do not carry response headers, so SDK `RateLimitException.RetryAfter` can only be populated from error JSON until header support exists.
 - sdk: Convenience response overloads can build string input with `JsonSerializer.SerializeToElement(..., JsonDefaults.Web)` instead of `JsonDocument.Parse(...).RootElement.Clone()`, avoiding temporary document lifetime handling.
 - models: `ModelListService.GetModelsAsync()` already filters out models without proxy-supported endpoints and projects to `OpenAIModelInfo`, so the SDK client can safely expose `response.Data` directly.
+- streaming: Chat completion streams still arrive as SSE envelopes (`data: {...}\n\n` plus `[DONE]`), so SDK consumers need envelope parsing before `ChatCompletionChunk` deserialization even when the payload is already chat-shaped.
+- serialization: Anonymous payloads that embed a concrete `ResponseMessageItem` lose the polymorphic `type` discriminator unless the value is serialized through the abstract `ResponseItem` base, which matters for SSE parser tests and round-tripping.
