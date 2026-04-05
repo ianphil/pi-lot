@@ -1,4 +1,4 @@
-namespace llm_cli;
+namespace llm_cli.Agents;
 
 public sealed record AskRequest(
     string Prompt,

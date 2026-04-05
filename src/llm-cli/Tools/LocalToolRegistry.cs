@@ -6,26 +6,6 @@ using OpenAI.Responses;
 
 namespace llm_cli;
 
-public interface ILocalTool
-{
-    string Name { get; }
-
-    ResponseTool Definition { get; }
-
-    ChatTool ChatDefinition { get; }
-
-    Task<string> ExecuteAsync(BinaryData arguments, CancellationToken cancellationToken);
-}
-
-public interface IToolRegistry
-{
-    IReadOnlyList<ResponseTool> Definitions { get; }
-
-    IReadOnlyList<ChatTool> ChatDefinitions { get; }
-
-    Task<string> ExecuteAsync(string toolName, BinaryData arguments, CancellationToken cancellationToken);
-}
-
 public sealed class LocalToolRegistry : IToolRegistry
 {
     private static readonly JsonSerializerOptions s_JsonOptions = new(JsonSerializerDefaults.Web);

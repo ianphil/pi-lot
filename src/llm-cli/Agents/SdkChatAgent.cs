@@ -1,7 +1,7 @@
 using LlmSdk.Client;
 using LlmSdk.Core.Models;
 
-namespace llm_cli;
+namespace llm_cli.Agents;
 
 public static class SdkChatAgent
 {

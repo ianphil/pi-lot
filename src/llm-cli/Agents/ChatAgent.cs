@@ -2,7 +2,7 @@
 
 using OpenAI.Chat;
 
-namespace llm_cli;
+namespace llm_cli.Agents;
 
 public sealed class ChatAgent
 {

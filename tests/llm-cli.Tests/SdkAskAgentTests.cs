@@ -1,4 +1,6 @@
 using System.Text.Json;
+using llm_cli.Agents;
+using llm_cli.Tests.Fakes;
 using LlmSdk.Client;
 using LlmSdk.Core.Models;
 
@@ -31,8 +33,7 @@ public sealed class SdkAskAgentTests
         };
 
         var client = new FakeLlmSdkClient(
-            createResponseAsync: (request, _) => Task.FromResult(response),
-            createResponseStreamAsync: (_, _) => ToAsyncEnumerable([]));
+            createResponseAsync: (_, _) => Task.FromResult(response));
 
         await SdkAskAgent.RunNonStreamingAsync(
             client,
@@ -53,8 +54,7 @@ public sealed class SdkAskAgentTests
     {
         using var writer = new StringWriter();
         var client = new FakeLlmSdkClient(
-            createResponseAsync: (_, _) => throw new NotSupportedException(),
-            createResponseStreamAsync: (_, _) => ToAsyncEnumerable(
+            createResponseStreamAsync: (_, _) => AsyncEnumerableHelpers.ToAsyncEnumerable<ResponseStreamEvent>(
             [
                 new OutputTextDeltaEvent("response.output_text.delta", 1, "Hello ", 0, 0, "msg_123"),
                 new OutputTextDeltaEvent("response.output_text.delta", 2, "world", 0, 0, "msg_123"),
@@ -92,8 +92,7 @@ public sealed class SdkAskAgentTests
         };
 
         var client = new FakeLlmSdkClient(
-            createResponseAsync: (_, _) => Task.FromResult(response),
-            createResponseStreamAsync: (_, _) => ToAsyncEnumerable([]));
+            createResponseAsync: (_, _) => Task.FromResult(response));
 
         await SdkAskAgent.RunNonStreamingAsync(
             client,
@@ -130,8 +129,7 @@ public sealed class SdkAskAgentTests
         };
 
         var client = new FakeLlmSdkClient(
-            createResponseAsync: (_, _) => Task.FromResult(response),
-            createResponseStreamAsync: (_, _) => ToAsyncEnumerable([]));
+            createResponseAsync: (_, _) => Task.FromResult(response));
 
         await SdkAskAgent.RunNonStreamingAsync(
             client,
@@ -162,8 +160,7 @@ public sealed class SdkAskAgentTests
         };
 
         var client = new FakeLlmSdkClient(
-            createResponseAsync: (_, _) => Task.FromResult(response),
-            createResponseStreamAsync: (_, _) => ToAsyncEnumerable([]));
+            createResponseAsync: (_, _) => Task.FromResult(response));
 
         await SdkAskAgent.RunNonStreamingAsync(
             client,
@@ -190,8 +187,7 @@ public sealed class SdkAskAgentTests
         };
 
         var client = new FakeLlmSdkClient(
-            createResponseAsync: (_, _) => throw new NotSupportedException(),
-            createResponseStreamAsync: (_, _) => ToAsyncEnumerable(
+            createResponseStreamAsync: (_, _) => AsyncEnumerableHelpers.ToAsyncEnumerable<ResponseStreamEvent>(
             [
                 new ResponseFailedEvent("response.failed", 1, failedResponse),
             ]));
@@ -203,58 +199,5 @@ public sealed class SdkAskAgentTests
             CancellationToken.None);
 
         Assert.Equal($"Response failed: boom{Environment.NewLine}", writer.ToString());
-    }
-
-    private static async IAsyncEnumerable<ResponseStreamEvent> ToAsyncEnumerable(
-        IEnumerable<ResponseStreamEvent> updates)
-    {
-        foreach (var update in updates)
-        {
-            yield return update;
-            await Task.Yield();
-        }
-    }
-
-    private sealed class FakeLlmSdkClient(
-        Func<CreateResponseRequest, CancellationToken, Task<Response>> createResponseAsync,
-        Func<CreateResponseRequest, CancellationToken, IAsyncEnumerable<ResponseStreamEvent>> createResponseStreamAsync)
-        : ILlmSdkClient
-    {
-        public CreateResponseRequest? LastCreateResponseRequest { get; private set; }
-
-        public CreateResponseRequest? LastCreateResponseStreamRequest { get; private set; }
-
-        public Task<Response> CreateResponseAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
-        {
-            LastCreateResponseRequest = request;
-            return createResponseAsync(request, cancellationToken);
-        }
-
-        public Task<Response> CreateResponseAsync(string? model, string input, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public IAsyncEnumerable<ResponseStreamEvent> CreateResponseStreamAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
-        {
-            LastCreateResponseStreamRequest = request;
-            return createResponseStreamAsync(request, cancellationToken);
-        }
-
-        public IAsyncEnumerable<ResponseStreamEvent> CreateResponseStreamAsync(string? model, string input, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public Task<ChatCompletionResponse> CreateChatCompletionAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public Task<ChatCompletionResponse> CreateChatCompletionAsync(string? model, string message, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public IAsyncEnumerable<ChatCompletionChunk> CreateChatCompletionStreamAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public IAsyncEnumerable<ChatCompletionChunk> CreateChatCompletionStreamAsync(string? model, string message, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public Task<IReadOnlyList<OpenAIModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
     }
 }

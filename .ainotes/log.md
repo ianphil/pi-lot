@@ -52,4 +52,8 @@
 - tooling: VS Code's C#/.NET services can hold `src/llm-cli/bin/Debug/net10.0` artifacts open and make `dotnet build` fail during `scripts/test-matrix.sh`; closing the repo window and clearing stale `bin/obj` fixes it.
 - error-handling: `SdkAskAgent` non-streaming path must check `Response.Status` for `Failed`/`Incomplete` — a failed response with no output text silently prints a generic message instead of the actual error.
 - error-handling: `SdkChatAgent` must inspect `FinishReason` on `ChatChoice`/`ChatChunkChoice` — `finish_reason: "length"` (truncated output) silently exits 0 without warning the user.
-- docs: `copilot-instructions.md` is the most-read file by AI agents — dependency diagrams there must stay in sync with actual ProjectReference changes, or agents get confused about what's allowed.
+- cli: System.CommandLine already implements the Command Pattern — wrapping it in `ICliCommand` adds indirection without reducing complexity. Extract Class is the right refactoring for a bloated composition root.
+- cli: System.CommandLine requires each `Option<T>` instance to be unique per command — use factory methods (not shared instances) to DRY option definitions across commands.
+- cli: AskAgent/ChatAgent are structurally similar but semantically distinct (different API surfaces, different streaming models) — resist unifying them behind a common interface.
+- cli: SdkAskAgent/SdkChatAgent being static classes is correct for stateless single-turn agents — don't add instance ceremony where it adds no value.
+- testing: Test fakes duplicated across multiple test files should be consolidated into a `Fakes/` directory — `FakeToolRegistry`, `FakeLlmSdkClient`, and `ToAsyncEnumerable<T>` were each duplicated 2-5 times.

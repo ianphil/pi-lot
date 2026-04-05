@@ -1,4 +1,6 @@
 using System.Text.Json;
+using llm_cli.Agents;
+using llm_cli.Tests.Fakes;
 using LlmSdk.Client;
 using LlmSdk.Core.Models;
 
@@ -26,8 +28,7 @@ public sealed class SdkChatAgentTests
         };
 
         var client = new FakeLlmSdkClient(
-            createChatCompletionAsync: (request, _) => Task.FromResult(response),
-            createChatCompletionStreamAsync: (_, _) => ToAsyncEnumerable([]));
+            createChatCompletionAsync: (_, _) => Task.FromResult(response));
 
         await SdkChatAgent.RunNonStreamingAsync(
             client,
@@ -51,8 +52,7 @@ public sealed class SdkChatAgentTests
     {
         using var writer = new StringWriter();
         var client = new FakeLlmSdkClient(
-            createChatCompletionAsync: (_, _) => throw new NotSupportedException(),
-            createChatCompletionStreamAsync: (_, _) => ToAsyncEnumerable(
+            createChatCompletionStreamAsync: (_, _) => AsyncEnumerableHelpers.ToAsyncEnumerable<ChatCompletionChunk>(
             [
                 new ChatCompletionChunk
                 {
@@ -129,8 +129,7 @@ public sealed class SdkChatAgentTests
         };
 
         var client = new FakeLlmSdkClient(
-            createChatCompletionAsync: (_, _) => Task.FromResult(response),
-            createChatCompletionStreamAsync: (_, _) => ToAsyncEnumerable([]));
+            createChatCompletionAsync: (_, _) => Task.FromResult(response));
 
         await SdkChatAgent.RunNonStreamingAsync(
             client,
@@ -163,8 +162,7 @@ public sealed class SdkChatAgentTests
         };
 
         var client = new FakeLlmSdkClient(
-            createChatCompletionAsync: (_, _) => Task.FromResult(response),
-            createChatCompletionStreamAsync: (_, _) => ToAsyncEnumerable([]));
+            createChatCompletionAsync: (_, _) => Task.FromResult(response));
 
         await SdkChatAgent.RunNonStreamingAsync(
             client,
@@ -180,8 +178,7 @@ public sealed class SdkChatAgentTests
     {
         using var writer = new StringWriter();
         var client = new FakeLlmSdkClient(
-            createChatCompletionAsync: (_, _) => throw new NotSupportedException(),
-            createChatCompletionStreamAsync: (_, _) => ToAsyncEnumerable(
+            createChatCompletionStreamAsync: (_, _) => AsyncEnumerableHelpers.ToAsyncEnumerable<ChatCompletionChunk>(
             [
                 new ChatCompletionChunk
                 {
@@ -222,8 +219,7 @@ public sealed class SdkChatAgentTests
     {
         using var writer = new StringWriter();
         var client = new FakeLlmSdkClient(
-            createChatCompletionAsync: (_, _) => throw new NotSupportedException(),
-            createChatCompletionStreamAsync: (_, _) => ToAsyncEnumerable([]));
+            createChatCompletionStreamAsync: (_, _) => AsyncEnumerableHelpers.ToAsyncEnumerable<ChatCompletionChunk>([]));
 
         await SdkChatAgent.RunStreamingAsync(
             client,
@@ -253,8 +249,7 @@ public sealed class SdkChatAgentTests
         };
 
         var client = new FakeLlmSdkClient(
-            createChatCompletionAsync: (_, _) => Task.FromResult(response),
-            createChatCompletionStreamAsync: (_, _) => ToAsyncEnumerable([]));
+            createChatCompletionAsync: (_, _) => Task.FromResult(response));
 
         await SdkChatAgent.RunNonStreamingAsync(
             client,
@@ -263,58 +258,5 @@ public sealed class SdkChatAgentTests
             CancellationToken.None);
 
         Assert.Equal($"No message text was returned.{Environment.NewLine}", writer.ToString());
-    }
-
-    private static async IAsyncEnumerable<ChatCompletionChunk> ToAsyncEnumerable(
-        IEnumerable<ChatCompletionChunk> chunks)
-    {
-        foreach (var chunk in chunks)
-        {
-            yield return chunk;
-            await Task.Yield();
-        }
-    }
-
-    private sealed class FakeLlmSdkClient(
-        Func<ChatCompletionRequest, CancellationToken, Task<ChatCompletionResponse>> createChatCompletionAsync,
-        Func<ChatCompletionRequest, CancellationToken, IAsyncEnumerable<ChatCompletionChunk>> createChatCompletionStreamAsync)
-        : ILlmSdkClient
-    {
-        public ChatCompletionRequest? LastCreateChatCompletionRequest { get; private set; }
-
-        public ChatCompletionRequest? LastCreateChatCompletionStreamRequest { get; private set; }
-
-        public Task<Response> CreateResponseAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public Task<Response> CreateResponseAsync(string? model, string input, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public IAsyncEnumerable<ResponseStreamEvent> CreateResponseStreamAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public IAsyncEnumerable<ResponseStreamEvent> CreateResponseStreamAsync(string? model, string input, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public Task<ChatCompletionResponse> CreateChatCompletionAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
-        {
-            LastCreateChatCompletionRequest = request;
-            return createChatCompletionAsync(request, cancellationToken);
-        }
-
-        public Task<ChatCompletionResponse> CreateChatCompletionAsync(string? model, string message, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public IAsyncEnumerable<ChatCompletionChunk> CreateChatCompletionStreamAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
-        {
-            LastCreateChatCompletionStreamRequest = request;
-            return createChatCompletionStreamAsync(request, cancellationToken);
-        }
-
-        public IAsyncEnumerable<ChatCompletionChunk> CreateChatCompletionStreamAsync(string? model, string message, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public Task<IReadOnlyList<OpenAIModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
     }
 }

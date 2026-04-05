@@ -1,5 +1,7 @@
 #pragma warning disable OPENAI001
 
+using llm_cli.Agents;
+using llm_cli.Tests.Fakes;
 using OpenAI.Chat;
 using OpenAI.Responses;
 
@@ -149,39 +151,7 @@ public sealed class ChatAgentTests
         Assert.Equal(1, toolRegistry.ExecutionCount);
     }
 
-    private static async IAsyncEnumerable<StreamingChatCompletionUpdate> ToAsyncEnumerable(
+    private static IAsyncEnumerable<StreamingChatCompletionUpdate> ToAsyncEnumerable(
         IEnumerable<StreamingChatCompletionUpdate> updates)
-    {
-        foreach (var update in updates)
-        {
-            yield return update;
-            await Task.Yield();
-        }
-    }
-
-    private sealed class FakeToolRegistry(string output) : IToolRegistry
-    {
-        private static readonly ResponseTool s_ToolDefinition = ResponseTool.CreateFunctionTool(
-            functionName: FetchUrlTool.ToolName,
-            functionParameters: BinaryData.FromString("""{"type":"object"}"""),
-            strictModeEnabled: true,
-            functionDescription: "test");
-
-        private static readonly ChatTool s_ChatToolDefinition = ChatTool.CreateFunctionTool(
-            functionName: FetchUrlTool.ToolName,
-            functionParameters: BinaryData.FromString("""{"type":"object"}"""),
-            functionDescription: "test");
-
-        public int ExecutionCount { get; private set; }
-
-        public IReadOnlyList<ResponseTool> Definitions { get; } = [s_ToolDefinition];
-
-        public IReadOnlyList<ChatTool> ChatDefinitions { get; } = [s_ChatToolDefinition];
-
-        public Task<string> ExecuteAsync(string toolName, BinaryData arguments, CancellationToken cancellationToken)
-        {
-            ExecutionCount++;
-            return Task.FromResult(output);
-        }
-    }
+        => AsyncEnumerableHelpers.ToAsyncEnumerable(updates);
 }

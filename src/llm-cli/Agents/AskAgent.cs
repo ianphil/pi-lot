@@ -2,7 +2,7 @@
 
 using OpenAI.Responses;
 
-namespace llm_cli;
+namespace llm_cli.Agents;
 
 public sealed class AskAgent
 {
