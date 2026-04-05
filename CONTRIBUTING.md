@@ -215,7 +215,9 @@ with an explanation.
 
 ## Documentation
 
-- **docs/api-reference.md** — Canonical API surface. Update when adding or changing endpoints.
+- **docs/sdk-guide.md** — LlmSdk library guide: setup, API usage, streaming, error handling.
+- **docs/cli-guide.md** — CLI reference: commands, flags, tool calling, examples.
+- **docs/api-reference.md** — Proxy HTTP API surface. Update when adding or changing endpoints.
 - **docs/event-log-guide.md** — Windows Event Log structure. Update when adding event IDs.
 - **docs/how-to-run-compliance-tests.md** — Compliance test runner guide.
 - **README.md** — Project overview and quick start. Keep in sync with major changes.

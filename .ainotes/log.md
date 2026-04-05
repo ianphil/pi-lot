@@ -57,3 +57,6 @@
 - cli: AskAgent/ChatAgent are structurally similar but semantically distinct (different API surfaces, different streaming models) — resist unifying them behind a common interface.
 - cli: SdkAskAgent/SdkChatAgent being static classes is correct for stateless single-turn agents — don't add instance ceremony where it adds no value.
 - testing: Test fakes duplicated across multiple test files should be consolidated into a `Fakes/` directory — `FakeToolRegistry`, `FakeLlmSdkClient`, and `ToAsyncEnumerable<T>` were each duplicated 2-5 times.
+- docs: Unauthenticated SDK behavior surfaces `ModelNotFoundException` (empty model list from discovery), not `AuthenticationException` — typed auth exceptions only fire when the upstream API returns 401 on an actual request.
+- docs: `--endpoint` is a per-subcommand flag in System.CommandLine, not a root-level global — placing it before the subcommand fails argument parsing.
+- docs: `health` command always exits 0 even when the proxy is unreachable — it catches `HttpRequestException` and prints status, but doesn't set exit code.
