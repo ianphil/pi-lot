@@ -79,6 +79,209 @@ public sealed class ResponseStreamEventTests
         Assert.Null(streamEvent);
     }
 
+    [Fact]
+    public void Parse_WhenChunkIsUnrecognizedEvent_ReturnsUnknownStreamEvent()
+    {
+        var chunk = ResponseSseSerializer.SerializeEvent("response.some_future_event", new
+        {
+            type = "response.some_future_event",
+            sequence_number = 99,
+            custom_data = "hello",
+        });
+
+        var streamEvent = ResponseStreamEvent.Parse(chunk);
+
+        var unknown = Assert.IsType<UnknownStreamEvent>(streamEvent);
+        Assert.Equal("response.some_future_event", unknown.EventName);
+        Assert.Equal(99, unknown.SequenceNumber);
+        Assert.Contains("hello", unknown.RawData);
+    }
+
+    [Fact]
+    public void Parse_WhenChunkIsResponseQueued_ReturnsResponseQueuedEvent()
+    {
+        var response = CreateResponse("resp_queued", ResponseStatuses.InProgress, "");
+        var chunk = ResponseSseSerializer.SerializeEvent("response.queued", new
+        {
+            type = "response.queued",
+            sequence_number = 0,
+            response,
+        });
+
+        var streamEvent = ResponseStreamEvent.Parse(chunk);
+
+        var queued = Assert.IsType<ResponseQueuedEvent>(streamEvent);
+        Assert.Equal(0, queued.SequenceNumber);
+        Assert.Equal("resp_queued", queued.Response.Id);
+    }
+
+    [Fact]
+    public void Parse_WhenChunkIsRefusalDelta_ReturnsRefusalDeltaEvent()
+    {
+        var chunk = ResponseSseSerializer.SerializeEvent("response.refusal.delta", new
+        {
+            type = "response.refusal.delta",
+            sequence_number = 3,
+            item_id = "msg_456",
+            output_index = 0,
+            content_index = 0,
+            delta = "I cannot",
+        });
+
+        var streamEvent = ResponseStreamEvent.Parse(chunk);
+
+        var delta = Assert.IsType<RefusalDeltaEvent>(streamEvent);
+        Assert.Equal(3, delta.SequenceNumber);
+        Assert.Equal("I cannot", delta.Delta);
+        Assert.Equal("msg_456", delta.ItemId);
+    }
+
+    [Fact]
+    public void Parse_WhenChunkIsRefusalDone_ReturnsRefusalDoneEvent()
+    {
+        var chunk = ResponseSseSerializer.SerializeEvent("response.refusal.done", new
+        {
+            type = "response.refusal.done",
+            sequence_number = 4,
+            item_id = "msg_456",
+            output_index = 0,
+            content_index = 0,
+            refusal = "I cannot help with that.",
+        });
+
+        var streamEvent = ResponseStreamEvent.Parse(chunk);
+
+        var done = Assert.IsType<RefusalDoneEvent>(streamEvent);
+        Assert.Equal("I cannot help with that.", done.Refusal);
+    }
+
+    [Fact]
+    public void Parse_WhenChunkIsReasoningDelta_ReturnsReasoningDeltaEvent()
+    {
+        var chunk = ResponseSseSerializer.SerializeEvent("response.reasoning.delta", new
+        {
+            type = "response.reasoning.delta",
+            sequence_number = 2,
+            item_id = "rs_001",
+            output_index = 0,
+            content_index = 0,
+            delta = "Let me think",
+        });
+
+        var streamEvent = ResponseStreamEvent.Parse(chunk);
+
+        var delta = Assert.IsType<ReasoningDeltaEvent>(streamEvent);
+        Assert.Equal("Let me think", delta.Delta);
+        Assert.Equal("rs_001", delta.ItemId);
+    }
+
+    [Fact]
+    public void Parse_WhenChunkIsReasoningDone_ReturnsReasoningDoneEvent()
+    {
+        var chunk = ResponseSseSerializer.SerializeEvent("response.reasoning.done", new
+        {
+            type = "response.reasoning.done",
+            sequence_number = 3,
+            item_id = "rs_001",
+            output_index = 0,
+            content_index = 0,
+        });
+
+        var streamEvent = ResponseStreamEvent.Parse(chunk);
+
+        var done = Assert.IsType<ReasoningDoneEvent>(streamEvent);
+        Assert.Equal("rs_001", done.ItemId);
+    }
+
+    [Fact]
+    public void Parse_WhenChunkIsReasoningSummaryDelta_ReturnsReasoningSummaryDeltaEvent()
+    {
+        var chunk = ResponseSseSerializer.SerializeEvent("response.reasoning_summary_text.delta", new
+        {
+            type = "response.reasoning_summary_text.delta",
+            sequence_number = 5,
+            item_id = "rs_001",
+            output_index = 0,
+            summary_index = 0,
+            delta = "Summary chunk",
+        });
+
+        var streamEvent = ResponseStreamEvent.Parse(chunk);
+
+        var delta = Assert.IsType<ReasoningSummaryDeltaEvent>(streamEvent);
+        Assert.Equal("Summary chunk", delta.Delta);
+        Assert.Equal(0, delta.SummaryIndex);
+    }
+
+    [Fact]
+    public void Parse_WhenChunkIsReasoningSummaryDone_ReturnsReasoningSummaryDoneEvent()
+    {
+        var chunk = ResponseSseSerializer.SerializeEvent("response.reasoning_summary_text.done", new
+        {
+            type = "response.reasoning_summary_text.done",
+            sequence_number = 6,
+            item_id = "rs_001",
+            output_index = 0,
+            summary_index = 0,
+            text = "Full summary text",
+        });
+
+        var streamEvent = ResponseStreamEvent.Parse(chunk);
+
+        var done = Assert.IsType<ReasoningSummaryDoneEvent>(streamEvent);
+        Assert.Equal("Full summary text", done.Text);
+    }
+
+    [Fact]
+    public void Parse_WhenChunkIsOutputTextAnnotationAdded_ReturnsOutputTextAnnotationAddedEvent()
+    {
+        var chunk = ResponseSseSerializer.SerializeEvent("response.output_text.annotation.added", new
+        {
+            type = "response.output_text.annotation.added",
+            sequence_number = 7,
+            item_id = "msg_123",
+            output_index = 0,
+            content_index = 0,
+            annotation_index = 0,
+            annotation = new
+            {
+                type = "url_citation",
+                url = "https://example.com",
+                title = "Example",
+            },
+        });
+
+        var streamEvent = ResponseStreamEvent.Parse(chunk);
+
+        var annotation = Assert.IsType<OutputTextAnnotationAddedEvent>(streamEvent);
+        Assert.Equal(0, annotation.AnnotationIndex);
+        Assert.Equal("msg_123", annotation.ItemId);
+    }
+
+    [Fact]
+    public void Parse_WhenChunkIsErrorWithNestedPayload_ReturnsErrorEventWithCorrectFields()
+    {
+        var chunk = ResponseSseSerializer.SerializeEvent("error", new
+        {
+            type = "error",
+            sequence_number = 1,
+            error = new
+            {
+                message = "Rate limit exceeded",
+                type = "rate_limit_error",
+                code = "rate_limit",
+                param = (string?)null,
+            },
+        });
+
+        var streamEvent = ResponseStreamEvent.Parse(chunk);
+
+        var errorEvent = Assert.IsType<ErrorEvent>(streamEvent);
+        Assert.Equal("Rate limit exceeded", errorEvent.Error.Message);
+        Assert.Equal("rate_limit_error", errorEvent.Error.Type);
+        Assert.Equal("rate_limit", errorEvent.Error.Code);
+    }
+
     [Theory]
     [MemberData(nameof(GetLifecycleChunks))]
     public void Parse_WhenChunkIsLifecycleEvent_ReturnsExpectedEvent(string chunk, Type expectedType, string expectedStatus)
@@ -138,6 +341,11 @@ public sealed class ResponseStreamEventTests
                 CreateLifecycleChunk("response.incomplete", 3, ResponseStatuses.Incomplete),
                 typeof(ResponseIncompleteEvent),
                 ResponseStatuses.Incomplete
+            },
+            {
+                CreateLifecycleChunk("response.queued", 4, ResponseStatuses.InProgress),
+                typeof(ResponseQueuedEvent),
+                ResponseStatuses.InProgress
             },
         };
     }

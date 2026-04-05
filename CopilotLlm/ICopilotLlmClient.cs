@@ -1,0 +1,46 @@
+using System.Runtime.CompilerServices;
+using CopilotLlm.Core.Models;
+
+namespace CopilotLlm.Client;
+
+public interface ICopilotLlmClient
+{
+    Task<Response> CreateResponseAsync(
+        CreateResponseRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<Response> CreateResponseAsync(
+        string? model,
+        string input,
+        CancellationToken cancellationToken = default);
+
+    IAsyncEnumerable<ResponseStreamEvent> CreateResponseStreamAsync(
+        CreateResponseRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default);
+
+    IAsyncEnumerable<ResponseStreamEvent> CreateResponseStreamAsync(
+        string? model,
+        string input,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default);
+
+    Task<ChatCompletionResponse> CreateChatCompletionAsync(
+        ChatCompletionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<ChatCompletionResponse> CreateChatCompletionAsync(
+        string? model,
+        string message,
+        CancellationToken cancellationToken = default);
+
+    IAsyncEnumerable<ChatCompletionChunk> CreateChatCompletionStreamAsync(
+        ChatCompletionRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default);
+
+    IAsyncEnumerable<ChatCompletionChunk> CreateChatCompletionStreamAsync(
+        string? model,
+        string message,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<OpenAIModelInfo>> ListModelsAsync(
+        CancellationToken cancellationToken = default);
+}

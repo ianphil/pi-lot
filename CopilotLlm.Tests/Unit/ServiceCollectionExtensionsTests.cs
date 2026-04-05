@@ -18,7 +18,7 @@ public sealed class ServiceCollectionExtensionsTests
         using var provider = CreateProvider();
 
         var client = provider.GetRequiredService<CopilotClient>();
-        var sdkClient = provider.GetRequiredService<CopilotLlmClient>();
+        var sdkClient = provider.GetRequiredService<ICopilotLlmClient>();
 
         Assert.Same(client, provider.GetRequiredService<IAuthProvider>());
         Assert.Same(client, provider.GetRequiredService<IModelProvider>());

@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace CopilotLlm.Client;
 
-public sealed class CopilotLlmClient
+public sealed class CopilotLlmClient : ICopilotLlmClient
 {
     private readonly IResponsesService _responsesService;
     private readonly IChatCompletionsService _chatCompletionsService;

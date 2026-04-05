@@ -30,3 +30,7 @@
 ## 2026-04-05
 - api-surface: The public proxy contracts now live in `CopilotLlm.Proxy`, but their source files still sit under `CopilotLlm/Core/Ports`, so namespace is now a more reliable boundary signal than folder path.
 - docs: Public-surface namespace changes need matching updates in usage snippets like `README.md`, otherwise onboarding examples drift even when the implementation is correct.
+- streaming: `ResponseStreamEvent.Parse()` must not throw on unrecognized SSE event names — the OpenResponses spec union grows regularly (58 schema files at last count), so an `UnknownStreamEvent` fallback is essential for forward compatibility.
+- streaming: OpenResponses error SSE events nest the error object under an `error` key (`{ type, sequence_number, error: { message, type, code, param } }`), not flat at the top level — error payload parsing must try nested first.
+- translator: `ResponsesStreamToChatTranslator` must track tool calls by `output_index` → `chatToolCallIndex` mapping, not a rolling counter, because argument deltas for multiple tool calls can interleave.
+- translator: When a responses stream completes with function_call items in the output, the chat completions `finish_reason` must be `"tool_calls"`, not `"stop"` — chat clients use this to decide whether to execute tools.
