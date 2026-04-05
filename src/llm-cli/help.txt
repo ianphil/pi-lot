@@ -1,8 +1,12 @@
 LLM CLI — query language models through the local Copilot LLM proxy.
 
 SETUP
-  The proxy (llm-svc) must be running at localhost:5100. To check:
+  The proxy (llm-svc) must be running at localhost:5100 for ask, chat,
+  models, and health commands. To check:
     llm health
+
+  SDK commands (sdk-ask, sdk-chat) do not require the proxy — they call
+  the Copilot API directly through the in-process SDK client.
 
   If the proxy isn't running, install it:
     scripts\install.ps1        (as admin, registers a scheduled task)
@@ -24,6 +28,15 @@ ASKING QUESTIONS
   The prompt is a single positional argument. Wrap it in quotes if it
   contains spaces or special characters.
 
+SDK RESPONSES
+  llm sdk-ask "your prompt"               Stream directly through LlmSdk
+  llm sdk-ask "your prompt" --no-stream   Wait for the full response
+  llm sdk-ask "your prompt" -m gpt-5.4    Use a specific model
+  llm sdk-ask "your prompt" -s "Be concise" Set system instructions
+
+  Same prompt/model/system behavior as "llm ask", but bypasses the local
+  proxy and talks to Copilot through the in-process SDK client.
+
 CHAT COMPLETIONS
   llm chat "your prompt"                  Stream via Chat Completions API
   llm chat "your prompt" --no-stream      Wait for the full response
@@ -34,6 +47,15 @@ CHAT COMPLETIONS
   Same behavior as "llm ask" but talks /v1/chat/completions directly.
   Useful for testing the Chat Completions surface, including SSE streaming,
   tool calls, and responses-to-chat translation.
+
+SDK CHAT COMPLETIONS
+  llm sdk-chat "your prompt"              Stream directly through LlmSdk chat
+  llm sdk-chat "your prompt" --no-stream  Wait for the full response
+  llm sdk-chat "your prompt" -m gpt-5-mini Use a specific model
+  llm sdk-chat "your prompt" -s "Be concise" Set system instructions
+
+  Same prompt/model/system behavior as "llm chat", but bypasses the local
+  proxy and talks to Copilot through the in-process SDK client.
 
 MODELS
   llm models                              List all available models
@@ -63,6 +85,18 @@ CHAT FLAGS
   -s, --system          System instructions prepended to the conversation
   --no-stream           Disable streaming, return complete response at once
   --tools               Enable local tools (currently: fetch_url)
+
+SDK-ASK FLAGS
+  <prompt>              The prompt to send (required, positional)
+  -m, --model           Model ID (default: gpt-5.4-mini)
+  -s, --system          System instructions prepended to the conversation
+  --no-stream           Disable streaming, return complete response at once
+
+SDK-CHAT FLAGS
+  <prompt>              The prompt to send (required, positional)
+  -m, --model           Model ID (default: gpt-5-mini)
+  -s, --system          System instructions prepended to the conversation
+  --no-stream           Disable streaming, return complete response at once
 
 GLOBAL FLAGS
   -e, --endpoint        Base URL of the proxy (default: http://localhost:5100)
@@ -95,6 +129,12 @@ EXAMPLES
   # Chat with tools
   llm chat "Summarize https://example.com" --tools
 
+  # Use the SDK directly without running llm-svc
+  llm sdk-ask "Summarize this change" -m gpt-5.4-mini
+
+  # Use the SDK chat client directly
+  llm sdk-chat "What is 2+2?" -m gpt-5-mini
+
   # Check what models are available before choosing
   llm models
 
@@ -117,3 +157,10 @@ PROXY DETAILS
 
   llm chat uses /v1/chat/completions exclusively. The proxy translates
   to /responses upstream when needed (e.g., for GPT-5.x models).
+
+SDK DETAILS
+  llm sdk-ask uses `ILlmSdkClient.CreateResponseAsync` /
+  `CreateResponseStreamAsync` directly in-process.
+
+  llm sdk-chat uses `ILlmSdkClient.CreateChatCompletionAsync` /
+  `CreateChatCompletionStreamAsync` directly in-process.

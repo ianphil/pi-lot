@@ -318,6 +318,56 @@ public sealed class ResponseStreamEventTests
         Assert.Equal("assistant", item.Role);
     }
 
+    [Fact]
+    public void Parse_WhenOutputItemTypeDiscriminatorAppearsLast_ReturnsOutputItemEvent()
+    {
+        const string chunk = """
+event: response.output_item.added
+data: {"item":{"content":[],"id":"message_123","role":"assistant","status":"in_progress","type":"message"},"output_index":0,"sequence_number":2,"type":"response.output_item.added"}
+
+""";
+
+        var streamEvent = ResponseStreamEvent.Parse(chunk);
+
+        var outputItem = Assert.IsType<OutputItemAddedEvent>(streamEvent);
+        var item = Assert.IsType<ResponseMessageItem>(outputItem.Item);
+        Assert.Equal("message_123", item.Id);
+        Assert.Equal("assistant", item.Role);
+    }
+
+    [Fact]
+    public void Parse_WhenContentPartTypeDiscriminatorAppearsLast_ReturnsContentPartEvent()
+    {
+        const string chunk = """
+event: response.content_part.added
+data: {"content_index":0,"item_id":"message_123","output_index":0,"part":{"annotations":[],"text":"hello","type":"output_text"},"sequence_number":3,"type":"response.content_part.added"}
+
+""";
+
+        var streamEvent = ResponseStreamEvent.Parse(chunk);
+
+        var contentPart = Assert.IsType<ContentPartAddedEvent>(streamEvent);
+        var part = Assert.IsType<ResponseOutputTextPart>(contentPart.Part);
+        Assert.Equal("hello", part.Text);
+    }
+
+    [Fact]
+    public void Parse_WhenResponseOutputItemTypeDiscriminatorAppearsLast_ReturnsLifecycleEvent()
+    {
+        const string chunk = """
+event: response.completed
+data: {"response":{"id":"resp_123","status":"completed","model":"gpt-5.4-mini","output":[{"content":[{"annotations":[],"text":"hello","type":"output_text"}],"id":"message_123","role":"assistant","status":"completed","type":"message"}],"temperature":1,"top_p":1,"tools":[],"tool_choice":"auto","truncation":"disabled","parallel_tool_calls":true,"text":{"format":{"type":"text"}},"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"store":false,"background":false,"service_tier":"default","metadata":null,"completed_at":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"error":null,"reasoning":null,"usage":null,"max_output_tokens":null,"max_tool_calls":null,"safety_identifier":null,"prompt_cache_key":null},"sequence_number":4,"type":"response.completed"}
+
+""";
+
+        var streamEvent = ResponseStreamEvent.Parse(chunk);
+
+        var completed = Assert.IsType<ResponseCompletedEvent>(streamEvent);
+        var item = Assert.IsType<ResponseMessageItem>(Assert.Single(completed.Response.Output));
+        var part = Assert.IsType<ResponseOutputTextPart>(Assert.Single(item.Content));
+        Assert.Equal("hello", part.Text);
+    }
+
     public static TheoryData<string, Type, string> GetLifecycleChunks()
     {
         return new TheoryData<string, Type, string>

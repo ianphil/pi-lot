@@ -4,13 +4,17 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>llm_cli</RootNamespace>
     <AssemblyName>llm</AssemblyName>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <NoWarn>OPENAI001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="OpenAI" Version="2.*" />
     <PackageReference Include="System.CommandLine" Version="2.*-*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\llm-sdk\llm-sdk.csproj" />
   </ItemGroup>
 
   <ItemGroup>

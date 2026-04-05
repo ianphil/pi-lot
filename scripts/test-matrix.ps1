@@ -2,15 +2,17 @@
 .SYNOPSIS
     Runs llm CLI commands matching every scenario in the test matrix.
 .DESCRIPTION
-    Each test-matrix row maps to an llm ask or llm chat invocation that
-    exercises the same surface + upstream routing path. Requires the proxy
-    to be running at localhost:5100 with valid credentials.
+    Each test-matrix row maps to an llm ask, llm chat, llm sdk-ask, or
+    llm sdk-chat invocation that exercises the same surface or SDK path.
+    Proxy-backed rows require the proxy to be running at localhost:5100
+    with valid credentials.
 .NOTES
     Models used:
       gpt-5.4-mini     -> /responses only
       gpt-5.4          -> /responses only
       claude-haiku-4.5 -> /chat/completions only
       gpt-5-mini       -> both /chat/completions and /responses (dual)
+      sdk-* commands   -> direct ILlmSdkClient path
     Run:  pwsh scripts\test-matrix.ps1
 #>
 
@@ -32,10 +34,12 @@ function Invoke-Llm {
         [string]$Prompt,
         [string]$Model,
         [switch]$Stream,
-        [switch]$Tools
+        [switch]$Tools,
+        [bool]$UseEndpoint = $true
     )
 
-    $cliArgs = @($Verb, $Prompt, "-m", $Model, "-e", $Endpoint)
+    $cliArgs = @($Verb, $Prompt, "-m", $Model)
+    if ($UseEndpoint) { $cliArgs += @("-e", $Endpoint) }
     if (-not $Stream) { $cliArgs += "--no-stream" }
     if ($Tools)       { $cliArgs += "--tools" }
 
@@ -125,6 +129,22 @@ if (Invoke-Llm "14. chat → dual-endpoint model, prefers chat" chat $prompt gpt
 
 # 15. /chat/completions → dual-endpoint model, SSE streaming prefers native
 if (Invoke-Llm "15. chat → dual-endpoint model, streaming prefers chat" chat $prompt gpt-5-mini -Stream:$true) { $pass++ } else { $fail++ }
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SDK surface (llm sdk-ask / llm sdk-chat)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# 16. sdk-ask → direct sdk path, plain text
+if (Invoke-Llm "16. sdk-ask → direct sdk path, plain" sdk-ask $prompt gpt-5.4-mini -Stream:$false -UseEndpoint:$false) { $pass++ } else { $fail++ }
+
+# 17. sdk-ask → direct sdk path, streaming
+if (Invoke-Llm "17. sdk-ask → direct sdk path, streaming" sdk-ask $prompt gpt-5.4-mini -Stream:$true -UseEndpoint:$false) { $pass++ } else { $fail++ }
+
+# 18. sdk-chat → direct sdk path, plain text
+if (Invoke-Llm "18. sdk-chat → direct sdk path, plain" sdk-chat $prompt gpt-5-mini -Stream:$false -UseEndpoint:$false) { $pass++ } else { $fail++ }
+
+# 19. sdk-chat → direct sdk path, streaming
+if (Invoke-Llm "19. sdk-chat → direct sdk path, streaming" sdk-chat $prompt gpt-5-mini -Stream:$true -UseEndpoint:$false) { $pass++ } else { $fail++ }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Summary

@@ -8,9 +8,10 @@ Rules are explicit and unambiguous — follow them literally.
 **llm-svc** is the primary deployable host — a local proxy that translates OpenAI
 Responses API requests to upstream providers. **LlmSdk** is the reusable class
 library that contains the translation engine, auth, model discovery, and upstream HTTP
-adapter. **llm-cli** is a reference implementation client that demonstrates how to
-consume the proxy. Changes to the host or library are the main concern; CLI changes
-support or demonstrate proxy capabilities.
+adapter. **llm-cli** is a reference implementation client that demonstrates both how
+to consume the proxy over HTTP and how to call the SDK directly in-process. Changes to
+the host or library are the main concern; CLI changes support or demonstrate proxy and
+SDK capabilities.
 
 ```
 llm-svc/
@@ -69,8 +70,9 @@ Source projects live under `src/`, test projects under `tests/`. The root
 endpoints, and registers `Worker`. Keep hosting concerns there; keep reusable
 logic in `src/llm-sdk/`.
 
-The CLI is self-contained in `src/llm-cli/` and depends only on the OpenAI .NET SDK.
-It does not reference `llm-svc` projects — it talks to the proxy over HTTP.
+The CLI is self-contained in `src/llm-cli/`. Its `ask` / `chat` commands use the
+OpenAI .NET SDK to talk to the proxy over HTTP, while `sdk-ask` / `sdk-chat` reference
+`src/llm-sdk/` directly to exercise the SDK surface in-process.
 
 ## Build and Test
 
@@ -135,13 +137,13 @@ The library, service, and CLI are versioned **independently** in their respectiv
 
 ```xml
 <!-- src/llm-sdk/llm-sdk.csproj -->
-<Version>0.1.0</Version>
+<Version>0.3.1</Version>
 
 <!-- src/llm-svc/llm-svc.csproj -->
-<Version>0.6.0</Version>
+<Version>0.6.1</Version>
 
 <!-- src/llm-cli/llm-cli.csproj -->
-<Version>0.3.0</Version>
+<Version>0.4.0</Version>
 ```
 
 **Rules:**
@@ -152,9 +154,9 @@ The library, service, and CLI are versioned **independently** in their respectiv
 
 | Component | Tag format | Example |
 |---|---|---|
-| Service | `svc-v{version}` | `svc-v0.6.0` |
-| Library | `lib-v{version}` | `lib-v0.1.0` |
-| CLI | `cli-v{version}` | `cli-v0.3.0` |
+| Service | `svc-v{version}` | `svc-v0.6.1` |
+| Library | `lib-v{version}` | `lib-v0.3.1` |
+| CLI | `cli-v{version}` | `cli-v0.4.0` |
 
 - A PR that changes multiple components may bump multiple versions and use
   multiple tag formats when releasing them separately.
@@ -175,7 +177,7 @@ The library, service, and CLI are versioned **independently** in their respectiv
 
 `LlmSdk` publishes to GitHub Packages using `.github/workflows/publish-llm-sdk.yml`.
 
-- Push a tag matching the library version, like `lib-v0.1.0`, to publish automatically.
+- Push a tag matching the library version, like `lib-v0.3.1`, to publish automatically.
 - Or run the workflow manually with **workflow_dispatch** to publish the current library version.
 - The workflow publishes to `https://nuget.pkg.github.com/{owner}/index.json` using `GITHUB_TOKEN`.
 

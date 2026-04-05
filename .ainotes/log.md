@@ -42,3 +42,14 @@
 - rename: When renaming a library across a .NET solution, `using static` directives are missed by a simple `s/using OldName/using NewName/` sed — they need a separate pass.
 - rename: `InternalsVisibleTo` in `AssemblyInfo.cs` must reference the assembly name (which follows the csproj file name), not the namespace — so `llm-sdk.Tests` not `LlmSdk.Tests`.
 - naming: Infrastructure types referencing an upstream service (CopilotClient, ICopilotCredentialStore) should keep the service name even when the library is renamed — they describe *what they connect to*, not *what library they belong to*.
+- planning: Critic caught that `AddLlmSdk()` alone is insufficient for standalone CLI DI — `AddLogging()` is required because `CopilotClient` and credential stores depend on `ILogger<T>`.
+- planning: `ChatCompletionChunk.Choices`, `.Delta`, and `.Delta.Content` can all be null in streaming responses (role-only chunks, terminal chunks) — streaming consumers must be null-safe at every level.
+- planning: `CreateResponseRequest.Input` is `JsonElement`, not `string` — CLI agents must serialize the user prompt to `JsonElement` before building the request.
+- planning: `ask` defaults to `gpt-5.4-mini` but `chat` defaults to `gpt-5-mini` — SDK command defaults should match their proxy counterparts, not use a single default.
+- testing: `tests/llm-cli.Tests` includes a live smoke test that expects a proxy on `localhost:5100`, so routine CLI validation should use `--filter "Category!=Smoke"`.
+- scripts: Shared CLI matrix runners need conditional `--endpoint` injection because `sdk-ask` and `sdk-chat` bypass the proxy and do not accept proxy-only flags.
+- streaming: Native `/responses` SSE chunks can put the polymorphic `type` discriminator last inside nested `item` and `part` payloads, so SDK parsing needs `AllowOutOfOrderMetadataProperties` enabled.
+- tooling: VS Code's C#/.NET services can hold `src/llm-cli/bin/Debug/net10.0` artifacts open and make `dotnet build` fail during `scripts/test-matrix.sh`; closing the repo window and clearing stale `bin/obj` fixes it.
+- error-handling: `SdkAskAgent` non-streaming path must check `Response.Status` for `Failed`/`Incomplete` — a failed response with no output text silently prints a generic message instead of the actual error.
+- error-handling: `SdkChatAgent` must inspect `FinishReason` on `ChatChoice`/`ChatChunkChoice` — `finish_reason: "length"` (truncated output) silently exits 0 without warning the user.
+- docs: `copilot-instructions.md` is the most-read file by AI agents — dependency diagrams there must stay in sync with actual ProjectReference changes, or agents get confused about what's allowed.

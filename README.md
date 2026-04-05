@@ -122,12 +122,18 @@ dotnet run --project llm-cli -- ask "Review this code" -s "Be direct and concise
 # Use tools (fetch_url)
 dotnet run --project llm-cli -- chat "Summarize https://example.com" --tools
 
+# Use the SDK directly — no proxy required
+dotnet run --project llm-cli -- sdk-ask "Summarize this change" -m gpt-5.4-mini
+dotnet run --project llm-cli -- sdk-chat "What is 2+2?" -m gpt-5-mini
+
 # List models and check health
 dotnet run --project llm-cli -- models
 dotnet run --project llm-cli -- health
 ```
 
 `llm ask` uses `/v1/responses`. `llm chat` uses `/v1/chat/completions`. Both stream by default and support `--no-stream`, `--model`, `--system`, and `--tools`.
+
+`llm sdk-ask` and `llm sdk-chat` bypass the proxy entirely, calling `ILlmSdkClient` in-process. Same flags minus `--tools` and `--endpoint`.
 
 Run `llm --help` for full usage, examples, and model guidance.
 
@@ -267,7 +273,7 @@ llm-svc/
 │   ├── llm-svc/                   Host proxy
 │   │   ├── Program.cs             Composition root (calls AddLlmSdk)
 │   │   └── Worker.cs              Background auth lifecycle
-│   └── llm-cli/                   CLI client (System.CommandLine + OpenAI SDK)
+│   └── llm-cli/                   CLI client (System.CommandLine + OpenAI SDK + LlmSdk)
 ├── tests/
 │   ├── llm-sdk.Tests/         Library unit tests
 │   ├── llm-svc.Tests/            Host integration + smoke tests

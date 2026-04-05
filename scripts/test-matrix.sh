@@ -11,6 +11,7 @@
 #   gpt-5.4          -> /responses only
 #   claude-haiku-4.5 -> /chat/completions only
 #   gpt-5-mini       -> both /chat/completions and /responses (dual)
+#   sdk-* commands   -> direct ILlmSdkClient path (no proxy endpoint flag)
 #
 # Usage:  bash scripts/test-matrix.sh [--port 5110] [--no-stream]
 
@@ -123,8 +124,12 @@ invoke_llm() {
   local model="$4"
   local stream="$5"
   local tools="${6:-0}"
+  local use_endpoint="${7:-1}"
 
-  local -a cli_args=("$verb" "$prompt_text" "-m" "$model" "-e" "$endpoint")
+  local -a cli_args=("$verb" "$prompt_text" "-m" "$model")
+  if [[ "$use_endpoint" == "1" ]]; then
+    cli_args+=("-e" "$endpoint")
+  fi
   if [[ "$stream" == "0" ]]; then
     cli_args+=("--no-stream")
   fi
@@ -190,6 +195,15 @@ invoke_llm "12. chat → responses-only model, streaming translation"  chat "$pr
 invoke_llm "13. chat → responses-only model, streaming + tools"      chat "$tool_prompt" gpt-5.4-mini     1 1
 invoke_llm "14. chat → dual-endpoint model, prefers chat"            chat "$prompt"      gpt-5-mini       0
 invoke_llm "15. chat → dual-endpoint model, streaming prefers chat"  chat "$prompt"      gpt-5-mini       1
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SDK surface (llm sdk-ask / llm sdk-chat)
+# ══════════════════════════════════════════════════════════════════════════════
+
+invoke_llm "16. sdk-ask → direct sdk path, plain"                    sdk-ask  "$prompt" gpt-5.4-mini 0 0 0
+invoke_llm "17. sdk-ask → direct sdk path, streaming"                sdk-ask  "$prompt" gpt-5.4-mini 1 0 0
+invoke_llm "18. sdk-chat → direct sdk path, plain"                   sdk-chat "$prompt" gpt-5-mini   0 0 0
+invoke_llm "19. sdk-chat → direct sdk path, streaming"               sdk-chat "$prompt" gpt-5-mini   1 0 0
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Summary
