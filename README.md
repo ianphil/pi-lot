@@ -1,4 +1,4 @@
-# CopilotLlm
+# LlmSdk
 
 A .NET library for accessing GitHub Copilot's LLM API with OpenAI-compatible Responses and Chat Completions services. This repository also ships `llm-svc`, a local OpenAI-compatible proxy, and `llm`, a CLI reference client for the proxy.
 
@@ -6,32 +6,32 @@ A .NET library for accessing GitHub Copilot's LLM API with OpenAI-compatible Res
 
 | Component | What it is | Use it when |
 |---|---|---|
-| **CopilotLlm** | Reusable .NET library with auth, model discovery, routing, and translation | You want to embed Copilot-backed LLM access directly in your own .NET app or host |
+| **LlmSdk** | Reusable .NET library with auth, model discovery, routing, and translation | You want to embed Copilot-backed LLM access directly in your own .NET app or host |
 | **llm-svc** | Local HTTP proxy exposing OpenAI-compatible endpoints on `localhost` | You want existing SDKs, tools, or agents to talk to Copilot through an OpenAI-shaped API |
 | **llm** | Terminal client for the proxy | You want a quick terminal workflow or a reference client implementation |
 
-## CopilotLlm library
+## LlmSdk library
 
-`CopilotLlm` is the reusable core product in this repo. It handles Copilot credential resolution, request-level credential refresh and retry, model discovery, native `/responses` routing, `/chat/completions` fallback, and translation between the two API shapes.
+`LlmSdk` is the reusable core product in this repo. It handles Copilot credential resolution, request-level credential refresh and retry, model discovery, native `/responses` routing, `/chat/completions` fallback, and translation between the two API shapes.
 
 The library integrates through a single DI entry point:
 
-- `services.AddCopilotLlm()`
+- `services.AddLlmSdk()`
 - `IResponsesService` for Responses API requests
 - `IChatCompletionsService` for Chat Completions requests
 - `IModelProvider` for model discovery and direct upstream access
 
-If you are working inside this repo, reference `CopilotLlm/CopilotLlm.csproj`. If you are consuming published packages, use package ID `CopilotLlm`.
+If you are working inside this repo, reference `llm-sdk/llm-sdk.csproj`. If you are consuming published packages, use package ID `LlmSdk`.
 
 ```csharp
 using System.Text.Json;
-using CopilotLlm;
-using CopilotLlm.Core.Models;
-using CopilotLlm.Proxy;
+using LlmSdk;
+using LlmSdk.Core.Models;
+using LlmSdk.Proxy;
 using Microsoft.Extensions.DependencyInjection;
 
 var services = new ServiceCollection();
-services.AddCopilotLlm();
+services.AddLlmSdk();
 
 using var provider = services.BuildServiceProvider();
 
@@ -194,8 +194,8 @@ Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -Fil
 This publishes the app, creates a scheduled task that starts at logon, and starts it immediately. Manage with:
 
 ```powershell
-Stop-ScheduledTask -TaskName CopilotLlmProxy    # stop
-Start-ScheduledTask -TaskName CopilotLlmProxy   # start
+Stop-ScheduledTask -TaskName LlmProxy    # stop
+Start-ScheduledTask -TaskName LlmProxy   # start
 .\scripts\uninstall.ps1                          # remove
 ```
 
@@ -258,29 +258,29 @@ localhost:5100/v1/responses
 ```
 llm-svc/
 ├── src/
-│   ├── CopilotLlm/               Reusable library for translation, auth, and upstream access
+│   ├── llm-sdk/               Reusable library for translation, auth, and upstream access
 │   │   ├── ServiceCollectionExtensions.cs
-│   │   ├── Client/               SDK surface (CopilotLlmClient, options, exceptions)
+│   │   ├── Client/               SDK surface (LlmSdkClient, options, exceptions)
 │   │   ├── Proxy/                Public port interfaces (IResponsesService, IModelProvider)
 │   │   ├── Core/                 Domain logic, models, translators
 │   │   └── Infrastructure/       HTTP adapters, credential stores
 │   ├── llm-svc/                   Host proxy
-│   │   ├── Program.cs             Composition root (calls AddCopilotLlm)
+│   │   ├── Program.cs             Composition root (calls AddLlmSdk)
 │   │   └── Worker.cs              Background auth lifecycle
 │   └── llm-cli/                   CLI client (System.CommandLine + OpenAI SDK)
 ├── tests/
-│   ├── CopilotLlm.Tests/         Library unit tests
+│   ├── llm-sdk.Tests/         Library unit tests
 │   ├── llm-svc.Tests/            Host integration + smoke tests
 │   └── llm-cli.Tests/            CLI tests
 ├── Directory.Build.props          Shared build properties
-└── llm-svc.sln
+└── copilot-llm.sln
 ```
 
 ## Testing
 
 ```bash
 # Run CI-safe library and host tests
-dotnet test tests/CopilotLlm.Tests/CopilotLlm.Tests.csproj
+dotnet test tests/llm-sdk.Tests/llm-sdk.Tests.csproj
 dotnet test tests/llm-svc.Tests/llm-svc.Tests.csproj --filter "Category!=Smoke"
 
 # Run live smoke tests (requires running proxy with credentials)

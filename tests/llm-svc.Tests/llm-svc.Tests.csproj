@@ -19,8 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\CopilotLlm\CopilotLlm.csproj" />
-    <ProjectReference Include="..\CopilotLlm.Tests\CopilotLlm.Tests.csproj" />
+    <ProjectReference Include="..\..\src\llm-sdk\llm-sdk.csproj" />
+    <ProjectReference Include="..\llm-sdk.Tests\llm-sdk.Tests.csproj" />
     <ProjectReference Include="..\..\src\llm-svc\llm-svc.csproj" />
   </ItemGroup>
 

@@ -1,15 +1,15 @@
 # Event Log & Observability Guide
 
 The Copilot LLM Proxy writes structured logs to a custom Windows Event Log
-named `CopilotLlmProxy`. This guide covers what gets logged and how to
+named `LlmProxy`. This guide covers what gets logged and how to
 query it.
 
 ## Log configuration
 
 | Setting | Value |
 |---------|-------|
-| Log name | `CopilotLlmProxy` |
-| Source name | `CopilotLlmProxy` |
+| Log name | `LlmProxy` |
+| Source name | `LlmProxy` |
 | Default level | `Information` |
 | ASP.NET Core level | `Warning` (reduces framework noise) |
 
@@ -67,35 +67,35 @@ correlation.
 ### View the last 20 log entries
 
 ```powershell
-Get-EventLog -LogName CopilotLlmProxy -Newest 20 |
+Get-EventLog -LogName LlmProxy -Newest 20 |
   Format-Table TimeGenerated, EntryType, Message -Wrap
 ```
 
 ### Errors only
 
 ```powershell
-Get-EventLog -LogName CopilotLlmProxy -EntryType Error -Newest 20 |
+Get-EventLog -LogName LlmProxy -EntryType Error -Newest 20 |
   Format-Table TimeGenerated, Message -Wrap
 ```
 
 ### Errors and warnings
 
 ```powershell
-Get-EventLog -LogName CopilotLlmProxy -EntryType Error,Warning -Newest 20 |
+Get-EventLog -LogName LlmProxy -EntryType Error,Warning -Newest 20 |
   Format-Table TimeGenerated, EntryType, Message -Wrap
 ```
 
 ### Events in the last hour
 
 ```powershell
-Get-EventLog -LogName CopilotLlmProxy -After (Get-Date).AddHours(-1) |
+Get-EventLog -LogName LlmProxy -After (Get-Date).AddHours(-1) |
   Format-Table TimeGenerated, EntryType, Message -Wrap
 ```
 
 ### Events in a time window
 
 ```powershell
-Get-EventLog -LogName CopilotLlmProxy `
+Get-EventLog -LogName LlmProxy `
   -After  "2026-03-27 00:00" `
   -Before "2026-03-27 01:00" |
   Format-Table TimeGenerated, EntryType, Message -Wrap
@@ -107,7 +107,7 @@ Each request gets a unique `TraceId`. Find it in any log entry, then
 query for all events sharing that trace:
 
 ```powershell
-Get-EventLog -LogName CopilotLlmProxy -Newest 100 |
+Get-EventLog -LogName LlmProxy -Newest 100 |
   Where-Object { $_.Message -match "TraceId: 61ea5fb5321b70369eb5f0c10fe5cec4" } |
   Format-Table TimeGenerated, Message -Wrap
 ```
@@ -115,7 +115,7 @@ Get-EventLog -LogName CopilotLlmProxy -Newest 100 |
 ### Count requests by searching for routing events
 
 ```powershell
-Get-EventLog -LogName CopilotLlmProxy -Newest 1000 |
+Get-EventLog -LogName LlmProxy -Newest 1000 |
   Where-Object { $_.Message -match "Routing" } |
   Measure-Object
 ```
@@ -123,7 +123,7 @@ Get-EventLog -LogName CopilotLlmProxy -Newest 1000 |
 ### Find requests to a specific model
 
 ```powershell
-Get-EventLog -LogName CopilotLlmProxy -Newest 500 |
+Get-EventLog -LogName LlmProxy -Newest 500 |
   Where-Object { $_.Message -match "Routing claude-haiku" } |
   Format-Table TimeGenerated, Message -Wrap
 ```
@@ -131,7 +131,7 @@ Get-EventLog -LogName CopilotLlmProxy -Newest 500 |
 ### Find slow upstream calls (>2 seconds)
 
 ```powershell
-Get-EventLog -LogName CopilotLlmProxy -Newest 500 |
+Get-EventLog -LogName LlmProxy -Newest 500 |
   Where-Object {
     $_.Message -match "after (\d+(?:\.\d+)?)ms" -and
     [double]$Matches[1] -gt 2000
@@ -142,7 +142,7 @@ Get-EventLog -LogName CopilotLlmProxy -Newest 500 |
 ### Startup and shutdown events
 
 ```powershell
-Get-EventLog -LogName CopilotLlmProxy -Newest 100 |
+Get-EventLog -LogName LlmProxy -Newest 100 |
   Where-Object { $_.Message -match "start|stop|shutdown" } |
   Format-Table TimeGenerated, EntryType, Message -Wrap
 ```
@@ -150,7 +150,7 @@ Get-EventLog -LogName CopilotLlmProxy -Newest 100 |
 ### Authentication issues
 
 ```powershell
-Get-EventLog -LogName CopilotLlmProxy -Newest 100 |
+Get-EventLog -LogName LlmProxy -Newest 100 |
   Where-Object { $_.Message -match "credential|token|401|auth" } |
   Format-Table TimeGenerated, EntryType, Message -Wrap
 ```
@@ -160,7 +160,7 @@ Get-EventLog -LogName CopilotLlmProxy -Newest 100 |
 ```powershell
 $last = (Get-Date)
 while ($true) {
-  $entries = Get-EventLog -LogName CopilotLlmProxy -After $last -ErrorAction SilentlyContinue
+  $entries = Get-EventLog -LogName LlmProxy -After $last -ErrorAction SilentlyContinue
   if ($entries) {
     $entries | Format-Table TimeGenerated, EntryType, Message -Wrap
     $last = ($entries | Select-Object -First 1).TimeGenerated
@@ -172,7 +172,7 @@ while ($true) {
 ### Export to CSV for analysis
 
 ```powershell
-Get-EventLog -LogName CopilotLlmProxy -Newest 1000 |
+Get-EventLog -LogName LlmProxy -Newest 1000 |
   Select-Object TimeGenerated, EntryType, EventID, Message |
   Export-Csv -Path events.csv -NoTypeInformation
 ```
@@ -180,7 +180,7 @@ Get-EventLog -LogName CopilotLlmProxy -Newest 1000 |
 ### Clear the log (requires admin)
 
 ```powershell
-Clear-EventLog -LogName CopilotLlmProxy
+Clear-EventLog -LogName LlmProxy
 ```
 
 ## What each component logs

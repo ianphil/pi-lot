@@ -13,7 +13,7 @@ param(
     [string]$InstallPath = "C:\services\llm-svc"
 )
 
-$TaskName = "CopilotLlmProxy"
+$TaskName = "LlmProxy"
 $ProjectDir = Split-Path $PSScriptRoot -Parent
 $SvcProject = Join-Path $ProjectDir "src\llm-svc\llm-svc.csproj"
 $ErrorActionPreference = "Stop"

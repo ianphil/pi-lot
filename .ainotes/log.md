@@ -16,7 +16,7 @@
 - release: `main` currently carries aligned `svc-v0.6.1`, `lib-v0.1.0`, and `cli-v0.3.0` tags on the library-extraction baseline commit.
 - auth: Request-level refresh has to cover `GET /models` too, because `ChatAsync` resolves model capabilities before routing and can hit the same 401 race as LLM POSTs.
 - testing: Injecting `TimeProvider` into `CopilotClient` is enough to test token TTL behavior deterministically without expanding the public SDK surface.
-- api-surface: Library v0.2.0 has no `CopilotLlm.Client` or `CopilotLlm.Proxy` namespaces — all types live under `CopilotLlm.Core.*` and `CopilotLlm.Infrastructure`.
+- api-surface: Library v0.2.0 has no `LlmSdk.Client` or `LlmSdk.Proxy` namespaces — all types live under `CopilotLlm.Core.*` and `CopilotLlm.Infrastructure`.
 - api-surface: `ResponseHttpResult` carries `Body` (string) or `Chunks` (IAsyncEnumerable<string>) — the SDK client layer must parse both shapes to produce typed results.
 - api-surface: All 15+ SSE event types are serialized as anonymous JSON objects in `ResponseSseSerializer` — no typed event models exist yet; streaming SDK must define and parse them.
 - http: `AddHttpClient()` leaves `HttpClient.Timeout` at the framework default 100 seconds unless the named `CopilotClient` registration overrides it, so the SDK's 120-second default must be applied explicitly.
@@ -28,7 +28,7 @@
 - serialization: Anonymous payloads that embed a concrete `ResponseMessageItem` lose the polymorphic `type` discriminator unless the value is serialized through the abstract `ResponseItem` base, which matters for SSE parser tests and round-tripping.
 
 ## 2026-04-05
-- api-surface: The public proxy contracts now live in `CopilotLlm.Proxy`, but their source files still sit under `CopilotLlm/Core/Ports`, so namespace is now a more reliable boundary signal than folder path.
+- api-surface: The public proxy contracts now live in `LlmSdk.Proxy` with source files under `src/llm-sdk/Proxy/`, matching namespace to directory.
 - docs: Public-surface namespace changes need matching updates in usage snippets like `README.md`, otherwise onboarding examples drift even when the implementation is correct.
 - streaming: `ResponseStreamEvent.Parse()` must not throw on unrecognized SSE event names — the OpenResponses spec union grows regularly (58 schema files at last count), so an `UnknownStreamEvent` fallback is essential for forward compatibility.
 - streaming: OpenResponses error SSE events nest the error object under an `error` key (`{ type, sequence_number, error: { message, type, code, param } }`), not flat at the top level — error payload parsing must try nested first.
@@ -38,4 +38,7 @@
 - layout: `Directory.Build.props` at the repo root is picked up by all projects automatically — shared `TargetFramework`, `Nullable`, and `ImplicitUsings` need not be repeated in every csproj.
 - docker: When `Directory.Build.props` exists, the Dockerfile restore layer must `COPY` it before any csproj files, otherwise `dotnet restore` fails because MSBuild can't resolve shared properties.
 - scripts: `test-matrix.sh` now auto-starts the proxy if the port is free (mirroring `test-linux-auth.sh`), so it no longer requires a pre-running service.
-- layout: Namespace-directory alignment matters — SDK surface files using `CopilotLlm.Client` namespace should live in `Client/`, port interfaces using `CopilotLlm.Proxy` should live in `Proxy/`, not scattered at root or buried in `Core/Ports/`.
+- layout: Namespace-directory alignment matters — SDK surface files using `LlmSdk.Client` namespace should live in `Client/`, port interfaces using `LlmSdk.Proxy` should live in `Proxy/`, not scattered at root or buried in `Core/Ports/`.
+- rename: When renaming a library across a .NET solution, `using static` directives are missed by a simple `s/using OldName/using NewName/` sed — they need a separate pass.
+- rename: `InternalsVisibleTo` in `AssemblyInfo.cs` must reference the assembly name (which follows the csproj file name), not the namespace — so `llm-sdk.Tests` not `LlmSdk.Tests`.
+- naming: Infrastructure types referencing an upstream service (CopilotClient, ICopilotCredentialStore) should keep the service name even when the library is renamed — they describe *what they connect to*, not *what library they belong to*.

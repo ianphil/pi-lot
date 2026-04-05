@@ -6,7 +6,7 @@ Rules are explicit and unambiguous — follow them literally.
 ## Project Structure
 
 **llm-svc** is the primary deployable host — a local proxy that translates OpenAI
-Responses API requests to upstream providers. **CopilotLlm** is the reusable class
+Responses API requests to upstream providers. **LlmSdk** is the reusable class
 library that contains the translation engine, auth, model discovery, and upstream HTTP
 adapter. **llm-cli** is a reference implementation client that demonstrates how to
 consume the proxy. Changes to the host or library are the main concern; CLI changes
@@ -15,9 +15,9 @@ support or demonstrate proxy capabilities.
 ```
 llm-svc/
 ├── src/
-│   ├── CopilotLlm/                        Reusable library (packable NuGet)
+│   ├── llm-sdk/                        Reusable library (packable NuGet)
 │   │   ├── ServiceCollectionExtensions.cs DI entry point for hosts
-│   │   ├── Client/                        SDK surface (CopilotLlmClient, options, exceptions)
+│   │   ├── Client/                        SDK surface (LlmSdkClient, options, exceptions)
 │   │   ├── Proxy/                         Public port interfaces (IResponsesService, IModelProvider)
 │   │   ├── Core/                          Domain logic (no external dependencies)
 │   │   │   ├── LogEvents.cs               Structured event IDs for Windows Event Log
@@ -35,7 +35,7 @@ llm-svc/
 │       ├── FetchUrlTool.cs                Built-in fetch_url tool
 │       └── ToolRegistry.cs               Tool registration and dispatch
 ├── tests/
-│   ├── CopilotLlm.Tests/                 Library unit tests
+│   ├── llm-sdk.Tests/                 Library unit tests
 │   │   └── Unit/                          Pure library tests
 │   ├── llm-svc.Tests/                     Service tests
 │   │   ├── Fakes/                         Test doubles
@@ -47,17 +47,17 @@ llm-svc/
 ├── backlog/                               Conformance matrix (JSON)
 ├── scripts/                               Install/uninstall for scheduled task and CLI
 ├── Directory.Build.props                  Shared build properties (TFM, nullable)
-└── llm-svc.sln
+└── copilot-llm.sln
 ```
 
 ## Architecture Rules
 
 The proxy and library use a hexagonal (ports & adapters) pattern:
 
-- **CopilotLlm/Core/** has zero references to Infrastructure or external HTTP libraries.
+- **llm-sdk/Core/** has zero references to Infrastructure or external HTTP libraries.
   All external concerns are behind interfaces in `Core/Ports/`.
-- **CopilotLlm/Infrastructure/** implements those interfaces and is wired by
-  `ServiceCollectionExtensions.AddCopilotLlm()`.
+- **llm-sdk/Infrastructure/** implements those interfaces and is wired by
+  `ServiceCollectionExtensions.AddLlmSdk()`.
 - **Models/** are plain DTOs. Do not add behavior to model classes.
 - When adding a new upstream capability, define the port interface first,
   then implement the adapter in Infrastructure.
@@ -65,9 +65,9 @@ The proxy and library use a hexagonal (ports & adapters) pattern:
 Source projects live under `src/`, test projects under `tests/`. The root
 `Directory.Build.props` holds shared build settings (TFM, nullable, implicit usings).
 
-`llm-svc` is a thin host: `src/llm-svc/Program.cs` calls `AddCopilotLlm()`, maps HTTP
+`llm-svc` is a thin host: `src/llm-svc/Program.cs` calls `AddLlmSdk()`, maps HTTP
 endpoints, and registers `Worker`. Keep hosting concerns there; keep reusable
-logic in `src/CopilotLlm/`.
+logic in `src/llm-sdk/`.
 
 The CLI is self-contained in `src/llm-cli/` and depends only on the OpenAI .NET SDK.
 It does not reference `llm-svc` projects — it talks to the proxy over HTTP.
@@ -79,23 +79,23 @@ It does not reference `llm-svc` projects — it talks to the proxy over HTTP.
 The proxy typically runs as a Windows Scheduled Task. While it is running,
 `llm-svc.exe` is locked. Do not run `dotnet build` or `dotnet test` against
 the solution or the `llm-svc` / `llm-svc.Tests` projects while the task is active.
-Target `CopilotLlm` / `CopilotLlm.Tests` directly for library-only changes.
+Target `LlmSdk` / `llm-sdk.Tests` directly for library-only changes.
 
 ```powershell
 # WRONG — will fail if proxy is running
-dotnet test llm-svc.sln
+dotnet test copilot-llm.sln
 
 # RIGHT — build and test library / CLI projects independently
-dotnet test tests\CopilotLlm.Tests\CopilotLlm.Tests.csproj --no-restore
+dotnet test tests\llm-sdk.Tests\llm-sdk.Tests.csproj --no-restore
 dotnet test tests\llm-cli.Tests\llm-cli.Tests.csproj --no-restore
 ```
 
 To build/test the service, stop the scheduled task first:
 
 ```powershell
-Stop-ScheduledTask -TaskName CopilotLlmProxy
+Stop-ScheduledTask -TaskName LlmProxy
 dotnet test tests\llm-svc.Tests\llm-svc.Tests.csproj --no-restore
-Start-ScheduledTask -TaskName CopilotLlmProxy
+Start-ScheduledTask -TaskName LlmProxy
 ```
 
 ### Test Categories
@@ -110,7 +110,7 @@ Start-ScheduledTask -TaskName CopilotLlmProxy
 Run CI-safe tests (unit + integration):
 
 ```powershell
-dotnet test tests\CopilotLlm.Tests --no-restore
+dotnet test tests\llm-sdk.Tests --no-restore
 dotnet test tests\llm-svc.Tests --filter "Category!=Smoke" --no-restore
 dotnet test tests\llm-cli.Tests --filter "Category!=Smoke" --no-restore
 ```
@@ -123,7 +123,7 @@ dotnet test --filter "Category=Smoke" --no-restore
 
 ### What to Test Before Submitting
 
-- If you changed **src/CopilotLlm/**: run `CopilotLlm.Tests`.
+- If you changed **src/llm-sdk/**: run `llm-sdk.Tests`.
 - If you changed **src/llm-svc/Program.cs** or **Worker.cs**: run `llm-svc.Tests` (stop task first).
 - If you changed **src/llm-cli/**: run `llm-cli.Tests`.
 - If you changed response serialization or translation: run smoke tests against both
@@ -134,7 +134,7 @@ dotnet test --filter "Category=Smoke" --no-restore
 The library, service, and CLI are versioned **independently** in their respective `.csproj` files:
 
 ```xml
-<!-- src/CopilotLlm/CopilotLlm.csproj -->
+<!-- src/llm-sdk/llm-sdk.csproj -->
 <Version>0.1.0</Version>
 
 <!-- src/llm-svc/llm-svc.csproj -->
@@ -173,7 +173,7 @@ The library, service, and CLI are versioned **independently** in their respectiv
 
 ### Library Publishing
 
-`CopilotLlm` publishes to GitHub Packages using `.github/workflows/publish-copilotllm.yml`.
+`LlmSdk` publishes to GitHub Packages using `.github/workflows/publish-copilotllm.yml`.
 
 - Push a tag matching the library version, like `lib-v0.1.0`, to publish automatically.
 - Or run the workflow manually with **workflow_dispatch** to publish the current library version.

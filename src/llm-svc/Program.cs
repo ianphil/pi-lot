@@ -1,8 +1,8 @@
-using CopilotLlm;
-using CopilotLlm.Core;
-using CopilotLlm.Core.Models;
-using CopilotLlm.Core.Services;
-using CopilotLlm.Proxy;
+using LlmSdk;
+using LlmSdk.Core;
+using LlmSdk.Core.Models;
+using LlmSdk.Core.Services;
+using LlmSdk.Proxy;
 using llm_svc;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -15,17 +15,17 @@ if (!builder.Environment.IsEnvironment("Testing") && OperatingSystem.IsWindows()
 {
     builder.Services.AddWindowsService(options =>
     {
-        options.ServiceName = "CopilotLlmProxy";
+        options.ServiceName = "LlmProxy";
     });
 
     builder.Logging.AddEventLog(settings =>
     {
-        settings.SourceName = "CopilotLlmProxy";
-        settings.LogName = "CopilotLlmProxy";
+        settings.SourceName = "LlmProxy";
+        settings.LogName = "LlmProxy";
     });
 }
 
-builder.Services.AddCopilotLlm();
+builder.Services.AddLlmSdk();
 
 if (!builder.Environment.IsEnvironment("Testing"))
 {
@@ -34,7 +34,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
 
 var app = builder.Build();
 
-app.Logger.LogInformation(LogEvents.ServiceStarted, "CopilotLlmProxy service starting.");
+app.Logger.LogInformation(LogEvents.ServiceStarted, "LlmProxy service starting.");
 
 // ── Load credential at startup ───────────────────────────────────────────────
 var auth = app.Services.GetRequiredService<IAuthProvider>();

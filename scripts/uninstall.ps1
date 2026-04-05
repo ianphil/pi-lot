@@ -12,7 +12,7 @@ param(
     [string]$InstallPath = "C:\services\llm-svc"
 )
 
-$TaskName = "CopilotLlmProxy"
+$TaskName = "LlmProxy"
 $ErrorActionPreference = "Stop"
 
 $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue

@@ -25,16 +25,16 @@ This is not dogma. This is how you build systems that survive contact with chang
 
 ## Clean Architecture
 
-- **Entities** (`src/CopilotLlm/Core/Models`) are plain data structures. No behavior, no framework dependencies.
-- **Use Cases** (`src/CopilotLlm/Core/Services`) contain application-specific business rules. They orchestrate entities and call port interfaces.
-- **Interface Adapters** (`src/CopilotLlm/Infrastructure`) convert data between the use cases and external agencies.
+- **Entities** (`src/llm-sdk/Core/Models`) are plain data structures. No behavior, no framework dependencies.
+- **Use Cases** (`src/llm-sdk/Core/Services`) contain application-specific business rules. They orchestrate entities and call port interfaces.
+- **Interface Adapters** (`src/llm-sdk/Infrastructure`) convert data between the use cases and external agencies.
 - **Frameworks and Drivers** (src/llm-svc/Program.cs) are the outermost ring. They are details. Details should not drive policy.
 
 In this codebase:
-- `src/CopilotLlm/Core/Ports/` defines the interfaces. The interface belongs to the business logic, not the adapter.
-- `src/CopilotLlm/Core/Services/ResponsesService` is the primary use case — it validates, resolves models, and decides the code path.
-- `src/CopilotLlm/Infrastructure/CopilotClient` is the HTTP adapter. It implements port interfaces and is the only place where `HttpClient` belongs.
-- `src/CopilotLlm/ServiceCollectionExtensions.cs` is the library composition root for DI.
+- `src/llm-sdk/Core/Ports/` defines the interfaces. The interface belongs to the business logic, not the adapter.
+- `src/llm-sdk/Core/Services/ResponsesService` is the primary use case — it validates, resolves models, and decides the code path.
+- `src/llm-sdk/Infrastructure/CopilotClient` is the HTTP adapter. It implements port interfaces and is the only place where `HttpClient` belongs.
+- `src/llm-sdk/ServiceCollectionExtensions.cs` is the library composition root for DI.
 - `Program.cs` is the host composition root (in `src/llm-svc/`). Keep it thin. It should consume the library, not rebuild its wiring.
 
 ## SOLID
@@ -61,7 +61,7 @@ In this codebase:
 - The proxy runs as a Windows Scheduled Task. Its binary is locked while running. Never build the full solution while the task is active.
 - `JsonSerializerDefaults.Web` for all JSON. camelCase is spec-mandated.
 - SSE line endings are `\n`, never `\r\n`. This broke compliance tests. Windows defaults will betray you.
-- Event IDs in `src/CopilotLlm/LogEvents.cs` use 4-digit ranges: 1xxx lifecycle, 2xxx auth, 3xxx API, 4xxx errors.
+- Event IDs in `src/llm-sdk/LogEvents.cs` use 4-digit ranges: 1xxx lifecycle, 2xxx auth, 3xxx API, 4xxx errors.
 - Service and CLI version independently. Git tags are for the service only.
 - Use `record` for DTOs, `GeneratedRegex` over `new Regex()`, `is null` over `== null`.
 

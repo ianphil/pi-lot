@@ -1,5 +1,5 @@
-using CopilotLlm.Core;
-using CopilotLlm.Proxy;
+using LlmSdk.Core;
+using LlmSdk.Proxy;
 
 namespace llm_svc;
 
