@@ -50,3 +50,6 @@
 - scripts: Shared CLI matrix runners need conditional `--endpoint` injection because `sdk-ask` and `sdk-chat` bypass the proxy and do not accept proxy-only flags.
 - streaming: Native `/responses` SSE chunks can put the polymorphic `type` discriminator last inside nested `item` and `part` payloads, so SDK parsing needs `AllowOutOfOrderMetadataProperties` enabled.
 - tooling: VS Code's C#/.NET services can hold `src/llm-cli/bin/Debug/net10.0` artifacts open and make `dotnet build` fail during `scripts/test-matrix.sh`; closing the repo window and clearing stale `bin/obj` fixes it.
+- error-handling: `SdkAskAgent` non-streaming path must check `Response.Status` for `Failed`/`Incomplete` — a failed response with no output text silently prints a generic message instead of the actual error.
+- error-handling: `SdkChatAgent` must inspect `FinishReason` on `ChatChoice`/`ChatChunkChoice` — `finish_reason: "length"` (truncated output) silently exits 0 without warning the user.
+- docs: `copilot-instructions.md` is the most-read file by AI agents — dependency diagrams there must stay in sync with actual ProjectReference changes, or agents get confused about what's allowed.

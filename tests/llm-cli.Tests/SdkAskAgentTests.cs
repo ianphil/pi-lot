@@ -76,6 +76,75 @@ public sealed class SdkAskAgentTests
     }
 
     [Fact]
+    public async Task RunNonStreamingAsync_WhenResponseFailed_WritesError()
+    {
+        using var writer = new StringWriter();
+        var response = new Response
+        {
+            Id = "resp_123",
+            Status = ResponseStatuses.Failed,
+            Error = new ResponseError
+            {
+                Message = "upstream timeout",
+                Type = "server_error",
+            },
+            Output = [],
+        };
+
+        var client = new FakeLlmSdkClient(
+            createResponseAsync: (_, _) => Task.FromResult(response),
+            createResponseStreamAsync: (_, _) => ToAsyncEnumerable([]));
+
+        await SdkAskAgent.RunNonStreamingAsync(
+            client,
+            new AskRequest("Hi there", "gpt-5.4-mini", null, false),
+            writer,
+            CancellationToken.None);
+
+        Assert.Equal($"Response failed: upstream timeout{Environment.NewLine}", writer.ToString());
+    }
+
+    [Fact]
+    public async Task RunNonStreamingAsync_WhenResponseIncomplete_WritesTextAndWarning()
+    {
+        using var writer = new StringWriter();
+        var response = new Response
+        {
+            Id = "resp_123",
+            Status = ResponseStatuses.Incomplete,
+            IncompleteDetails = new ResponseIncompleteDetails { Reason = "max_output_tokens" },
+            Output =
+            [
+                new ResponseMessageItem
+                {
+                    Id = "msg_123",
+                    Content =
+                    [
+                        new ResponseOutputTextPart
+                        {
+                            Text = "Partial output",
+                        },
+                    ],
+                },
+            ],
+        };
+
+        var client = new FakeLlmSdkClient(
+            createResponseAsync: (_, _) => Task.FromResult(response),
+            createResponseStreamAsync: (_, _) => ToAsyncEnumerable([]));
+
+        await SdkAskAgent.RunNonStreamingAsync(
+            client,
+            new AskRequest("Hi there", "gpt-5.4-mini", null, false),
+            writer,
+            CancellationToken.None);
+
+        var output = writer.ToString();
+        Assert.Contains("Partial output", output);
+        Assert.Contains("Response incomplete: max_output_tokens", output);
+    }
+
+    [Fact]
     public async Task RunNonStreamingAsync_WhenOutputTextIsMissing_WritesError()
     {
         using var writer = new StringWriter();

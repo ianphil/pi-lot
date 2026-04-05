@@ -17,8 +17,20 @@ public static class SdkAskAgent
         ArgumentNullException.ThrowIfNull(writer);
 
         var response = await client.CreateResponseAsync(CreateRequest(request), cancellationToken);
+
+        if (response.Status == ResponseStatuses.Failed)
+        {
+            writer.WriteLine($"Response failed: {GetFailureMessage(response)}");
+            return;
+        }
+
         var text = response.GetOutputText();
         writer.WriteLine(text is null ? "No output text was returned." : text);
+
+        if (response.Status == ResponseStatuses.Incomplete)
+        {
+            writer.WriteLine($"Response incomplete: {GetIncompleteReason(response)}");
+        }
     }
 
     public static async Task RunStreamingAsync(

@@ -110,6 +110,131 @@ public sealed class SdkChatAgentTests
     }
 
     [Fact]
+    public async Task RunNonStreamingAsync_WhenFinishReasonIsNotStop_WritesWarning()
+    {
+        using var writer = new StringWriter();
+        var response = new ChatCompletionResponse
+        {
+            Choices =
+            [
+                new ChatChoice
+                {
+                    Message = new ChatMessage
+                    {
+                        Content = JsonDocument.Parse("\"Partial answer\"").RootElement.Clone(),
+                    },
+                    FinishReason = "length",
+                },
+            ],
+        };
+
+        var client = new FakeLlmSdkClient(
+            createChatCompletionAsync: (_, _) => Task.FromResult(response),
+            createChatCompletionStreamAsync: (_, _) => ToAsyncEnumerable([]));
+
+        await SdkChatAgent.RunNonStreamingAsync(
+            client,
+            new AskRequest("Hi there", "gpt-5-mini", null, false),
+            writer,
+            CancellationToken.None);
+
+        var output = writer.ToString();
+        Assert.Contains("Partial answer", output);
+        Assert.Contains("Finish reason: length", output);
+    }
+
+    [Fact]
+    public async Task RunNonStreamingAsync_WhenFinishReasonIsStop_NoWarning()
+    {
+        using var writer = new StringWriter();
+        var response = new ChatCompletionResponse
+        {
+            Choices =
+            [
+                new ChatChoice
+                {
+                    Message = new ChatMessage
+                    {
+                        Content = JsonDocument.Parse("\"Complete answer\"").RootElement.Clone(),
+                    },
+                    FinishReason = "stop",
+                },
+            ],
+        };
+
+        var client = new FakeLlmSdkClient(
+            createChatCompletionAsync: (_, _) => Task.FromResult(response),
+            createChatCompletionStreamAsync: (_, _) => ToAsyncEnumerable([]));
+
+        await SdkChatAgent.RunNonStreamingAsync(
+            client,
+            new AskRequest("Hi there", "gpt-5-mini", null, false),
+            writer,
+            CancellationToken.None);
+
+        Assert.Equal($"Complete answer{Environment.NewLine}", writer.ToString());
+    }
+
+    [Fact]
+    public async Task RunStreamingAsync_WhenFinishReasonIsNotStop_WritesWarning()
+    {
+        using var writer = new StringWriter();
+        var client = new FakeLlmSdkClient(
+            createChatCompletionAsync: (_, _) => throw new NotSupportedException(),
+            createChatCompletionStreamAsync: (_, _) => ToAsyncEnumerable(
+            [
+                new ChatCompletionChunk
+                {
+                    Choices =
+                    [
+                        new ChatChunkChoice
+                        {
+                            Delta = new ChatChunkDelta { Content = "Partial" },
+                        },
+                    ],
+                },
+                new ChatCompletionChunk
+                {
+                    Choices =
+                    [
+                        new ChatChunkChoice
+                        {
+                            Delta = new ChatChunkDelta { Content = null },
+                            FinishReason = "length",
+                        },
+                    ],
+                },
+            ]));
+
+        await SdkChatAgent.RunStreamingAsync(
+            client,
+            new AskRequest("Hi there", "gpt-5-mini", null, false),
+            writer,
+            CancellationToken.None);
+
+        var output = writer.ToString();
+        Assert.Contains("Partial", output);
+        Assert.Contains("Finish reason: length", output);
+    }
+
+    [Fact]
+    public async Task RunStreamingAsync_WhenStreamIsEmpty_WritesNewlineOnly()
+    {
+        using var writer = new StringWriter();
+        var client = new FakeLlmSdkClient(
+            createChatCompletionAsync: (_, _) => throw new NotSupportedException(),
+            createChatCompletionStreamAsync: (_, _) => ToAsyncEnumerable([]));
+
+        await SdkChatAgent.RunStreamingAsync(
+            client,
+            new AskRequest("Hi there", "gpt-5-mini", null, false),
+            writer,
+            CancellationToken.None);
+
+        Assert.Equal(Environment.NewLine, writer.ToString());
+    }
+
+    [Fact]
     public async Task RunNonStreamingAsync_WhenMessageTextIsMissing_WritesError()
     {
         using var writer = new StringWriter();

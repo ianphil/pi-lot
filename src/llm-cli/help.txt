@@ -1,8 +1,12 @@
 LLM CLI — query language models through the local Copilot LLM proxy.
 
 SETUP
-  The proxy (llm-svc) must be running at localhost:5100. To check:
+  The proxy (llm-svc) must be running at localhost:5100 for ask, chat,
+  models, and health commands. To check:
     llm health
+
+  SDK commands (sdk-ask, sdk-chat) do not require the proxy — they call
+  the Copilot API directly through the in-process SDK client.
 
   If the proxy isn't running, install it:
     scripts\install.ps1        (as admin, registers a scheduled task)

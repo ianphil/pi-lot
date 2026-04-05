@@ -7,7 +7,7 @@
 This is the most important thing to understand. All source code dependencies point inward:
 
 ```
-llm-sdk/Infrastructure → llm-sdk/Core ← llm-cli (via HTTP, not project reference)
+llm-sdk/Infrastructure → llm-sdk/Core ← llm-cli (via HTTP for ask/chat, via ProjectReference for sdk-ask/sdk-chat)
                                  ↑
                      ServiceCollectionExtensions
                                  ↑
@@ -16,7 +16,7 @@ llm-sdk/Infrastructure → llm-sdk/Core ← llm-cli (via HTTP, not project refer
 
 **src/llm-sdk/Core depends on nothing.** Not on Infrastructure, not on HTTP libraries, not on frameworks. Core and Proxy define port interfaces; Infrastructure implements them. `ServiceCollectionExtensions` wires the library together, and `Program.cs` consumes the library from the host. If you find yourself adding a `using` for anything outside `Core` or `Proxy` inside a `src/llm-sdk/Core/` or `src/llm-sdk/Proxy/` file, you are violating the dependency rule. Stop.
 
-**llm-cli is a separate deployable.** It talks to the proxy over HTTP. It never references llm-svc projects. It is a reference implementation — proof that the API works from a real client.
+**llm-cli is a separate deployable.** Its `ask` / `chat` commands talk to the proxy over HTTP via the OpenAI .NET SDK. Its `sdk-ask` / `sdk-chat` commands reference the `llm-sdk` library directly to exercise the SDK client surface in-process. It never references llm-svc projects.
 
 ## The Boundaries
 
@@ -38,7 +38,9 @@ llm-sdk/Infrastructure → llm-sdk/Core ← llm-cli (via HTTP, not project refer
 
 The CLI has its own clean structure:
 
-**AskAgent** — the use case. It takes delegate functions for `createAsync` and `createStreamingAsync`, not a concrete `ResponsesClient`. This makes it testable without HTTP, without a running service, without mocks. Just lambdas and pure logic.
+**AskAgent** — the use case for proxy-backed commands. It takes delegate functions for `createAsync` and `createStreamingAsync`, not a concrete `ResponsesClient`. This makes it testable without HTTP, without a running service, without mocks. Just lambdas and pure logic.
+
+**SdkAskAgent / SdkChatAgent** — the use cases for SDK-backed commands. Static classes that take `ILlmSdkClient` directly (already an abstraction). Single-turn, no tool support — they prove the SDK client surface works end-to-end.
 
 **ToolRegistry** — `ILocalTool` and `IToolRegistry` interfaces. New tools implement `ILocalTool`; the registry dispatches by name. `FetchUrlTool` is the first implementation.
 

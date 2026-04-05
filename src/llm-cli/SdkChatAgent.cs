@@ -18,6 +18,12 @@ public static class SdkChatAgent
         var response = await client.CreateChatCompletionAsync(CreateRequest(request), cancellationToken);
         var text = response.GetMessageText();
         writer.WriteLine(text is null ? "No message text was returned." : text);
+
+        var finishReason = response.Choices is { Length: > 0 } ? response.Choices[0].FinishReason : null;
+        if (finishReason is not null and not "stop")
+        {
+            writer.WriteLine($"Finish reason: {finishReason}");
+        }
     }
 
     public static async Task RunStreamingAsync(
@@ -29,6 +35,8 @@ public static class SdkChatAgent
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(writer);
+
+        string? finishReason = null;
 
         await foreach (var chunk in client.CreateChatCompletionStreamAsync(CreateRequest(request, stream: true), cancellationToken))
         {
@@ -43,10 +51,20 @@ public static class SdkChatAgent
                 {
                     writer.Write(content);
                 }
+
+                if (choice.FinishReason is not null)
+                {
+                    finishReason = choice.FinishReason;
+                }
             }
         }
 
         writer.WriteLine();
+
+        if (finishReason is not null and not "stop")
+        {
+            writer.WriteLine($"Finish reason: {finishReason}");
+        }
     }
 
     private static ChatCompletionRequest CreateRequest(AskRequest request, bool? stream = null)
