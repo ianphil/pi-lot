@@ -17,10 +17,11 @@ llm-svc/
 ├── src/
 │   ├── CopilotLlm/                        Reusable library (packable NuGet)
 │   │   ├── ServiceCollectionExtensions.cs DI entry point for hosts
-│   │   ├── LogEvents.cs                   Structured event IDs for Windows Event Log
+│   │   ├── Client/                        SDK surface (CopilotLlmClient, options, exceptions)
+│   │   ├── Proxy/                         Public port interfaces (IResponsesService, IModelProvider)
 │   │   ├── Core/                          Domain logic (no external dependencies)
+│   │   │   ├── LogEvents.cs               Structured event IDs for Windows Event Log
 │   │   │   ├── Models/                    DTOs, request/response types, helpers
-│   │   │   ├── Ports/                     Interfaces (IAuthProvider, IModelProvider, IResponsesService)
 │   │   │   └── Services/                  Translation, serialization, business logic
 │   │   └── Infrastructure/                External adapters (HTTP, credentials)
 │   │       ├── CopilotClient.cs           HTTP adapter to upstream Copilot API

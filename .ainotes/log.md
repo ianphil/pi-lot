@@ -38,3 +38,4 @@
 - layout: `Directory.Build.props` at the repo root is picked up by all projects automatically — shared `TargetFramework`, `Nullable`, and `ImplicitUsings` need not be repeated in every csproj.
 - docker: When `Directory.Build.props` exists, the Dockerfile restore layer must `COPY` it before any csproj files, otherwise `dotnet restore` fails because MSBuild can't resolve shared properties.
 - scripts: `test-matrix.sh` now auto-starts the proxy if the port is free (mirroring `test-linux-auth.sh`), so it no longer requires a pre-running service.
+- layout: Namespace-directory alignment matters — SDK surface files using `CopilotLlm.Client` namespace should live in `Client/`, port interfaces using `CopilotLlm.Proxy` should live in `Proxy/`, not scattered at root or buried in `Core/Ports/`.

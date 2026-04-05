@@ -260,9 +260,10 @@ llm-svc/
 ├── src/
 │   ├── CopilotLlm/               Reusable library for translation, auth, and upstream access
 │   │   ├── ServiceCollectionExtensions.cs
-│   │   ├── LogEvents.cs
-│   │   ├── Core/
-│   │   └── Infrastructure/
+│   │   ├── Client/               SDK surface (CopilotLlmClient, options, exceptions)
+│   │   ├── Proxy/                Public port interfaces (IResponsesService, IModelProvider)
+│   │   ├── Core/                 Domain logic, models, translators
+│   │   └── Infrastructure/       HTTP adapters, credential stores
 │   ├── llm-svc/                   Host proxy
 │   │   ├── Program.cs             Composition root (calls AddCopilotLlm)
 │   │   └── Worker.cs              Background auth lifecycle

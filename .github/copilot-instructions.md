@@ -14,13 +14,15 @@ CopilotLlm/Infrastructure → CopilotLlm/Core ← llm-cli (via HTTP, not project
                          src/llm-svc/Program.cs
 ```
 
-**src/CopilotLlm/Core depends on nothing.** Not on Infrastructure, not on HTTP libraries, not on frameworks. Core defines port interfaces; Infrastructure implements them. `ServiceCollectionExtensions` wires the library together, and `Program.cs` consumes the library from the host. If you find yourself adding a `using` for anything outside `Core` inside a `src/CopilotLlm/Core/` file, you are violating the dependency rule. Stop.
+**src/CopilotLlm/Core depends on nothing.** Not on Infrastructure, not on HTTP libraries, not on frameworks. Core and Proxy define port interfaces; Infrastructure implements them. `ServiceCollectionExtensions` wires the library together, and `Program.cs` consumes the library from the host. If you find yourself adding a `using` for anything outside `Core` or `Proxy` inside a `src/CopilotLlm/Core/` or `src/CopilotLlm/Proxy/` file, you are violating the dependency rule. Stop.
 
 **llm-cli is a separate deployable.** It talks to the proxy over HTTP. It never references llm-svc projects. It is a reference implementation — proof that the API works from a real client.
 
 ## The Boundaries
 
-**CopilotLlm/Core/Ports/** — the interfaces. `IAuthProvider`, `IModelProvider`, `IResponsesService`. These are the contracts. When you need a new upstream capability, you define the abstraction here first. The interface belongs to the business logic, not to the adapter.
+**CopilotLlm/Client/** — the SDK surface. `CopilotLlmClient`, `CopilotLlmOptions`, exceptions, and extension methods. These types are what NuGet consumers interact with directly.
+
+**CopilotLlm/Proxy/** — the port interfaces. `IAuthProvider`, `IModelProvider`, `IResponsesService`. These are the contracts. When you need a new upstream capability, you define the abstraction here first. The interface belongs to the business logic, not to the adapter.
 
 **CopilotLlm/Core/Services/** — the use cases. `ResponsesService` is the primary use case: it validates the request, resolves the model, and decides whether to pass through natively or translate through `ChatCompletionsTranslator`. The translator is a pure function — request in, response out. No HTTP, no I/O.
 
