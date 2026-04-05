@@ -154,35 +154,31 @@ public sealed class ChatCompletionsTranslator
         var output = new List<ResponseItem>();
         foreach (var item in native.Output ?? [])
         {
-            switch (item.Type)
+            ResponseItem mapped = item.Type switch
             {
-                case "function_call":
-                    output.Add(new ResponseFunctionCallItem
-                    {
-                        Id = item.Id ?? NewId("fc"),
-                        Status = item.Status ?? ResponseStatuses.Completed,
-                        Name = item.Name ?? "function",
-                        CallId = item.CallId ?? NewId("call"),
-                        Arguments = item.Arguments ?? "{}",
-                    });
-                    break;
-
-                default:
-                    output.Add(new ResponseMessageItem
-                    {
-                        Id = item.Id ?? NewId("msg"),
-                        Status = item.Status ?? ResponseStatuses.Completed,
-                        Role = item.Role ?? "assistant",
-                        Content = item.Content?
-                            .Select(content => (ResponseContentPart)new ResponseOutputTextPart
-                            {
-                                Text = content.Text ?? string.Empty,
-                                Annotations = content.Annotations ?? [],
-                            })
-                            .ToArray() ?? [],
-                    });
-                    break;
-            }
+                "function_call" => new ResponseFunctionCallItem
+                {
+                    Id = item.Id ?? NewId("fc"),
+                    Status = item.Status ?? ResponseStatuses.Completed,
+                    Name = item.Name ?? "function",
+                    CallId = item.CallId ?? NewId("call"),
+                    Arguments = item.Arguments ?? "{}",
+                },
+                _ => new ResponseMessageItem
+                {
+                    Id = item.Id ?? NewId("msg"),
+                    Status = item.Status ?? ResponseStatuses.Completed,
+                    Role = item.Role ?? "assistant",
+                    Content = item.Content?
+                        .Select(content => (ResponseContentPart)new ResponseOutputTextPart
+                        {
+                            Text = content.Text ?? string.Empty,
+                            Annotations = content.Annotations ?? [],
+                        })
+                        .ToArray() ?? [],
+                },
+            };
+            output.Add(mapped);
         }
 
         return new Response

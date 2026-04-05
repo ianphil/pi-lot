@@ -173,7 +173,7 @@ The library, service, and CLI are versioned **independently** in their respectiv
 
 ### Library Publishing
 
-`LlmSdk` publishes to GitHub Packages using `.github/workflows/publish-copilotllm.yml`.
+`LlmSdk` publishes to GitHub Packages using `.github/workflows/publish-llm-sdk.yml`.
 
 - Push a tag matching the library version, like `lib-v0.1.0`, to publish automatically.
 - Or run the workflow manually with **workflow_dispatch** to publish the current library version.
