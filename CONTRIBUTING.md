@@ -8,9 +8,10 @@ Rules are explicit and unambiguous — follow them literally.
 **llm-svc** is the primary deployable host — a local proxy that translates OpenAI
 Responses API requests to upstream providers. **LlmSdk** is the reusable class
 library that contains the translation engine, auth, model discovery, and upstream HTTP
-adapter. **llm-cli** is a reference implementation client that demonstrates how to
-consume the proxy. Changes to the host or library are the main concern; CLI changes
-support or demonstrate proxy capabilities.
+adapter. **llm-cli** is a reference implementation client that demonstrates both how
+to consume the proxy over HTTP and how to call the SDK directly in-process. Changes to
+the host or library are the main concern; CLI changes support or demonstrate proxy and
+SDK capabilities.
 
 ```
 llm-svc/
@@ -69,8 +70,9 @@ Source projects live under `src/`, test projects under `tests/`. The root
 endpoints, and registers `Worker`. Keep hosting concerns there; keep reusable
 logic in `src/llm-sdk/`.
 
-The CLI is self-contained in `src/llm-cli/` and depends only on the OpenAI .NET SDK.
-It does not reference `llm-svc` projects — it talks to the proxy over HTTP.
+The CLI is self-contained in `src/llm-cli/`. Its `ask` / `chat` commands use the
+OpenAI .NET SDK to talk to the proxy over HTTP, while `sdk-ask` / `sdk-chat` reference
+`src/llm-sdk/` directly to exercise the SDK surface in-process.
 
 ## Build and Test
 

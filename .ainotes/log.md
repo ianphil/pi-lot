@@ -46,3 +46,5 @@
 - planning: `ChatCompletionChunk.Choices`, `.Delta`, and `.Delta.Content` can all be null in streaming responses (role-only chunks, terminal chunks) — streaming consumers must be null-safe at every level.
 - planning: `CreateResponseRequest.Input` is `JsonElement`, not `string` — CLI agents must serialize the user prompt to `JsonElement` before building the request.
 - planning: `ask` defaults to `gpt-5.4-mini` but `chat` defaults to `gpt-5-mini` — SDK command defaults should match their proxy counterparts, not use a single default.
+- testing: `tests/llm-cli.Tests` includes a live smoke test that expects a proxy on `localhost:5100`, so routine CLI validation should use `--filter "Category!=Smoke"`.
+- scripts: Shared CLI matrix runners need conditional `--endpoint` injection because `sdk-ask` and `sdk-chat` bypass the proxy and do not accept proxy-only flags.

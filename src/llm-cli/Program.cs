@@ -4,6 +4,9 @@ using System.ClientModel;
 using System.CommandLine;
 using System.Reflection;
 using System.Text.Json;
+using LlmSdk;
+using LlmSdk.Client;
+using Microsoft.Extensions.DependencyInjection;
 using OpenAI;
 using OpenAI.Chat;
 using OpenAI.Responses;
@@ -15,6 +18,31 @@ static string LoadHelpText()
     using var stream = asm.GetManifestResourceStream("llm_cli.help.txt")!;
     using var reader = new StreamReader(stream);
     return reader.ReadToEnd();
+}
+
+static async Task<int> RunSdkCommandAsync(
+    string defaultModel,
+    Func<ILlmSdkClient, Task> executeAsync)
+{
+    ArgumentException.ThrowIfNullOrWhiteSpace(defaultModel);
+    ArgumentNullException.ThrowIfNull(executeAsync);
+
+    try
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddLlmSdk(options => options.DefaultModel = defaultModel);
+
+        using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ILlmSdkClient>();
+        await executeAsync(client);
+        return 0;
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine(ex.Message);
+        return 1;
+    }
 }
 
 var endpointOption = new Option<string>("--endpoint", "-e")
@@ -138,6 +166,96 @@ chatCommand.SetAction(async (parseResult, cancellationToken) =>
 
 root.Subcommands.Add(chatCommand);
 
+// ── llm sdk-ask ───────────────────────────────────────────────────────────────
+
+var sdkAskPrompt = new Argument<string>("prompt") { Description = "The prompt to send" };
+var sdkAskModel = new Option<string>("--model", "-m")
+{
+    Description = "Model to use",
+    DefaultValueFactory = _ => "gpt-5.4-mini",
+};
+var sdkAskSystem = new Option<string?>("--system", "-s")
+{
+    Description = "System instructions",
+};
+var sdkAskNoStream = new Option<bool>("--no-stream")
+{
+    Description = "Disable streaming",
+};
+
+var sdkAskCommand = new Command("sdk-ask", "Send a prompt directly through the LlmSdk Responses client (streams by default)")
+{
+    sdkAskPrompt, sdkAskModel, sdkAskSystem, sdkAskNoStream,
+};
+
+sdkAskCommand.SetAction(async (parseResult, cancellationToken) =>
+{
+    var prompt = parseResult.GetValue(sdkAskPrompt)!;
+    var model = parseResult.GetValue(sdkAskModel)!;
+    var system = parseResult.GetValue(sdkAskSystem);
+    var noStream = parseResult.GetValue(sdkAskNoStream);
+    var request = new AskRequest(prompt, model, system, false);
+
+    return await RunSdkCommandAsync(model, async client =>
+    {
+        if (noStream)
+        {
+            await SdkAskAgent.RunNonStreamingAsync(client, request, Console.Out, cancellationToken);
+        }
+        else
+        {
+            await SdkAskAgent.RunStreamingAsync(client, request, Console.Out, cancellationToken);
+        }
+    });
+});
+
+root.Subcommands.Add(sdkAskCommand);
+
+// ── llm sdk-chat ──────────────────────────────────────────────────────────────
+
+var sdkChatPrompt = new Argument<string>("prompt") { Description = "The prompt to send" };
+var sdkChatModel = new Option<string>("--model", "-m")
+{
+    Description = "Model to use",
+    DefaultValueFactory = _ => "gpt-5-mini",
+};
+var sdkChatSystem = new Option<string?>("--system", "-s")
+{
+    Description = "System instructions",
+};
+var sdkChatNoStream = new Option<bool>("--no-stream")
+{
+    Description = "Disable streaming",
+};
+
+var sdkChatCommand = new Command("sdk-chat", "Send a prompt directly through the LlmSdk Chat Completions client (streams by default)")
+{
+    sdkChatPrompt, sdkChatModel, sdkChatSystem, sdkChatNoStream,
+};
+
+sdkChatCommand.SetAction(async (parseResult, cancellationToken) =>
+{
+    var prompt = parseResult.GetValue(sdkChatPrompt)!;
+    var model = parseResult.GetValue(sdkChatModel)!;
+    var system = parseResult.GetValue(sdkChatSystem);
+    var noStream = parseResult.GetValue(sdkChatNoStream);
+    var request = new AskRequest(prompt, model, system, false);
+
+    return await RunSdkCommandAsync(model, async client =>
+    {
+        if (noStream)
+        {
+            await SdkChatAgent.RunNonStreamingAsync(client, request, Console.Out, cancellationToken);
+        }
+        else
+        {
+            await SdkChatAgent.RunStreamingAsync(client, request, Console.Out, cancellationToken);
+        }
+    });
+});
+
+root.Subcommands.Add(sdkChatCommand);
+
 // ── llm models ───────────────────────────────────────────────────────────────
 
 var modelsCommand = new Command("models", "List available models with their supported endpoints") { endpointOption };
@@ -196,5 +314,4 @@ root.Subcommands.Add(healthCommand);
 
 var parseResult = root.Parse(args);
 return await parseResult.InvokeAsync();
-
 

@@ -29,10 +29,20 @@ This matrix tracks coverage for the supported proxy surfaces and their upstream 
 | `/chat/completions` | Both | SSE streaming prefers native `/chat/completions` | Yes | `ChatCompletionsServiceTests.Stream_DualEndpointModel_PrefersNativeChatRoute` |
 | `/chat/completions` | `/chat/completions` capable | SSE streaming with tools | Yes | `ChatCompletionsServiceTests.Stream_ChatCapableModel_WithTools_StreamsToolCalls` |
 
+## SDK CLI surface (backlog/005)
+
+| Surface | Client path | Scenario | Covered | Test |
+| --- | --- | --- | --- | --- |
+| `sdk-ask` | `ILlmSdkClient.CreateResponseAsync` | Plain text response | Yes | `SdkAskAgentTests.RunNonStreamingAsync_WritesOutputText` |
+| `sdk-ask` | `ILlmSdkClient.CreateResponseStreamAsync` | Streaming response | Yes | `SdkAskAgentTests.RunStreamingAsync_WritesOutputTextDeltas` |
+| `sdk-chat` | `ILlmSdkClient.CreateChatCompletionAsync` | Plain text response | Yes | `SdkChatAgentTests.RunNonStreamingAsync_WritesMessageText` |
+| `sdk-chat` | `ILlmSdkClient.CreateChatCompletionStreamAsync` | Streaming response | Yes | `SdkChatAgentTests.RunStreamingAsync_WritesDeltaContentAndSkipsNulls` |
+
 ## Notes
 
 - `/chat/completions` streaming uses `ChatCompletionsService` in Core, which routes and translates identically to `ResponsesService`. For responses-only models, `ResponsesStreamToChatTranslator` converts Responses SSE events into Chat Completions SSE chunks.
 - `/chat/completions -> /responses` behavior is validated in `CopilotClientTests`, not endpoint integration tests, because the current integration harness replaces `IModelProvider` and cannot exercise `CopilotClient.ChatAsync()`.
 - `/responses -> /chat/completions` behavior is validated in `ResponsesEndpointTests`, where the endpoint contract and translated request shapes are observable through the fake provider.
+- `sdk-ask` and `sdk-chat` bypass `llm-svc` entirely. They validate the SDK client surface rather than proxy translation/routing behavior.
 - Validation command used after completing the matrix:
   - `dotnet test tests\llm-svc.Tests\llm-svc.Tests.csproj --filter "Category!=Smoke" --no-restore`
