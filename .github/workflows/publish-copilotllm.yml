@@ -32,7 +32,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
-          version="$(dotnet msbuild CopilotLlm/CopilotLlm.csproj -nologo -getProperty:Version)"
+          version="$(dotnet msbuild src/CopilotLlm/CopilotLlm.csproj -nologo -getProperty:Version)"
           expected_tag="lib-v${version}"
 
           if [[ "${GITHUB_REF_NAME}" != "${expected_tag}" ]]; then
@@ -42,12 +42,12 @@ jobs:
 
       - name: Run CI-safe tests
         run: |
-          dotnet test CopilotLlm.Tests/CopilotLlm.Tests.csproj --no-restore
-          dotnet test llm-svc.Tests/llm-svc.Tests.csproj --filter "Category!=Smoke" --no-restore
-          dotnet test llm-cli.Tests/llm-cli.Tests.csproj --filter "Category!=Smoke" --no-restore
+          dotnet test tests/CopilotLlm.Tests/CopilotLlm.Tests.csproj --no-restore
+          dotnet test tests/llm-svc.Tests/llm-svc.Tests.csproj --filter "Category!=Smoke" --no-restore
+          dotnet test tests/llm-cli.Tests/llm-cli.Tests.csproj --filter "Category!=Smoke" --no-restore
 
       - name: Pack CopilotLlm
-        run: dotnet pack CopilotLlm/CopilotLlm.csproj -c Release --no-restore -o artifacts
+        run: dotnet pack src/CopilotLlm/CopilotLlm.csproj -c Release --no-restore -o artifacts
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4

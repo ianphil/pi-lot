@@ -75,7 +75,7 @@ fi
 
 # ── Publish ──────────────────────────────────────────────────────────────────
 echo "Publishing to ${install_path}..."
-"$dotnet_bin" publish "${repo_root}/llm-svc.csproj" -c Release -o "$install_path" --nologo
+"$dotnet_bin" publish "${repo_root}/src/llm-svc/llm-svc.csproj" -c Release -o "$install_path" --nologo
 echo "Published successfully."
 
 # ── Install systemd user service ─────────────────────────────────────────────

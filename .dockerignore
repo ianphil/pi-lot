@@ -1,11 +1,11 @@
 bin/
 obj/
-llm-cli/
-llm-cli.Tests/
-llm-svc.Tests/
+tests/
 .git/
 .vs/
 *.user
 *.sln
 scripts/
 backlog/
+docs/
+src/llm-cli/

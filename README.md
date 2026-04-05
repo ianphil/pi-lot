@@ -257,27 +257,30 @@ localhost:5100/v1/responses
 
 ```
 llm-svc/
-├── CopilotLlm/                   Reusable library for translation, auth, and upstream access
-│   ├── ServiceCollectionExtensions.cs
-│   ├── LogEvents.cs
-│   ├── Core/
-│   └── Infrastructure/
-├── Program.cs                    Host composition root (calls AddCopilotLlm)
-├── Worker.cs                     Host-only background auth lifecycle
-├── llm-cli/                      CLI client (System.CommandLine + OpenAI SDK)
-├── CopilotLlm.Tests/             Library unit tests
-└── llm-svc.Tests/
-    ├── Fakes/                    Test doubles for the host
-    ├── Integration/              WebApplicationFactory tests
-    └── Smoke/                    Live endpoint tests (Category=Smoke)
+├── src/
+│   ├── CopilotLlm/               Reusable library for translation, auth, and upstream access
+│   │   ├── ServiceCollectionExtensions.cs
+│   │   ├── LogEvents.cs
+│   │   ├── Core/
+│   │   └── Infrastructure/
+│   ├── llm-svc/                   Host proxy
+│   │   ├── Program.cs             Composition root (calls AddCopilotLlm)
+│   │   └── Worker.cs              Background auth lifecycle
+│   └── llm-cli/                   CLI client (System.CommandLine + OpenAI SDK)
+├── tests/
+│   ├── CopilotLlm.Tests/         Library unit tests
+│   ├── llm-svc.Tests/            Host integration + smoke tests
+│   └── llm-cli.Tests/            CLI tests
+├── Directory.Build.props          Shared build properties
+└── llm-svc.sln
 ```
 
 ## Testing
 
 ```bash
 # Run CI-safe library and host tests
-dotnet test CopilotLlm.Tests/CopilotLlm.Tests.csproj
-dotnet test llm-svc.Tests/llm-svc.Tests.csproj --filter "Category!=Smoke"
+dotnet test tests/CopilotLlm.Tests/CopilotLlm.Tests.csproj
+dotnet test tests/llm-svc.Tests/llm-svc.Tests.csproj --filter "Category!=Smoke"
 
 # Run live smoke tests (requires running proxy with credentials)
 dotnet test --filter "Category=Smoke"

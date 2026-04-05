@@ -11,10 +11,10 @@ CopilotLlm/Infrastructure → CopilotLlm/Core ← llm-cli (via HTTP, not project
                                  ↑
                      ServiceCollectionExtensions
                                  ↑
-                             Program.cs
+                         src/llm-svc/Program.cs
 ```
 
-**CopilotLlm/Core depends on nothing.** Not on Infrastructure, not on HTTP libraries, not on frameworks. Core defines port interfaces; Infrastructure implements them. `ServiceCollectionExtensions` wires the library together, and `Program.cs` consumes the library from the host. If you find yourself adding a `using` for anything outside `Core` inside a `CopilotLlm/Core/` file, you are violating the dependency rule. Stop.
+**src/CopilotLlm/Core depends on nothing.** Not on Infrastructure, not on HTTP libraries, not on frameworks. Core defines port interfaces; Infrastructure implements them. `ServiceCollectionExtensions` wires the library together, and `Program.cs` consumes the library from the host. If you find yourself adding a `using` for anything outside `Core` inside a `src/CopilotLlm/Core/` file, you are violating the dependency rule. Stop.
 
 **llm-cli is a separate deployable.** It talks to the proxy over HTTP. It never references llm-svc projects. It is a reference implementation — proof that the API works from a real client.
 
@@ -30,7 +30,7 @@ CopilotLlm/Infrastructure → CopilotLlm/Core ← llm-cli (via HTTP, not project
 
 **ServiceCollectionExtensions.cs** — the library composition root. This is where the reusable DI wiring for Core and Infrastructure belongs.
 
-**Program.cs** — the host composition root. It should stay thin: call `AddCopilotLlm()`, map endpoints, and register `Worker`.
+**Program.cs** — the host composition root (in `src/llm-svc/`). It should stay thin: call `AddCopilotLlm()`, map endpoints, and register `Worker`.
 
 ## The CLI Boundary
 
@@ -44,7 +44,7 @@ The CLI has its own clean structure:
 
 ## Build and Test
 
-See `CONTRIBUTING.md` for all build commands, test categories, and the file-lock warning. The critical rule: the proxy runs as a Windows Scheduled Task and **locks its binary** — never build the full solution while it's running. For library-only changes, target `CopilotLlm` and `CopilotLlm.Tests` directly.
+See `CONTRIBUTING.md` for all build commands, test categories, and the file-lock warning. The critical rule: the proxy runs as a Windows Scheduled Task and **locks its binary** — never build the full solution while it's running. For library-only changes, target `src/CopilotLlm` and `tests/CopilotLlm.Tests` directly.
 
 ## Conventions That Matter
 

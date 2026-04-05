@@ -13,7 +13,7 @@ param(
 )
 
 $ProjectDir = Split-Path $PSScriptRoot -Parent
-$CliProject = Join-Path $ProjectDir "llm-cli\llm-cli.csproj"
+$CliProject = Join-Path $ProjectDir "src\llm-cli\llm-cli.csproj"
 $ErrorActionPreference = "Stop"
 
 if (-not (Test-Path $CliProject)) {

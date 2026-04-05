@@ -23,7 +23,7 @@ $ErrorActionPreference = "Stop"
 
 # Resolve the llm-cli project relative to this script
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
-$llmCli   = Join-Path $repoRoot "llm-cli"
+$llmCli   = Join-Path $repoRoot "src\llm-cli"
 
 function Invoke-Llm {
     param(

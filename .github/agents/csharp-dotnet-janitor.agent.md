@@ -11,7 +11,8 @@ Read `.github/copilot-instructions.md` first — it defines the dependency rule 
 ## Codebase Constraints
 
 - **llm-svc** runs as a Windows Scheduled Task and locks its binary. Do not `dotnet build` the solution while the task is active. Target `llm-cli` or test projects directly.
-- **CopilotLlm/Core/** has zero external dependencies. Do not add `using` statements for Infrastructure or HTTP libraries in Core files.
+- **src/CopilotLlm/Core/** has zero external dependencies. Do not add `using` statements for Infrastructure or HTTP libraries in Core files.
+  Source projects are under `src/`, test projects under `tests/`.
 - **Models/** are plain DTOs — no behavior. If cleanup reveals methods on model classes, extract them to services.
 
 ## Core Tasks

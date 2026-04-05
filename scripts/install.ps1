@@ -15,6 +15,7 @@ param(
 
 $TaskName = "CopilotLlmProxy"
 $ProjectDir = Split-Path $PSScriptRoot -Parent
+$SvcProject = Join-Path $ProjectDir "src\llm-svc\llm-svc.csproj"
 $ErrorActionPreference = "Stop"
 
 # ── Remove existing task if present ──────────────────────────────────────────
@@ -29,7 +30,7 @@ if ($existing) {
 
 # ── Publish ──────────────────────────────────────────────────────────────────
 Write-Host "Publishing to $InstallPath..." -ForegroundColor Cyan
-dotnet publish $ProjectDir -c Release -o $InstallPath --nologo
+dotnet publish $SvcProject -c Release -o $InstallPath --nologo
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Publish failed."
     exit 1

@@ -35,4 +35,4 @@ This matrix tracks coverage for the supported proxy surfaces and their upstream 
 - `/chat/completions -> /responses` behavior is validated in `CopilotClientTests`, not endpoint integration tests, because the current integration harness replaces `IModelProvider` and cannot exercise `CopilotClient.ChatAsync()`.
 - `/responses -> /chat/completions` behavior is validated in `ResponsesEndpointTests`, where the endpoint contract and translated request shapes are observable through the fake provider.
 - Validation command used after completing the matrix:
-  - `dotnet test llm-svc.Tests\llm-svc.Tests.csproj --filter "Category!=Smoke" --no-restore`
+  - `dotnet test tests\llm-svc.Tests\llm-svc.Tests.csproj --filter "Category!=Smoke" --no-restore`

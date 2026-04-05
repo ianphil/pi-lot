@@ -44,11 +44,11 @@
       "status": "implemented",
       "evidence": {
         "files": [
-          "Program.cs",
+          "src/llm-svc/Program.cs",
           "Core\\Services\\ResponsesService.cs"
         ],
         "tests": [
-          "llm-svc.Tests\\Integration\\ResponsesEndpointTests.cs::PostResponses_ReturnsCanonicalResponseBody"
+          "tests\\llm-svc.Tests\\Integration\\ResponsesEndpointTests.cs::PostResponses_ReturnsCanonicalResponseBody"
         ]
       },
       "notes": "ASP.NET Core model binding handles JSON request parsing. Non-streaming responses are returned as application/json."
@@ -61,7 +61,7 @@
       "status": "out_of_scope",
       "evidence": {
         "files": [
-          "Program.cs",
+          "src/llm-svc/Program.cs",
           "README.md"
         ],
         "tests": []
@@ -83,10 +83,10 @@
           "Infrastructure\\CopilotClient.cs"
         ],
         "tests": [
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsSpecLikeSseWhenStreamingRequested",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_TranslatesChatCompletionStreamIntoResponsesEvents",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsFailedStreamEventsWhenUpstreamChunkIsInvalid",
-          "llm-svc.Tests\\Integration\\ResponsesEndpointTests.cs::PostResponses_WithStreaming_ReturnsEventStreamBody"
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsSpecLikeSseWhenStreamingRequested",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_TranslatesChatCompletionStreamIntoResponsesEvents",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsFailedStreamEventsWhenUpstreamChunkIsInvalid",
+          "tests\\llm-svc.Tests\\Integration\\ResponsesEndpointTests.cs::PostResponses_WithStreaming_ReturnsEventStreamBody"
         ]
       },
       "notes": "The translated and native streaming paths follow the semantic event pattern with \\n line endings, sequence_number on all events, logprobs on content/text events, and terminal [DONE] marker. SSE serialization uses explicit \\n (not AppendLine) for cross-platform compatibility."
@@ -104,8 +104,8 @@
           "Core\\Services\\ResponsesService.cs"
         ],
         "tests": [
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_TranslatesChatCompletionIntoResponsesShape",
-          "llm-svc.Tests\\Integration\\ResponsesEndpointTests.cs::PostResponses_ReturnsCanonicalResponseBody"
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_TranslatesChatCompletionIntoResponsesShape",
+          "tests\\llm-svc.Tests\\Integration\\ResponsesEndpointTests.cs::PostResponses_ReturnsCanonicalResponseBody"
         ]
       },
       "notes": "Response envelope now includes all 31 spec-required fields (20 non-nullable with defaults, 11 nullable with JsonIgnoreCondition.Never). Both native passthrough and translated paths produce spec-compliant envelopes validated by the Open Responses compliance suite."
@@ -122,8 +122,8 @@
           "Core\\Services\\ChatCompletionsTranslator.cs"
         ],
         "tests": [
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsChatToolCallsToFunctionCallItems",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_RoundTripsFunctionCallOutputIntoToolMessages"
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsChatToolCallsToFunctionCallItems",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_RoundTripsFunctionCallOutputIntoToolMessages"
         ]
       },
       "notes": "The proxy has concrete models for these item types and uses them in both translated responses and streaming."
@@ -159,13 +159,13 @@
           "Core\\Services\\ResponseSseSerializer.cs"
         ],
         "tests": [
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_TranslatesChatCompletionStreamIntoResponsesEvents",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsFailedStreamEventsWhenUpstreamChunkIsInvalid",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_ReturnsIncompleteDetailsWhenChatCompletionStopsForLength",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MarksOnlyLastNonStreamingOutputItemIncomplete",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsIncompleteTerminalEventWhenChatCompletionStopsForLength",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MarksOnlyLastStreamingOutputItemIncomplete",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::Serialize_EmitsIncompleteTerminalEventWhenResponseIsIncomplete"
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_TranslatesChatCompletionStreamIntoResponsesEvents",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsFailedStreamEventsWhenUpstreamChunkIsInvalid",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_ReturnsIncompleteDetailsWhenChatCompletionStopsForLength",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MarksOnlyLastNonStreamingOutputItemIncomplete",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsIncompleteTerminalEventWhenChatCompletionStopsForLength",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MarksOnlyLastStreamingOutputItemIncomplete",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::Serialize_EmitsIncompleteTerminalEventWhenResponseIsIncomplete"
         ]
       },
       "notes": "Translated chat-completions now populate incomplete_details for length-truncated responses, emit response.incomplete as the terminal state-machine event, and keep only the final output item in the incomplete state while earlier items remain completed. Failed streaming continues to emit response.failed."
@@ -182,9 +182,9 @@
           "Core\\Services\\ResponseSseSerializer.cs"
         ],
         "tests": [
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsSpecLikeSseWhenStreamingRequested",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_TranslatesChatCompletionStreamIntoResponsesEvents",
-          "llm-svc.Tests\\Integration\\ResponsesEndpointTests.cs::PostResponses_WithStreaming_ReturnsEventStreamBody"
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_EmitsSpecLikeSseWhenStreamingRequested",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_TranslatesChatCompletionStreamIntoResponsesEvents",
+          "tests\\llm-svc.Tests\\Integration\\ResponsesEndpointTests.cs::PostResponses_WithStreaming_ReturnsEventStreamBody"
         ]
       },
       "notes": "All streaming text events include logprobs arrays and sequence_number. Both translated (chat-completions) and native paths validated by compliance suite."
@@ -201,11 +201,11 @@
           "Core\\Services\\ChatCompletionsTranslator.cs"
         ],
         "tests": [
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsChatToolCallsToFunctionCallItems",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_RoundTripsFunctionCallOutputIntoToolMessages",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsForcedFunctionToolChoiceToChatCompletions",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_PreservesSimpleToolChoiceModes",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_TranslatesStreamingToolCallArguments"
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsChatToolCallsToFunctionCallItems",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_RoundTripsFunctionCallOutputIntoToolMessages",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsForcedFunctionToolChoiceToChatCompletions",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_PreservesSimpleToolChoiceModes",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_TranslatesStreamingToolCallArguments"
         ]
       },
       "notes": "Function tools are currently the supported tool surface across both translated and streaming flows."
@@ -221,7 +221,7 @@
           "Core\\Services\\ChatCompletionsTranslator.cs"
         ],
         "tests": [
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_FiltersToolsWhenAllowedToolsChoiceIsUsed"
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_FiltersToolsWhenAllowedToolsChoiceIsUsed"
         ]
       },
       "notes": "The proxy filters the visible tool list before sending translated chat-completions requests. It does not yet verify that returned tool calls remain inside the allowed subset, and native /responses passthrough relies on upstream enforcement.",
@@ -313,11 +313,11 @@
           "Core\\Services\\ResponsesService.cs"
         ],
         "tests": [
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_ReturnsStructuredErrorWhenModelIsMissing",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_ReturnsStructuredErrorWhenInputIsMissing",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsUpstreamAuthErrorIntoStructuredResponse",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsUpstreamRateLimitErrorIntoStructuredResponse",
-          "llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsRawUpstreamServerFailureIntoStructuredResponse"
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_ReturnsStructuredErrorWhenModelIsMissing",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_ReturnsStructuredErrorWhenInputIsMissing",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsUpstreamAuthErrorIntoStructuredResponse",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsUpstreamRateLimitErrorIntoStructuredResponse",
+          "tests\\llm-svc.Tests\\Unit\\ResponsesServiceTests.cs::CreateAsync_MapsRawUpstreamServerFailureIntoStructuredResponse"
         ]
       },
       "notes": "The envelope shape is solid. The main gap is taxonomy alignment: the implementation still uses the OpenAI-style invalid_request_error label for many 4xx failures, while the current Open Responses spec text also describes invalid_request. This should stay tracked explicitly until the target taxonomy is locked.",
@@ -499,11 +499,11 @@
       "status": "implemented",
       "evidence": {
         "files": [
-          "Program.cs",
+          "src/llm-svc/Program.cs",
           "Models.cs"
         ],
         "tests": [
-          "llm-svc.Tests\\Integration\\ResponsesEndpointTests.cs::GetModels_ReportsUpstreamAndProxyEndpoints"
+          "tests\\llm-svc.Tests\\Integration\\ResponsesEndpointTests.cs::GetModels_ReportsUpstreamAndProxyEndpoints"
         ]
       },
       "notes": "/v1/models is not an Open Responses conformance signal by itself, but it is the current way this project exposes proxy-vs-upstream capability metadata."
@@ -514,10 +514,10 @@
       "evidence": {
         "files": [
           "README.md",
-          "Program.cs"
+          "src/llm-svc/Program.cs"
         ],
         "tests": [
-          "llm-svc.Tests\\Integration\\SdkCompatibilityTests.cs::ResponsesSdk_CanCallProxyUsingCustomEndpoint"
+          "tests\\llm-svc.Tests\\Integration\\SdkCompatibilityTests.cs::ResponsesSdk_CanCallProxyUsingCustomEndpoint"
         ]
       },
       "notes": "This verifies the current OpenAI .NET SDK story over a real Kestrel socket."

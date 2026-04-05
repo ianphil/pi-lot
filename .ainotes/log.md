@@ -34,3 +34,7 @@
 - streaming: OpenResponses error SSE events nest the error object under an `error` key (`{ type, sequence_number, error: { message, type, code, param } }`), not flat at the top level — error payload parsing must try nested first.
 - translator: `ResponsesStreamToChatTranslator` must track tool calls by `output_index` → `chatToolCallIndex` mapping, not a rolling counter, because argument deltas for multiple tool calls can interleave.
 - translator: When a responses stream completes with function_call items in the output, the chat completions `finish_reason` must be `"tool_calls"`, not `"stop"` — chat clients use this to decide whether to execute tools.
+- layout: The canonical .NET repo layout (David Fowler gist) uses `src/` for source projects and `tests/` for test projects — keeps the repo root clean and eliminates the need for `DefaultItemExcludes` hacks when a host project sits at root.
+- layout: `Directory.Build.props` at the repo root is picked up by all projects automatically — shared `TargetFramework`, `Nullable`, and `ImplicitUsings` need not be repeated in every csproj.
+- docker: When `Directory.Build.props` exists, the Dockerfile restore layer must `COPY` it before any csproj files, otherwise `dotnet restore` fails because MSBuild can't resolve shared properties.
+- scripts: `test-matrix.sh` now auto-starts the proxy if the port is free (mirroring `test-linux-auth.sh`), so it no longer requires a pre-running service.

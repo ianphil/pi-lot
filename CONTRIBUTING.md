@@ -14,34 +14,39 @@ support or demonstrate proxy capabilities.
 
 ```
 llm-svc/
-├── CopilotLlm/                        Reusable library (packable NuGet)
-│   ├── ServiceCollectionExtensions.cs DI entry point for hosts
-│   ├── LogEvents.cs                   Structured event IDs for Windows Event Log
-│   ├── Core/                          Domain logic (no external dependencies)
-│   │   ├── Models/                    DTOs, request/response types, helpers
-│   │   ├── Ports/                     Interfaces (IAuthProvider, IModelProvider, IResponsesService)
-│   │   └── Services/                  Translation, serialization, business logic
-│   └── Infrastructure/                External adapters (HTTP, credentials)
-│       ├── CopilotClient.cs           HTTP adapter to upstream Copilot API
-│       └── CredentialManager.cs       Windows Credential Manager access
-├── Program.cs                         Host composition root and endpoint wiring
-├── Worker.cs                          Host-only background auth lifecycle
-├── llm-cli/                           Reference CLI client
-│   ├── Program.cs                     Entry point (System.CommandLine)
-│   ├── AskAgent.cs                    Agent loop with tool-calling support
-│   ├── FetchUrlTool.cs                Built-in fetch_url tool
-│   └── ToolRegistry.cs               Tool registration and dispatch
-├── CopilotLlm.Tests/                  Library unit tests
-│   └── Unit/                          Pure library tests
-├── llm-svc.Tests/                     Service tests
-│   ├── Fakes/                         Test doubles
-│   ├── Integration/                   WebApplicationFactory tests
-│   └── Smoke/                         Live endpoint tests (Category=Smoke)
-├── llm-cli.Tests/                     CLI tests
-│   └── Smoke/                         Live CLI tests (Category=Smoke)
-├── docs/                              API reference, event log guide, compliance
-├── backlog/                           Conformance matrix (JSON)
-└── scripts/                           Install/uninstall for scheduled task and CLI
+├── src/
+│   ├── CopilotLlm/                        Reusable library (packable NuGet)
+│   │   ├── ServiceCollectionExtensions.cs DI entry point for hosts
+│   │   ├── LogEvents.cs                   Structured event IDs for Windows Event Log
+│   │   ├── Core/                          Domain logic (no external dependencies)
+│   │   │   ├── Models/                    DTOs, request/response types, helpers
+│   │   │   ├── Ports/                     Interfaces (IAuthProvider, IModelProvider, IResponsesService)
+│   │   │   └── Services/                  Translation, serialization, business logic
+│   │   └── Infrastructure/                External adapters (HTTP, credentials)
+│   │       ├── CopilotClient.cs           HTTP adapter to upstream Copilot API
+│   │       └── CredentialManager.cs       Windows Credential Manager access
+│   ├── llm-svc/                           Host proxy
+│   │   ├── Program.cs                     Composition root and endpoint wiring
+│   │   └── Worker.cs                      Background auth lifecycle
+│   └── llm-cli/                           Reference CLI client
+│       ├── Program.cs                     Entry point (System.CommandLine)
+│       ├── AskAgent.cs                    Agent loop with tool-calling support
+│       ├── FetchUrlTool.cs                Built-in fetch_url tool
+│       └── ToolRegistry.cs               Tool registration and dispatch
+├── tests/
+│   ├── CopilotLlm.Tests/                 Library unit tests
+│   │   └── Unit/                          Pure library tests
+│   ├── llm-svc.Tests/                     Service tests
+│   │   ├── Fakes/                         Test doubles
+│   │   ├── Integration/                   WebApplicationFactory tests
+│   │   └── Smoke/                         Live endpoint tests (Category=Smoke)
+│   └── llm-cli.Tests/                     CLI tests
+│       └── Smoke/                         Live CLI tests (Category=Smoke)
+├── docs/                                  API reference, event log guide, compliance
+├── backlog/                               Conformance matrix (JSON)
+├── scripts/                               Install/uninstall for scheduled task and CLI
+├── Directory.Build.props                  Shared build properties (TFM, nullable)
+└── llm-svc.sln
 ```
 
 ## Architecture Rules
@@ -56,11 +61,14 @@ The proxy and library use a hexagonal (ports & adapters) pattern:
 - When adding a new upstream capability, define the port interface first,
   then implement the adapter in Infrastructure.
 
-`llm-svc` is a thin host: `Program.cs` calls `AddCopilotLlm()`, maps HTTP
-endpoints, and registers `Worker`. Keep hosting concerns there; keep reusable
-logic in `CopilotLlm/`.
+Source projects live under `src/`, test projects under `tests/`. The root
+`Directory.Build.props` holds shared build settings (TFM, nullable, implicit usings).
 
-The CLI is self-contained in `llm-cli/` and depends only on the OpenAI .NET SDK.
+`llm-svc` is a thin host: `src/llm-svc/Program.cs` calls `AddCopilotLlm()`, maps HTTP
+endpoints, and registers `Worker`. Keep hosting concerns there; keep reusable
+logic in `src/CopilotLlm/`.
+
+The CLI is self-contained in `src/llm-cli/` and depends only on the OpenAI .NET SDK.
 It does not reference `llm-svc` projects — it talks to the proxy over HTTP.
 
 ## Build and Test
@@ -77,15 +85,15 @@ Target `CopilotLlm` / `CopilotLlm.Tests` directly for library-only changes.
 dotnet test llm-svc.sln
 
 # RIGHT — build and test library / CLI projects independently
-dotnet test CopilotLlm.Tests\CopilotLlm.Tests.csproj --no-restore
-dotnet test llm-cli.Tests\llm-cli.Tests.csproj --no-restore
+dotnet test tests\CopilotLlm.Tests\CopilotLlm.Tests.csproj --no-restore
+dotnet test tests\llm-cli.Tests\llm-cli.Tests.csproj --no-restore
 ```
 
 To build/test the service, stop the scheduled task first:
 
 ```powershell
 Stop-ScheduledTask -TaskName CopilotLlmProxy
-dotnet test llm-svc.Tests\llm-svc.Tests.csproj --no-restore
+dotnet test tests\llm-svc.Tests\llm-svc.Tests.csproj --no-restore
 Start-ScheduledTask -TaskName CopilotLlmProxy
 ```
 
@@ -101,9 +109,9 @@ Start-ScheduledTask -TaskName CopilotLlmProxy
 Run CI-safe tests (unit + integration):
 
 ```powershell
-dotnet test CopilotLlm.Tests --no-restore
-dotnet test llm-svc.Tests --filter "Category!=Smoke" --no-restore
-dotnet test llm-cli.Tests --filter "Category!=Smoke" --no-restore
+dotnet test tests\CopilotLlm.Tests --no-restore
+dotnet test tests\llm-svc.Tests --filter "Category!=Smoke" --no-restore
+dotnet test tests\llm-cli.Tests --filter "Category!=Smoke" --no-restore
 ```
 
 Run smoke tests (proxy must be running):
@@ -114,9 +122,9 @@ dotnet test --filter "Category=Smoke" --no-restore
 
 ### What to Test Before Submitting
 
-- If you changed **CopilotLlm/**: run `CopilotLlm.Tests`.
-- If you changed **Program.cs** or **Worker.cs**: run `llm-svc.Tests` (stop task first).
-- If you changed **llm-cli/**: run `llm-cli.Tests`.
+- If you changed **src/CopilotLlm/**: run `CopilotLlm.Tests`.
+- If you changed **src/llm-svc/Program.cs** or **Worker.cs**: run `llm-svc.Tests` (stop task first).
+- If you changed **src/llm-cli/**: run `llm-cli.Tests`.
 - If you changed response serialization or translation: run smoke tests against both
   a GPT model (native `/responses`) and a Claude model (translated from `/chat/completions`).
 
@@ -125,13 +133,13 @@ dotnet test --filter "Category=Smoke" --no-restore
 The library, service, and CLI are versioned **independently** in their respective `.csproj` files:
 
 ```xml
-<!-- CopilotLlm/CopilotLlm.csproj -->
+<!-- src/CopilotLlm/CopilotLlm.csproj -->
 <Version>0.1.0</Version>
 
-<!-- llm-svc.csproj -->
+<!-- src/llm-svc/llm-svc.csproj -->
 <Version>0.6.0</Version>
 
-<!-- llm-cli/llm-cli.csproj -->
+<!-- src/llm-cli/llm-cli.csproj -->
 <Version>0.3.0</Version>
 ```
 

@@ -3,7 +3,8 @@
 # Runs llm CLI commands matching every scenario in the test matrix.
 #
 # Each row exercises a different surface + upstream routing path.
-# Requires the proxy to be running with valid credentials.
+# Starts llm-svc automatically if the port is free; reuses an
+# already-running proxy otherwise.
 #
 # Models used:
 #   gpt-5.4-mini     -> /responses only
@@ -18,6 +19,7 @@ set -euo pipefail
 port=5100
 host=127.0.0.1
 no_stream=0
+use_env_token=0
 dotnet_bin=""
 
 while [[ $# -gt 0 ]]; do
@@ -25,21 +27,86 @@ while [[ $# -gt 0 ]]; do
     --port)   port="$2";   shift 2 ;;
     --host)   host="$2";   shift 2 ;;
     --no-stream) no_stream=1; shift ;;
+    --use-env-token) use_env_token=1; shift ;;
     --dotnet) dotnet_bin="$2"; shift 2 ;;
-    *) echo "Unknown option: $1"; exit 1 ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: scripts/test-matrix.sh [options]
+
+Starts llm-svc (if not already running), builds the CLI, and runs
+every test-matrix scenario against the proxy.
+
+Options:
+  --port <port>         Port to use (default: 5100)
+  --host <host>         Host to bind (default: 127.0.0.1)
+  --no-stream           Disable streaming for all tests
+  --use-env-token       Leave COPILOT_TOKEN unchanged instead of unsetting it
+  --dotnet <path>       Path to dotnet binary
+  --help, -h            Show this help
+EOF
+      exit 0
+      ;;
+    *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
 
 endpoint="http://${host}:${port}"
-repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-llm_cli="${repo_root}/llm-cli"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "${script_dir}/.." && pwd)"
+llm_cli="${repo_root}/src/llm-cli"
+service_project="${repo_root}/src/llm-svc/llm-svc.csproj"
 
+# ── Resolve dotnet ───────────────────────────────────────────────────────────
 if [[ -n "$dotnet_bin" ]]; then
   dotnet="$dotnet_bin"
-elif command -v mise &>/dev/null && mise ls dotnet &>/dev/null; then
-  dotnet="mise x dotnet@10.0.201 -- dotnet"
+elif command -v mise &>/dev/null; then
+  dotnet="$(mise which dotnet 2>/dev/null || true)"
+  [[ -z "$dotnet" ]] && dotnet="$(command -v dotnet)"
 else
-  dotnet="dotnet"
+  dotnet="$(command -v dotnet)"
+fi
+
+# ── Service lifecycle ────────────────────────────────────────────────────────
+log_file="$(mktemp)"
+service_pid=""
+started_service=0
+
+cleanup() {
+  if [[ "$started_service" -eq 1 && -n "$service_pid" ]] && kill -0 "$service_pid" >/dev/null 2>&1; then
+    echo -e "\n\033[33mStopping llm-svc (pid ${service_pid})...\033[0m"
+    kill "$service_pid" >/dev/null 2>&1 || true
+    wait "$service_pid" >/dev/null 2>&1 || true
+  fi
+  rm -f "$log_file"
+}
+
+trap cleanup EXIT
+
+if ss -ltn "( sport = :${port} )" 2>/dev/null | tail -n +2 | grep -q .; then
+  echo -e "\033[33mProxy already running on port ${port} — reusing.\033[0m"
+else
+  echo -e "\033[33mStarting llm-svc at ${endpoint}...\033[0m"
+  if [[ "$use_env_token" -eq 1 ]]; then
+    Kestrel__Endpoints__Http__Url="$endpoint" "$dotnet" run --no-launch-profile --project "$service_project" >"$log_file" 2>&1 &
+  else
+    env -u COPILOT_TOKEN Kestrel__Endpoints__Http__Url="$endpoint" "$dotnet" run --no-launch-profile --project "$service_project" >"$log_file" 2>&1 &
+  fi
+  service_pid="$!"
+  started_service=1
+
+  for _ in $(seq 1 60); do
+    if curl -sS -o /dev/null "$endpoint/health" >/dev/null 2>&1; then
+      break
+    fi
+    if ! kill -0 "$service_pid" >/dev/null 2>&1; then
+      echo "llm-svc exited before becoming ready" >&2
+      cat "$log_file" >&2
+      exit 1
+    fi
+    sleep 1
+  done
+
+  echo -e "\033[32mllm-svc ready (pid ${service_pid}).\033[0m"
 fi
 
 prompt="Reply with exactly: hello"
