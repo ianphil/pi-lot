@@ -1,6 +1,6 @@
 ---
 title: "llm-agent: Agent loop and tool execution core"
-status: open
+status: completed
 priority: high
 created: 2026-04-06
 ---
