@@ -60,3 +60,8 @@
 - docs: Unauthenticated SDK behavior surfaces `ModelNotFoundException` (empty model list from discovery), not `AuthenticationException` — typed auth exceptions only fire when the upstream API returns 401 on an actual request.
 - docs: `--endpoint` is a per-subcommand flag in System.CommandLine, not a root-level global — placing it before the subcommand fails argument parsing.
 - docs: `health` command always exits 0 even when the proxy is unreachable — it catches `HttpRequestException` and prints status, but doesn't set exit code.
+
+## 2026-04-06
+- responses-api: Agent-style system prompts should ride on `CreateResponseRequest.Instructions`, not be replayed as `"role": "system"` items inside `Input`.
+- testing: Hyphenated SDK-style project files need explicit `AssemblyName` values that match `InternalsVisibleTo`, or internal test access silently points at the wrong assembly name.
+- serialization: Responses-agent context can serialize prior assistant output and tool calls directly from polymorphic `ResponseItem` models with `JsonDefaults.Web`, so no extra conversion layer is needed before building `Input`.

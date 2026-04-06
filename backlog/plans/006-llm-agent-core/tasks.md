@@ -28,36 +28,36 @@ Phase 4: Integration & Validation
 
 ### Project Scaffolding
 
-- [ ] T001 [IMPL] Create `src/llm-agent/llm-agent.csproj` with `<ProjectReference>` to `src/llm-sdk/llm-sdk.csproj`, `RootNamespace=LlmAgent`, `Version=0.1.0`
-- [ ] T002 [IMPL] Create `tests/llm-agent.Tests/llm-agent.Tests.csproj` with references to `llm-agent`, xunit, and test SDK packages (match `llm-sdk.Tests` pattern)
-- [ ] T003 [IMPL] Add both projects to `copilot-llm.sln` under `src` and `tests` solution folders
-- [ ] T004 [IMPL] Verify `dotnet build src/llm-agent/llm-agent.csproj` and `dotnet build tests/llm-agent.Tests/llm-agent.Tests.csproj` succeed
+- [x] T001 [IMPL] Create `src/llm-agent/llm-agent.csproj` with `<ProjectReference>` to `src/llm-sdk/llm-sdk.csproj`, `RootNamespace=LlmAgent`, `Version=0.1.0`
+- [x] T002 [IMPL] Create `tests/llm-agent.Tests/llm-agent.Tests.csproj` with references to `llm-agent`, xunit, and test SDK packages (match `llm-sdk.Tests` pattern)
+- [x] T003 [IMPL] Add both projects to `copilot-llm.sln` under `src` and `tests` solution folders
+- [x] T004 [IMPL] Verify `dotnet build src/llm-agent/llm-agent.csproj` and `dotnet build tests/llm-agent.Tests/llm-agent.Tests.csproj` succeed
 
 ## Phase 2: Types & Contracts
 
 ### AgentContext (Typed Context Model)
 
-- [ ] T005 [TEST] Write test: `AgentContext.SerializeInput()` with single user message produces correct JSON array
-- [ ] T006 [TEST] Write test: `AgentContext.SerializeInput()` with user message + response output + tool result produces correct multi-item JSON array
-- [ ] T007 [TEST] Write test: `ToolResultContextItem` serialization generates an ID and includes `call_id` and `output`
-- [ ] T008 [IMPL] Define `AgentContextItem` hierarchy (`UserMessageContextItem`, `ResponseOutputContextItem`, `ToolResultContextItem`) and `AgentContext` class with `SerializeInput()`
+- [x] T005 [TEST] Write test: `AgentContext.SerializeInput()` with single user message produces correct JSON array
+- [x] T006 [TEST] Write test: `AgentContext.SerializeInput()` with user message + response output + tool result produces correct multi-item JSON array
+- [x] T007 [TEST] Write test: `ToolResultContextItem` serialization generates an ID and includes `call_id` and `output`
+- [x] T008 [IMPL] Define `AgentContextItem` hierarchy (`UserMessageContextItem`, `ResponseOutputContextItem`, `ToolResultContextItem`) and `AgentContext` class with `SerializeInput()`
 
 ### AgentEvent Hierarchy
 
-- [ ] T009 [TEST] Write test: all 9 `AgentEvent` subtypes can be pattern-matched exhaustively
-- [ ] T010 [IMPL] Define `AgentEvent` abstract record and all 9 derived record types in `AgentTypes.cs`
+- [x] T009 [TEST] Write test: all 9 `AgentEvent` subtypes can be pattern-matched exhaustively
+- [x] T010 [IMPL] Define `AgentEvent` abstract record and all 9 derived record types in `AgentTypes.cs`
 
 ### IAgentTool & Supporting Types
 
-- [ ] T011 [TEST] Write test: `IAgentTool` can be converted to `ResponseFunctionToolDefinition` via extension method
-- [ ] T012 [IMPL] Define `IAgentTool` interface (with `JsonElement` arguments), `AgentToolResult`, `AgentToolCallResult`, and `ToToolDefinition()` extension
-- [ ] T013 [IMPL] Define `AgentLoopOptions` record
+- [x] T011 [TEST] Write test: `IAgentTool` can be converted to `ResponseFunctionToolDefinition` via extension method
+- [x] T012 [IMPL] Define `IAgentTool` interface (with `JsonElement` arguments), `AgentToolResult`, `AgentToolCallResult`, and `ToToolDefinition()` extension
+- [x] T013 [IMPL] Define `AgentLoopOptions` record
 
 ### Test Infrastructure
 
-- [ ] T014 [IMPL] Create `tests/llm-agent.Tests/Fakes/FakeLlmSdkClient.cs` (adapted from `tests/llm-cli.Tests/Fakes/`)
-- [ ] T015 [IMPL] Create `tests/llm-agent.Tests/Fakes/FakeAgentTool.cs` — delegate-based `IAgentTool` for tests
-- [ ] T016 [IMPL] Create `tests/llm-agent.Tests/Helpers/StreamHelpers.cs` — factory methods for building canned `ResponseStreamEvent` sequences
+- [x] T014 [IMPL] Create `tests/llm-agent.Tests/Fakes/FakeLlmSdkClient.cs` (adapted from `tests/llm-cli.Tests/Fakes/`)
+- [x] T015 [IMPL] Create `tests/llm-agent.Tests/Fakes/FakeAgentTool.cs` — delegate-based `IAgentTool` for tests
+- [x] T016 [IMPL] Create `tests/llm-agent.Tests/Helpers/StreamHelpers.cs` — factory methods for building canned `ResponseStreamEvent` sequences
 
 ## Phase 3: Agent Loop
 
