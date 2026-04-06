@@ -63,43 +63,43 @@ Phase 4: Integration & Validation
 
 ### Single Turn (No Tool Calls)
 
-- [ ] T017 [TEST] Write test: prompt with no tool calls emits `AgentStarted → TurnStarted → MessageStarted → MessageDelta(s) → MessageEnded → TurnEnded → AgentEnded`
-- [ ] T018 [TEST] Write test: `MessageDelta` events contain the `ResponseStreamEvent` from the stream
-- [ ] T019 [TEST] Write test: `MessageEnded` contains the completed `Response`
-- [ ] T020 [TEST] Write test: `AgentEnded` carries the typed `AgentContext`
-- [ ] T021 [IMPL] Implement `AgentLoop.RunAsync` — initial version handling single turn with no tools
+- [x] T017 [TEST] Write test: prompt with no tool calls emits `AgentStarted → TurnStarted → MessageStarted → MessageDelta(s) → MessageEnded → TurnEnded → AgentEnded`
+- [x] T018 [TEST] Write test: `MessageDelta` events contain the `ResponseStreamEvent` from the stream
+- [x] T019 [TEST] Write test: `MessageEnded` contains the completed `Response`
+- [x] T020 [TEST] Write test: `AgentEnded` carries the typed `AgentContext`
+- [x] T021 [IMPL] Implement `AgentLoop.RunAsync` — initial version handling single turn with no tools
 
 ### Tool Execution
 
-- [ ] T022 [TEST] Write test: response with one `ResponseFunctionCallItem` triggers tool execution; emits `ToolExecutionStarted → ToolExecutionEnded`
-- [ ] T023 [TEST] Write test: tool receives parsed `JsonElement` arguments (not raw string)
-- [ ] T024 [TEST] Write test: tool result is fed back in the next turn's `CreateResponseRequest.Input` as `function_call_output`
-- [ ] T025 [TEST] Write test: response output items (message + function_call) are appended to typed context for next turn
-- [ ] T026 [TEST] Write test: multiple tool calls in one response are executed sequentially
-- [ ] T027 [IMPL] Implement tool execution in the loop — find tool, parse args, call `ExecuteAsync`, build result, append to context
+- [x] T022 [TEST] Write test: response with one `ResponseFunctionCallItem` triggers tool execution; emits `ToolExecutionStarted → ToolExecutionEnded`
+- [x] T023 [TEST] Write test: tool receives parsed `JsonElement` arguments (not raw string)
+- [x] T024 [TEST] Write test: tool result is fed back in the next turn's `CreateResponseRequest.Input` as `function_call_output`
+- [x] T025 [TEST] Write test: response output items (message + function_call) are appended to typed context for next turn
+- [x] T026 [TEST] Write test: multiple tool calls in one response are executed sequentially
+- [x] T027 [IMPL] Implement tool execution in the loop — find tool, parse args, call `ExecuteAsync`, build result, append to context
 
 ### Error Handling
 
-- [ ] T028 [TEST] Write test: tool that throws has its exception caught and returned as error result (`IsError = true`) to model
-- [ ] T029 [TEST] Write test: tool name not in tools list emits `ToolExecutionStarted` + `ToolExecutionEnded` with error result
-- [ ] T030 [TEST] Write test: invalid JSON in tool arguments returns error result to model
-- [ ] T031 [TEST] Write test: `ResponseFailedEvent` terminates the loop and emits `AgentEnded`
-- [ ] T032 [TEST] Write test: `ResponseIncompleteEvent` terminates the loop and emits `AgentEnded`
-- [ ] T033 [IMPL] Implement error handling — tool exceptions, tool not found, bad args, response failure, response incomplete
+- [x] T028 [TEST] Write test: tool that throws has its exception caught and returned as error result (`IsError = true`) to model
+- [x] T029 [TEST] Write test: tool name not in tools list emits `ToolExecutionStarted` + `ToolExecutionEnded` with error result
+- [x] T030 [TEST] Write test: invalid JSON in tool arguments returns error result to model
+- [x] T031 [TEST] Write test: `ResponseFailedEvent` terminates the loop and emits `AgentEnded`
+- [x] T032 [TEST] Write test: `ResponseIncompleteEvent` terminates the loop and emits `AgentEnded`
+- [x] T033 [IMPL] Implement error handling — tool exceptions, tool not found, bad args, response failure, response incomplete
 
 ### Loop Control
 
-- [ ] T034 [TEST] Write test: loop continues until response has no tool calls (multi-turn conversation)
-- [ ] T035 [TEST] Write test: `MaxTurns` stops the loop after N turns and emits `AgentEnded`
-- [ ] T036 [TEST] Write test: `CancellationToken` cancellation stops the loop
-- [ ] T037 [IMPL] Implement loop control — multi-turn continuation, max turns, cancellation
+- [x] T034 [TEST] Write test: loop continues until response has no tool calls (multi-turn conversation)
+- [x] T035 [TEST] Write test: `MaxTurns` stops the loop after N turns and emits `AgentEnded`
+- [x] T036 [TEST] Write test: `CancellationToken` cancellation stops the loop
+- [x] T037 [IMPL] Implement loop control — multi-turn continuation, max turns, cancellation
 
 ### Request Building
 
-- [ ] T038 [TEST] Write test: `Instructions` from options is passed through to `CreateResponseRequest.Instructions`
-- [ ] T039 [TEST] Write test: `Temperature` and `Reasoning` from options are passed through to request
-- [ ] T040 [TEST] Write test: tools are converted via `ToToolDefinition()` and passed in request
-- [ ] T041 [IMPL] Implement request building with full options passthrough
+- [x] T038 [TEST] Write test: `Instructions` from options is passed through to `CreateResponseRequest.Instructions`
+- [x] T039 [TEST] Write test: `Temperature` and `Reasoning` from options are passed through to request
+- [x] T040 [TEST] Write test: tools are converted via `ToToolDefinition()` and passed in request
+- [x] T041 [IMPL] Implement request building with full options passthrough
 
 ## Phase 4: Integration & Validation
 

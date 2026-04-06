@@ -65,3 +65,5 @@
 - responses-api: Agent-style system prompts should ride on `CreateResponseRequest.Instructions`, not be replayed as `"role": "system"` items inside `Input`.
 - testing: Hyphenated SDK-style project files need explicit `AssemblyName` values that match `InternalsVisibleTo`, or internal test access silently points at the wrong assembly name.
 - serialization: Responses-agent context can serialize prior assistant output and tool calls directly from polymorphic `ResponseItem` models with `JsonDefaults.Web`, so no extra conversion layer is needed before building `Input`.
+- agent-loop: Tool execution should wait for the terminal response event and read `ResponseFunctionCallItem` objects from the completed `Response.Output`, not from streaming argument delta events.
+- testing: `mise x dotnet@10.0.201 -- dotnet test tests/llm-agent.Tests/llm-agent.Tests.csproj --no-restore` is the repo-safe validation path for `llm-agent` changes.
