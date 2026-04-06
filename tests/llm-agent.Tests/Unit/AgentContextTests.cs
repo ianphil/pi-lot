@@ -68,7 +68,7 @@ public sealed class AgentContextTests
     }
 
     [Fact]
-    public void SerializeInput_WithToolResult_GeneratesIdAndIncludesCallIdAndOutput()
+    public void SerializeInput_WithToolResult_IncludesCallIdAndOutputWithoutId()
     {
         var context = new AgentContext();
 
@@ -80,7 +80,7 @@ public sealed class AgentContextTests
 
         var item = input[0];
         Assert.Equal("function_call_output", item.GetProperty("type").GetString());
-        Assert.False(string.IsNullOrWhiteSpace(item.GetProperty("id").GetString()));
+        Assert.False(item.TryGetProperty("id", out _));
         Assert.Equal("call_456", item.GetProperty("call_id").GetString());
         Assert.Equal("done", item.GetProperty("output").GetString());
     }

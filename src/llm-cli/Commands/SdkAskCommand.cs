@@ -14,11 +14,12 @@ public static class SdkAskCommand
         var model = CommandOptions.Model("gpt-5.4-mini");
         var system = CommandOptions.System();
         var noStream = CommandOptions.NoStream();
+        var tools = CommandOptions.Tools();
 
         var command = new Command("sdk-ask",
             "Send a prompt directly through the LlmSdk Responses client (streams by default)")
         {
-            prompt, model, system, noStream,
+            prompt, model, system, noStream, tools,
         };
 
         command.SetAction(async (parseResult, cancellationToken) =>
@@ -28,17 +29,20 @@ public static class SdkAskCommand
                 parseResult.GetValue(prompt)!,
                 modelValue,
                 parseResult.GetValue(system),
-                false);
+                parseResult.GetValue(tools));
 
             return await RunSdkCommandAsync(modelValue, async client =>
             {
+                using var toolHttpClient = new HttpClient();
+                var toolRegistry = request.ToolsEnabled ? LocalToolRegistry.CreateDefault(toolHttpClient) : null;
+
                 if (parseResult.GetValue(noStream))
                 {
-                    await SdkAskAgent.RunNonStreamingAsync(client, request, Console.Out, cancellationToken);
+                    await SdkAskAgent.RunNonStreamingAsync(client, request, Console.Out, cancellationToken, toolRegistry);
                 }
                 else
                 {
-                    await SdkAskAgent.RunStreamingAsync(client, request, Console.Out, cancellationToken);
+                    await SdkAskAgent.RunStreamingAsync(client, request, Console.Out, cancellationToken, toolRegistry);
                 }
             });
         });

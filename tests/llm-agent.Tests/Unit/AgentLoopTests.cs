@@ -603,6 +603,200 @@ public sealed class AgentLoopTests
         Assert.Equal("Hello", request.Input[0].GetProperty("content")[0].GetProperty("text").GetString());
     }
 
+    [Fact]
+    public async Task RunAsync_FullMultiTurnScenario_EmitsCompleteEventSequenceAndTypedContext()
+    {
+        var requests = new List<CreateResponseRequest>();
+        var firstResponse = StreamHelpers.CreateResponse(
+            StreamHelpers.AssistantMessage("I'll read it.", id: "msg_1"),
+            StreamHelpers.FunctionCall("read_file", "call_1", "{\"path\":\"test.txt\"}", id: "fc_1"));
+        var secondResponse = StreamHelpers.CreateResponse(
+            StreamHelpers.AssistantMessage("The file says hello.", id: "msg_2"));
+        var streams = new Queue<ResponseStreamEvent[]>(
+        [
+            [
+                StreamHelpers.OutputTextDelta("I'll read it.", sequenceNumber: 1, itemId: "msg_1"),
+                StreamHelpers.Completed(firstResponse, sequenceNumber: 2),
+            ],
+            [
+                StreamHelpers.OutputTextDelta("The file says hello.", sequenceNumber: 3, itemId: "msg_2"),
+                StreamHelpers.Completed(secondResponse, sequenceNumber: 4),
+            ],
+        ]);
+        var tool = new FakeAgentTool(
+            "read_file",
+            "Read a file.",
+            executeAsync: (_, _, _) => Task.FromResult(new AgentToolResult("hello from file")));
+        var client = new FakeLlmSdkClient(
+            createResponseStreamAsync: (request, _) =>
+            {
+                requests.Add(request);
+                return StreamHelpers.ToAsyncEnumerable(streams.Dequeue());
+            });
+
+        var events = await CollectEventsAsync(AgentLoop.RunAsync(client, "Read test.txt", CreateOptions([tool])));
+
+        Assert.Equal(
+            [
+                typeof(AgentStarted),
+                typeof(TurnStarted),
+                typeof(MessageStarted),
+                typeof(MessageDelta),
+                typeof(MessageEnded),
+                typeof(ToolExecutionStarted),
+                typeof(ToolExecutionEnded),
+                typeof(TurnEnded),
+                typeof(TurnStarted),
+                typeof(MessageStarted),
+                typeof(MessageDelta),
+                typeof(MessageEnded),
+                typeof(TurnEnded),
+                typeof(AgentEnded),
+            ],
+            events.Select(static evt => evt.GetType()));
+
+        var turnEndedEvents = events.OfType<TurnEnded>().ToArray();
+        Assert.Equal(2, turnEndedEvents.Length);
+        Assert.Single(turnEndedEvents[0].ToolResults);
+        Assert.Equal("call_1", turnEndedEvents[0].ToolResults[0].CallId);
+        Assert.Equal("read_file", turnEndedEvents[0].ToolResults[0].ToolName);
+        Assert.Equal("hello from file", turnEndedEvents[0].ToolResults[0].Output);
+        Assert.Empty(turnEndedEvents[1].ToolResults);
+
+        Assert.Equal(2, requests.Count);
+        Assert.Equal(4, requests[1].Input.GetArrayLength());
+        Assert.Equal("function_call_output", requests[1].Input[3].GetProperty("type").GetString());
+        Assert.Equal("hello from file", requests[1].Input[3].GetProperty("output").GetString());
+
+        var agentEnded = Assert.IsType<AgentEnded>(events[^1]);
+        Assert.Collection(
+            agentEnded.Context.Items,
+            item =>
+            {
+                var user = Assert.IsType<UserMessageContextItem>(item);
+                Assert.Equal("Read test.txt", user.Text);
+            },
+            item =>
+            {
+                var output = Assert.IsType<ResponseOutputContextItem>(item);
+                Assert.Same(firstResponse.Output[0], output.Item);
+            },
+            item =>
+            {
+                var output = Assert.IsType<ResponseOutputContextItem>(item);
+                Assert.Same(firstResponse.Output[1], output.Item);
+            },
+            item =>
+            {
+                var toolResult = Assert.IsType<ToolResultContextItem>(item);
+                Assert.Equal("call_1", toolResult.CallId);
+                Assert.Equal("hello from file", toolResult.Output);
+            },
+            item =>
+            {
+                var output = Assert.IsType<ResponseOutputContextItem>(item);
+                Assert.Same(secondResponse.Output[0], output.Item);
+            });
+    }
+
+    [Fact]
+    public async Task RunAsync_TwoConsecutiveToolTurns_PreservesContextAcrossTurns()
+    {
+        var requests = new List<CreateResponseRequest>();
+        var executionOrder = new List<string>();
+        var firstResponse = StreamHelpers.CreateResponse(
+            StreamHelpers.FunctionCall("read_file", "call_1", "{\"path\":\"test.txt\"}", id: "fc_1"));
+        var secondResponse = StreamHelpers.CreateResponse(
+            StreamHelpers.FunctionCall("summarize", "call_2", "{\"text\":\"hello from file\"}", id: "fc_2"));
+        var thirdResponse = StreamHelpers.CreateResponse(
+            StreamHelpers.AssistantMessage("Summary ready.", id: "msg_3"));
+        var streams = new Queue<ResponseStreamEvent[]>(
+        [
+            [StreamHelpers.Completed(firstResponse, sequenceNumber: 1)],
+            [StreamHelpers.Completed(secondResponse, sequenceNumber: 2)],
+            [StreamHelpers.Completed(thirdResponse, sequenceNumber: 3)],
+        ]);
+        var tools = new IAgentTool[]
+        {
+            new FakeAgentTool(
+                "read_file",
+                "Read a file.",
+                executeAsync: (_, _, _) =>
+                {
+                    executionOrder.Add("read_file");
+                    return Task.FromResult(new AgentToolResult("hello from file"));
+                }),
+            new FakeAgentTool(
+                "summarize",
+                "Summarize text.",
+                executeAsync: (_, arguments, _) =>
+                {
+                    executionOrder.Add("summarize");
+                    Assert.Equal("hello from file", arguments.GetProperty("text").GetString());
+                    return Task.FromResult(new AgentToolResult("hello summary"));
+                }),
+        };
+        var client = new FakeLlmSdkClient(
+            createResponseStreamAsync: (request, _) =>
+            {
+                requests.Add(request);
+                return StreamHelpers.ToAsyncEnumerable(streams.Dequeue());
+            });
+
+        var events = await CollectEventsAsync(AgentLoop.RunAsync(client, "Summarize test.txt", CreateOptions(tools)));
+
+        Assert.Equal(["read_file", "summarize"], executionOrder);
+        Assert.Equal(3, requests.Count);
+        Assert.Equal(3, events.Count(evt => evt is TurnStarted));
+        Assert.Equal(2, events.Count(evt => evt is ToolExecutionEnded));
+
+        var thirdInput = requests[2].Input;
+        Assert.Equal(5, thirdInput.GetArrayLength());
+        Assert.Equal("function_call", thirdInput[1].GetProperty("type").GetString());
+        Assert.Equal("function_call_output", thirdInput[2].GetProperty("type").GetString());
+        Assert.Equal("hello from file", thirdInput[2].GetProperty("output").GetString());
+        Assert.Equal("function_call", thirdInput[3].GetProperty("type").GetString());
+        Assert.Equal("summarize", thirdInput[3].GetProperty("name").GetString());
+        Assert.Equal("function_call_output", thirdInput[4].GetProperty("type").GetString());
+        Assert.Equal("hello summary", thirdInput[4].GetProperty("output").GetString());
+
+        var agentEnded = Assert.IsType<AgentEnded>(events[^1]);
+        Assert.Collection(
+            agentEnded.Context.Items,
+            item =>
+            {
+                var user = Assert.IsType<UserMessageContextItem>(item);
+                Assert.Equal("Summarize test.txt", user.Text);
+            },
+            item =>
+            {
+                var output = Assert.IsType<ResponseOutputContextItem>(item);
+                Assert.Same(firstResponse.Output[0], output.Item);
+            },
+            item =>
+            {
+                var toolResult = Assert.IsType<ToolResultContextItem>(item);
+                Assert.Equal("call_1", toolResult.CallId);
+                Assert.Equal("hello from file", toolResult.Output);
+            },
+            item =>
+            {
+                var output = Assert.IsType<ResponseOutputContextItem>(item);
+                Assert.Same(secondResponse.Output[0], output.Item);
+            },
+            item =>
+            {
+                var toolResult = Assert.IsType<ToolResultContextItem>(item);
+                Assert.Equal("call_2", toolResult.CallId);
+                Assert.Equal("hello summary", toolResult.Output);
+            },
+            item =>
+            {
+                var output = Assert.IsType<ResponseOutputContextItem>(item);
+                Assert.Same(thirdResponse.Output[0], output.Item);
+            });
+    }
+
     private static AgentLoopOptions CreateOptions(
         IReadOnlyList<IAgentTool>? tools = null,
         int? maxTurns = null,

@@ -216,6 +216,7 @@ with an explanation.
 ## Documentation
 
 - **docs/sdk-guide.md** — LlmSdk library guide: setup, API usage, streaming, error handling.
+- **docs/agent-guide.md** — LlmAgent guide: agent loop, tool authoring, event stream, examples.
 - **docs/cli-guide.md** — CLI reference: commands, flags, tool calling, examples.
 - **docs/api-reference.md** — Proxy HTTP API surface. Update when adding or changing endpoints.
 - **docs/event-log-guide.md** — Windows Event Log structure. Update when adding event IDs.

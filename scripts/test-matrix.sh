@@ -202,8 +202,10 @@ invoke_llm "15. chat → dual-endpoint model, streaming prefers chat"  chat "$pr
 
 invoke_llm "16. sdk-ask → direct sdk path, plain"                    sdk-ask  "$prompt" gpt-5.4-mini 0 0 0
 invoke_llm "17. sdk-ask → direct sdk path, streaming"                sdk-ask  "$prompt" gpt-5.4-mini 1 0 0
-invoke_llm "18. sdk-chat → direct sdk path, plain"                   sdk-chat "$prompt" gpt-5-mini   0 0 0
-invoke_llm "19. sdk-chat → direct sdk path, streaming"               sdk-chat "$prompt" gpt-5-mini   1 0 0
+invoke_llm "18. sdk-ask → direct sdk path, tools"                    sdk-ask  "$tool_prompt" gpt-5.4-mini 0 1 0
+invoke_llm "19. sdk-ask → direct sdk path, streaming + tools"        sdk-ask  "$tool_prompt" gpt-5.4-mini 1 1 0
+invoke_llm "20. sdk-chat → direct sdk path, plain"                   sdk-chat "$prompt" gpt-5-mini   0 0 0
+invoke_llm "21. sdk-chat → direct sdk path, streaming"               sdk-chat "$prompt" gpt-5-mini   1 0 0
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Summary

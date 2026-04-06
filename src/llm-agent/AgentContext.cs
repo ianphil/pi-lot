@@ -59,11 +59,11 @@ public sealed class AgentContext
             JsonDefaults.Web),
         ResponseOutputContextItem responseOutput => JsonSerializer.SerializeToElement(responseOutput.Item, JsonDefaults.Web),
         ToolResultContextItem toolResult => JsonSerializer.SerializeToElement(
-            (ResponseItem)new ResponseFunctionCallOutputItem
+            new
             {
-                Id = Guid.NewGuid().ToString("N"),
-                CallId = toolResult.CallId,
-                Output = toolResult.Output,
+                type = "function_call_output",
+                call_id = toolResult.CallId,
+                output = toolResult.Output,
             },
             JsonDefaults.Web),
         _ => throw new InvalidOperationException($"Unknown context item type: {item.GetType().Name}"),

@@ -12,10 +12,25 @@ namespace llm_cli;
 public sealed partial class FetchUrlTool : ILocalTool
 {
     public const string ToolName = "fetch_url";
+    private const string ToolDescription = "Fetch the contents of an HTTP or HTTPS URL and return readable text.";
 
     private const int MaxContentCharacters = 20_000;
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(20);
     private static readonly JsonSerializerOptions s_JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonElement s_Parameters = JsonSerializer.SerializeToElement(new
+    {
+        type = "object",
+        properties = new
+        {
+            url = new
+            {
+                type = "string",
+                description = "The HTTP or HTTPS URL to fetch.",
+            },
+        },
+        required = new[] { "url" },
+        additionalProperties = false,
+    }, s_JsonOptions);
 
     private readonly HttpClient _httpClient;
 
@@ -31,42 +46,22 @@ public sealed partial class FetchUrlTool : ILocalTool
 
     public string Name => ToolName;
 
+    public string Description => ToolDescription;
+
+    public JsonElement? Parameters => s_Parameters;
+
+    public bool? Strict => true;
+
     public ResponseTool Definition { get; } = ResponseTool.CreateFunctionTool(
         functionName: ToolName,
-        functionParameters: BinaryData.FromObjectAsJson(new
-        {
-            type = "object",
-            properties = new
-            {
-                url = new
-                {
-                    type = "string",
-                    description = "The HTTP or HTTPS URL to fetch.",
-                },
-            },
-            required = new[] { "url" },
-            additionalProperties = false,
-        }),
+        functionParameters: BinaryData.FromString(s_Parameters.GetRawText()),
         strictModeEnabled: true,
-        functionDescription: "Fetch the contents of an HTTP or HTTPS URL and return readable text.");
+        functionDescription: ToolDescription);
 
     public ChatTool ChatDefinition { get; } = ChatTool.CreateFunctionTool(
         functionName: ToolName,
-        functionParameters: BinaryData.FromObjectAsJson(new
-        {
-            type = "object",
-            properties = new
-            {
-                url = new
-                {
-                    type = "string",
-                    description = "The HTTP or HTTPS URL to fetch.",
-                },
-            },
-            required = new[] { "url" },
-            additionalProperties = false,
-        }),
-        functionDescription: "Fetch the contents of an HTTP or HTTPS URL and return readable text.");
+        functionParameters: BinaryData.FromString(s_Parameters.GetRawText()),
+        functionDescription: ToolDescription);
 
     public async Task<string> ExecuteAsync(BinaryData arguments, CancellationToken cancellationToken)
     {

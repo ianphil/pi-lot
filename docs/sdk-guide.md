@@ -4,6 +4,9 @@
 credential resolution, model discovery, request routing, and automatic
 translation between the Responses and Chat Completions API surfaces.
 
+For a higher-level tool-calling loop built on top of `LlmSdk`, see
+`docs/agent-guide.md`.
+
 ## Installation
 
 From [GitHub Packages](https://github.com/ianphil/copilot-llm-svc/packages):

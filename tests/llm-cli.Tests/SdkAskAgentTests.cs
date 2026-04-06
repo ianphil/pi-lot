@@ -33,7 +33,10 @@ public sealed class SdkAskAgentTests
         };
 
         var client = new FakeLlmSdkClient(
-            createResponseAsync: (_, _) => Task.FromResult(response));
+            createResponseStreamAsync: (_, _) => AsyncEnumerableHelpers.ToAsyncEnumerable<ResponseStreamEvent>(
+            [
+                new ResponseCompletedEvent("response.completed", 1, response),
+            ]));
 
         await SdkAskAgent.RunNonStreamingAsync(
             client,
@@ -42,11 +45,12 @@ public sealed class SdkAskAgentTests
             CancellationToken.None);
 
         Assert.Equal($"Hello from sdk ask{Environment.NewLine}", writer.ToString());
-        Assert.NotNull(client.LastCreateResponseRequest);
-        Assert.Equal("gpt-5.4-mini", client.LastCreateResponseRequest!.Model);
-        Assert.Equal("Hi there", client.LastCreateResponseRequest.Input.GetString());
-        Assert.Equal("Be brief", client.LastCreateResponseRequest.Instructions);
-        Assert.Null(client.LastCreateResponseRequest.Stream);
+        Assert.NotNull(client.LastCreateResponseStreamRequest);
+        Assert.Equal("gpt-5.4-mini", client.LastCreateResponseStreamRequest!.Model);
+        Assert.Equal("message", client.LastCreateResponseStreamRequest.Input[0].GetProperty("type").GetString());
+        Assert.Equal("Hi there", client.LastCreateResponseStreamRequest.Input[0].GetProperty("content")[0].GetProperty("text").GetString());
+        Assert.Equal("Be brief", client.LastCreateResponseStreamRequest.Instructions);
+        Assert.True(client.LastCreateResponseStreamRequest.Stream);
     }
 
     [Fact]
@@ -70,7 +74,8 @@ public sealed class SdkAskAgentTests
         Assert.Equal($"Hello world{Environment.NewLine}", writer.ToString());
         Assert.NotNull(client.LastCreateResponseStreamRequest);
         Assert.Equal("gpt-5.4-mini", client.LastCreateResponseStreamRequest!.Model);
-        Assert.Equal("Hi there", client.LastCreateResponseStreamRequest.Input.GetString());
+        Assert.Equal("message", client.LastCreateResponseStreamRequest.Input[0].GetProperty("type").GetString());
+        Assert.Equal("Hi there", client.LastCreateResponseStreamRequest.Input[0].GetProperty("content")[0].GetProperty("text").GetString());
         Assert.Equal("Be brief", client.LastCreateResponseStreamRequest.Instructions);
         Assert.True(client.LastCreateResponseStreamRequest.Stream);
     }
@@ -92,7 +97,10 @@ public sealed class SdkAskAgentTests
         };
 
         var client = new FakeLlmSdkClient(
-            createResponseAsync: (_, _) => Task.FromResult(response));
+            createResponseStreamAsync: (_, _) => AsyncEnumerableHelpers.ToAsyncEnumerable<ResponseStreamEvent>(
+            [
+                new ResponseFailedEvent("response.failed", 1, response),
+            ]));
 
         await SdkAskAgent.RunNonStreamingAsync(
             client,
@@ -129,7 +137,10 @@ public sealed class SdkAskAgentTests
         };
 
         var client = new FakeLlmSdkClient(
-            createResponseAsync: (_, _) => Task.FromResult(response));
+            createResponseStreamAsync: (_, _) => AsyncEnumerableHelpers.ToAsyncEnumerable<ResponseStreamEvent>(
+            [
+                new ResponseIncompleteEvent("response.incomplete", 1, response),
+            ]));
 
         await SdkAskAgent.RunNonStreamingAsync(
             client,
@@ -160,7 +171,10 @@ public sealed class SdkAskAgentTests
         };
 
         var client = new FakeLlmSdkClient(
-            createResponseAsync: (_, _) => Task.FromResult(response));
+            createResponseStreamAsync: (_, _) => AsyncEnumerableHelpers.ToAsyncEnumerable<ResponseStreamEvent>(
+            [
+                new ResponseCompletedEvent("response.completed", 1, response),
+            ]));
 
         await SdkAskAgent.RunNonStreamingAsync(
             client,
@@ -199,5 +213,165 @@ public sealed class SdkAskAgentTests
             CancellationToken.None);
 
         Assert.Equal($"Response failed: boom{Environment.NewLine}", writer.ToString());
+    }
+
+    [Fact]
+    public async Task RunNonStreamingAsync_WithTools_ExecutesFunctionCallAndWritesFinalText()
+    {
+        using var writer = new StringWriter();
+        var requests = new List<CreateResponseRequest>();
+        var firstResponse = new Response
+        {
+            Id = "resp_1",
+            Output =
+            [
+                new ResponseMessageItem
+                {
+                    Id = "msg_1",
+                    Content =
+                    [
+                        new ResponseOutputTextPart
+                        {
+                            Text = "I'll fetch that.",
+                        },
+                    ],
+                },
+                new ResponseFunctionCallItem
+                {
+                    Id = "fc_1",
+                    CallId = "call_1",
+                    Name = FetchUrlTool.ToolName,
+                    Arguments = """{"url":"https://example.com"}""",
+                },
+            ],
+        };
+        var secondResponse = new Response
+        {
+            Id = "resp_2",
+            Output =
+            [
+                new ResponseMessageItem
+                {
+                    Id = "msg_2",
+                    Content =
+                    [
+                        new ResponseOutputTextPart
+                        {
+                            Text = "Example summary",
+                        },
+                    ],
+                },
+            ],
+        };
+        var queuedStreams = new Queue<ResponseStreamEvent[]>(
+        [
+            [new ResponseCompletedEvent("response.completed", 1, firstResponse)],
+            [new ResponseCompletedEvent("response.completed", 2, secondResponse)],
+        ]);
+        var toolRegistry = new FakeToolRegistry("""{"ok":true,"content":"Example page"}""");
+        var client = new FakeLlmSdkClient(
+            createResponseStreamAsync: (request, _) =>
+            {
+                requests.Add(request);
+                return AsyncEnumerableHelpers.ToAsyncEnumerable<ResponseStreamEvent>(queuedStreams.Dequeue());
+            });
+
+        await SdkAskAgent.RunNonStreamingAsync(
+            client,
+            new AskRequest("Summarize https://example.com", "gpt-5.4-mini", null, true),
+            writer,
+            CancellationToken.None,
+            toolRegistry);
+
+        Assert.Equal($"Example summary{Environment.NewLine}", writer.ToString());
+        Assert.Equal(2, requests.Count);
+        Assert.Equal(1, toolRegistry.ExecutionCount);
+        Assert.NotNull(requests[0].Tools);
+        Assert.Single(requests[0].Tools!);
+        Assert.Equal(4, requests[1].Input.GetArrayLength());
+        Assert.Equal("function_call_output", requests[1].Input[3].GetProperty("type").GetString());
+        Assert.Equal("call_1", requests[1].Input[3].GetProperty("call_id").GetString());
+        Assert.Equal("""{"ok":true,"content":"Example page"}""", requests[1].Input[3].GetProperty("output").GetString());
+    }
+
+    [Fact]
+    public async Task RunStreamingAsync_WithTools_BuffersIntermediateTurnAndWritesFinalText()
+    {
+        using var writer = new StringWriter();
+        var requests = new List<CreateResponseRequest>();
+        var firstResponse = new Response
+        {
+            Id = "resp_1",
+            Output =
+            [
+                new ResponseMessageItem
+                {
+                    Id = "msg_1",
+                    Content =
+                    [
+                        new ResponseOutputTextPart
+                        {
+                            Text = "I'll fetch that.",
+                        },
+                    ],
+                },
+                new ResponseFunctionCallItem
+                {
+                    Id = "fc_1",
+                    CallId = "call_1",
+                    Name = FetchUrlTool.ToolName,
+                    Arguments = """{"url":"https://example.com"}""",
+                },
+            ],
+        };
+        var secondResponse = new Response
+        {
+            Id = "resp_2",
+            Output =
+            [
+                new ResponseMessageItem
+                {
+                    Id = "msg_2",
+                    Content =
+                    [
+                        new ResponseOutputTextPart
+                        {
+                            Text = "Streamed summary",
+                        },
+                    ],
+                },
+            ],
+        };
+        var queuedStreams = new Queue<ResponseStreamEvent[]>(
+        [
+            [
+                new OutputTextDeltaEvent("response.output_text.delta", 1, "I'll fetch that.", 0, 0, "msg_1"),
+                new ResponseCompletedEvent("response.completed", 2, firstResponse),
+            ],
+            [
+                new OutputTextDeltaEvent("response.output_text.delta", 3, "Streamed ", 0, 0, "msg_2"),
+                new OutputTextDeltaEvent("response.output_text.delta", 4, "summary", 0, 0, "msg_2"),
+                new ResponseCompletedEvent("response.completed", 5, secondResponse),
+            ],
+        ]);
+        var toolRegistry = new FakeToolRegistry("""{"ok":true,"content":"Example page"}""");
+        var client = new FakeLlmSdkClient(
+            createResponseStreamAsync: (request, _) =>
+            {
+                requests.Add(request);
+                return AsyncEnumerableHelpers.ToAsyncEnumerable<ResponseStreamEvent>(queuedStreams.Dequeue());
+            });
+
+        await SdkAskAgent.RunStreamingAsync(
+            client,
+            new AskRequest("Summarize https://example.com", "gpt-5.4-mini", null, true),
+            writer,
+            CancellationToken.None,
+            toolRegistry);
+
+        Assert.Equal($"Streamed summary{Environment.NewLine}", writer.ToString());
+        Assert.Equal(2, requests.Count);
+        Assert.Equal(1, toolRegistry.ExecutionCount);
+        Assert.Equal(4, requests[1].Input.GetArrayLength());
     }
 }

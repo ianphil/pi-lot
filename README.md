@@ -10,6 +10,13 @@ A .NET library for accessing GitHub Copilot's LLM API with OpenAI-compatible Res
 | **llm-svc** | Local HTTP proxy exposing OpenAI-compatible endpoints on `localhost` | You want existing SDKs, tools, or agents to talk to Copilot through an OpenAI-shaped API |
 | **llm** | Terminal client for the proxy | You want a quick terminal workflow or a reference client implementation |
 
+## Guides
+
+- `docs/sdk-guide.md` - using `LlmSdk` directly
+- `docs/agent-guide.md` - building tool-calling agents with `LlmAgent`
+- `docs/cli-guide.md` - using the `llm` CLI
+- `docs/api-reference.md` - proxy endpoint reference
+
 ## LlmSdk library
 
 `LlmSdk` is the reusable core product in this repo. It handles Copilot credential resolution, request-level credential refresh and retry, model discovery, native `/responses` routing, `/chat/completions` fallback, and translation between the two API shapes.
@@ -22,6 +29,9 @@ The library integrates through a single DI entry point:
 - `IModelProvider` for model discovery and direct upstream access
 
 If you are working inside this repo, reference `llm-sdk/llm-sdk.csproj`. If you are consuming published packages, use package ID `LlmSdk`.
+
+For higher-level tool-calling orchestration on top of `LlmSdk`, see
+`docs/agent-guide.md`.
 
 ```csharp
 using System.Text.Json;
@@ -124,6 +134,7 @@ dotnet run --project llm-cli -- chat "Summarize https://example.com" --tools
 
 # Use the SDK directly — no proxy required
 dotnet run --project llm-cli -- sdk-ask "Summarize this change" -m gpt-5.4-mini
+dotnet run --project llm-cli -- sdk-ask "Summarize https://example.com" --tools
 dotnet run --project llm-cli -- sdk-chat "What is 2+2?" -m gpt-5-mini
 
 # List models and check health
@@ -133,7 +144,7 @@ dotnet run --project llm-cli -- health
 
 `llm ask` uses `/v1/responses`. `llm chat` uses `/v1/chat/completions`. Both stream by default and support `--no-stream`, `--model`, `--system`, and `--tools`.
 
-`llm sdk-ask` and `llm sdk-chat` bypass the proxy entirely, calling `ILlmSdkClient` in-process. Same flags minus `--tools` and `--endpoint`.
+`llm sdk-ask` and `llm sdk-chat` bypass the proxy entirely, calling `ILlmSdkClient` in-process. `sdk-ask` also supports `--tools` via the `llm-agent` loop. SDK commands do not accept `--endpoint`.
 
 Run `llm --help` for full usage, examples, and model guidance.
 

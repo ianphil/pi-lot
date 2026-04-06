@@ -103,9 +103,9 @@ Phase 4: Integration & Validation
 
 ## Phase 4: Integration & Validation
 
-- [ ] T042 [TEST] Write integration test: full multi-turn scenario — prompt → tool call → tool result → final response — verifying complete event sequence and typed context
-- [ ] T043 [TEST] Write integration test: two consecutive tool calls across two turns (tool result triggers another tool call)
-- [ ] T044 [IMPL] Final build and test validation: `dotnet test tests/llm-agent.Tests/llm-agent.Tests.csproj --no-restore`
+- [x] T042 [TEST] Write integration test: full multi-turn scenario — prompt → tool call → tool result → final response — verifying complete event sequence and typed context
+- [x] T043 [TEST] Write integration test: two consecutive tool calls across two turns (tool result triggers another tool call)
+- [x] T044 [IMPL] Final build and test validation: `dotnet test tests/llm-agent.Tests/llm-agent.Tests.csproj --no-restore`
 
 ## Task Summary
 

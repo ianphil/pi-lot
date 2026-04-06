@@ -67,3 +67,5 @@
 - serialization: Responses-agent context can serialize prior assistant output and tool calls directly from polymorphic `ResponseItem` models with `JsonDefaults.Web`, so no extra conversion layer is needed before building `Input`.
 - agent-loop: Tool execution should wait for the terminal response event and read `ResponseFunctionCallItem` objects from the completed `Response.Output`, not from streaming argument delta events.
 - testing: `mise x dotnet@10.0.201 -- dotnet test tests/llm-agent.Tests/llm-agent.Tests.csproj --no-restore` is the repo-safe validation path for `llm-agent` changes.
+- responses-api: Replayed `function_call_output` items should omit `id`; upstream accepts `type` + `call_id` + `output`, and arbitrary generated IDs can fail validation.
+- cli: When adapting `ILocalTool` into `IAgentTool`, execution should still flow through `IToolRegistry.ExecuteAsync(...)` so CLI-specific tool behavior stays centralized.
