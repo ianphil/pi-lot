@@ -7,6 +7,8 @@ namespace llm_cli;
 
 public interface IToolRegistry
 {
+    IReadOnlyList<ILocalTool> Tools { get; }
+
     IReadOnlyList<ResponseTool> Definitions { get; }
 
     IReadOnlyList<ChatTool> ChatDefinitions { get; }

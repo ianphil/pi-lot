@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>llm_cli</RootNamespace>
     <AssemblyName>llm</AssemblyName>
-    <Version>0.4.0</Version>
+    <Version>0.4.1</Version>
     <NoWarn>OPENAI001</NoWarn>
   </PropertyGroup>
 
@@ -14,6 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\llm-agent\llm-agent.csproj" />
     <ProjectReference Include="..\llm-sdk\llm-sdk.csproj" />
   </ItemGroup>
 

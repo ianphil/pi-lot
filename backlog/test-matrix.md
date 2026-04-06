@@ -33,8 +33,10 @@ This matrix tracks coverage for the supported proxy surfaces and their upstream 
 
 | Surface | Client path | Scenario | Covered | Test |
 | --- | --- | --- | --- | --- |
-| `sdk-ask` | `ILlmSdkClient.CreateResponseAsync` | Plain text response | Yes | `SdkAskAgentTests.RunNonStreamingAsync_WritesOutputText` |
+| `sdk-ask` | `ILlmSdkClient.CreateResponseStreamAsync` | Plain text response | Yes | `SdkAskAgentTests.RunNonStreamingAsync_WritesOutputText` |
 | `sdk-ask` | `ILlmSdkClient.CreateResponseStreamAsync` | Streaming response | Yes | `SdkAskAgentTests.RunStreamingAsync_WritesOutputTextDeltas` |
+| `sdk-ask` | `llm-agent` over `ILlmSdkClient.CreateResponseStreamAsync` | Tool-calling response loop | Yes | `SdkAskAgentTests.RunNonStreamingAsync_WithTools_ExecutesFunctionCallAndWritesFinalText` |
+| `sdk-ask` | `llm-agent` over `ILlmSdkClient.CreateResponseStreamAsync` | Streaming tool-calling response loop | Yes | `SdkAskAgentTests.RunStreamingAsync_WithTools_BuffersIntermediateTurnAndWritesFinalText` |
 | `sdk-chat` | `ILlmSdkClient.CreateChatCompletionAsync` | Plain text response | Yes | `SdkChatAgentTests.RunNonStreamingAsync_WritesMessageText` |
 | `sdk-chat` | `ILlmSdkClient.CreateChatCompletionStreamAsync` | Streaming response | Yes | `SdkChatAgentTests.RunStreamingAsync_WritesDeltaContentAndSkipsNulls` |
 

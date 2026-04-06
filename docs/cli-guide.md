@@ -72,15 +72,17 @@ support `/responses` upstream are translated back internally.
 
 ### sdk-ask
 
-Send a prompt directly through `ILlmSdkClient.CreateResponseAsync` /
-`CreateResponseStreamAsync`. No proxy required — calls the Copilot API
-in-process.
+Send a prompt directly through `ILlmSdkClient` in-process. By default it streams
+Responses API output directly; with `--tools` it runs the `llm-agent` loop for
+local tool execution. No proxy required. See `docs/agent-guide.md` for the
+underlying agent-loop library.
 
 ```bash
 llm sdk-ask "your prompt"
 llm sdk-ask "your prompt" --no-stream
 llm sdk-ask "your prompt" -m gpt-5.4
 llm sdk-ask "your prompt" -s "Be concise"
+llm sdk-ask "Summarize https://example.com" --tools
 ```
 
 Default model: `gpt-5.4-mini`
@@ -133,7 +135,7 @@ missing.
 | `--model` | `-m` | `ask`, `chat`, `sdk-ask`, `sdk-chat` | varies | Model ID |
 | `--system` | `-s` | `ask`, `chat`, `sdk-ask`, `sdk-chat` | none | System instructions |
 | `--no-stream` | | `ask`, `chat`, `sdk-ask`, `sdk-chat` | `false` | Disable streaming |
-| `--tools` | | `ask`, `chat` | `false` | Enable local tools |
+| `--tools` | | `ask`, `chat`, `sdk-ask` | `false` | Enable local tools |
 
 ### Shared proxy-command flags
 
@@ -150,7 +152,8 @@ llm ask "Hello" -e http://localhost:5200
 ```
 
 SDK commands (`sdk-ask`, `sdk-chat`) bypass the proxy entirely and do not
-accept `--endpoint`.
+accept `--endpoint`. `sdk-ask` still supports `--tools` because tool execution
+happens locally in the CLI process.
 
 ### Default models
 
@@ -247,8 +250,9 @@ the CLI executes it locally, sends the result back, and the model continues.
 `sdk-ask` and `sdk-chat` build an in-process `ServiceProvider` with
 `AddLogging()` and `AddLlmSdk()`, then resolve `ILlmSdkClient` directly. No
 proxy needed — they call the Copilot API through the SDK's HTTP adapter.
-Credentials are still required via `COPILOT_TOKEN` or a platform credential
-store.
+`sdk-ask --tools` layers `llm-agent` on top of that client so local tool calls
+run in-process too. Credentials are still required via `COPILOT_TOKEN` or a
+platform credential store.
 
 ### Routing
 

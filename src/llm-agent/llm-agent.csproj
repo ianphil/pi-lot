@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>LlmAgent</AssemblyName>
+    <RootNamespace>LlmAgent</RootNamespace>
+    <Version>0.1.0</Version>
+    <PackageId>LlmAgent</PackageId>
+    <Authors>ianphil</Authors>
+    <Description>A .NET agent loop library built on top of LlmSdk.</Description>
+    <RepositoryUrl>https://github.com/ianphil/copilot-llm-svc</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\llm-sdk\llm-sdk.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>LlmAgent.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>
