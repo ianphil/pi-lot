@@ -28,6 +28,28 @@ public sealed class AgentContextTests
     }
 
     [Fact]
+    public void ToResponseInput_WithAssistantMessage_ProducesAssistantOutputTextMessage()
+    {
+        var context = new AgentContext();
+
+        context.AddAssistantMessage("Hello from the assistant");
+
+        var input = context.ToResponseInput();
+
+        Assert.Equal(JsonValueKind.Array, input.ValueKind);
+        Assert.Equal(1, input.GetArrayLength());
+
+        var item = input[0];
+        Assert.Equal("message", item.GetProperty("type").GetString());
+        Assert.Equal("assistant", item.GetProperty("role").GetString());
+
+        var content = item.GetProperty("content");
+        Assert.Equal(1, content.GetArrayLength());
+        Assert.Equal("output_text", content[0].GetProperty("type").GetString());
+        Assert.Equal("Hello from the assistant", content[0].GetProperty("text").GetString());
+    }
+
+    [Fact]
     public void SerializeInput_WithUserMessageResponseOutputAndToolResult_ProducesExpectedItemSequence()
     {
         var context = new AgentContext();

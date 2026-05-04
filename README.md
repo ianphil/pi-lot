@@ -1,6 +1,6 @@
 # LlmSdk
 
-A .NET library for accessing GitHub Copilot's LLM API with OpenAI-compatible Responses and Chat Completions services. This repository also ships `llm-svc`, a local OpenAI-compatible proxy, and `llm`, a CLI reference client for the proxy.
+A .NET library for accessing GitHub Copilot's LLM API with OpenAI-compatible Responses and Chat Completions services. This repository also ships `llm-svc`, a local OpenAI-compatible proxy, `llm`, a CLI reference client for the proxy, and `llm-ui`, an experimental editable-context chat UI.
 
 ## What this repo ships
 
@@ -9,6 +9,7 @@ A .NET library for accessing GitHub Copilot's LLM API with OpenAI-compatible Res
 | **LlmSdk** | Reusable .NET library with auth, model discovery, routing, and translation | You want to embed Copilot-backed LLM access directly in your own .NET app or host |
 | **llm-svc** | Local HTTP proxy exposing OpenAI-compatible endpoints on `localhost` | You want existing SDKs, tools, or agents to talk to Copilot through an OpenAI-shaped API |
 | **llm** | Terminal client for the proxy | You want a quick terminal workflow or a reference client implementation |
+| **llm-ui** | Experimental SPA for editing a Markdown chat transcript/context | You want to edit the conversation context directly and send it through the SDK-backed local API |
 
 ## Guides
 
@@ -147,6 +148,45 @@ dotnet run --project llm-cli -- health
 `llm sdk-ask` and `llm sdk-chat` bypass the proxy entirely, calling `ILlmSdkClient` in-process. `sdk-ask` also supports `--tools` via the `llm-agent` loop. SDK commands do not accept `--endpoint`.
 
 Run `llm --help` for full usage, examples, and model guidance.
+
+## llm-ui experiment
+
+`llm-ui` is a local SPA experiment for editing the conversation context as Markdown. The browser talks only to the local ASP.NET Core host; Copilot auth stays server-side through `LlmSdk`. The UI default model is `gpt-5.4`.
+
+Run the API host:
+
+```powershell
+dotnet run --project src\llm-ui\llm-ui.csproj
+```
+
+Run the Vite dev server in another terminal:
+
+```powershell
+Push-Location src\llm-ui\ClientApp
+npm install
+npm run dev
+Pop-Location
+```
+
+For a production-style local build:
+
+```powershell
+Push-Location src\llm-ui\ClientApp
+npm install
+npm run build
+Pop-Location
+dotnet run --project src\llm-ui\llm-ui.csproj
+```
+
+The Markdown transcript format uses `## System`, `## User`, and `## Assistant` sections. Edited assistant sections are sent as assistant context, not as user text. Tool sections are reserved for later.
+
+Run the SPA smoke tests with mocked API responses:
+
+```powershell
+Push-Location src\llm-ui\ClientApp
+npm run smoke
+Pop-Location
+```
 
 ## Using llm-svc with OpenAI SDKs
 

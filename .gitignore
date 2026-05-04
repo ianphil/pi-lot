@@ -6,3 +6,4 @@ obj/
 logs/
 .playwright-cli/
 .dapr/
+src/llm-ui/wwwroot/

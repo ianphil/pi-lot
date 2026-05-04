@@ -222,6 +222,8 @@ with an explanation.
 - **docs/event-log-guide.md** — Windows Event Log structure. Update when adding event IDs.
 - **docs/how-to-run-compliance-tests.md** — Compliance test runner guide.
 - **README.md** — Project overview and quick start. Keep in sync with major changes.
+- **src/llm-ui/ClientApp/package.json** — SPA dependency manifest. Pin direct dependencies to exact versions and run `npm outdated` after dependency changes.
+- **src/llm-ui/ClientApp/tests/** — Playwright UI smoke tests for the editable Markdown chat experience. Run with `npm run smoke` from `src/llm-ui/ClientApp`.
 
 ## Code Style
 
