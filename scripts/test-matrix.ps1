@@ -140,11 +140,17 @@ if (Invoke-Llm "16. sdk-ask → direct sdk path, plain" sdk-ask $prompt gpt-5.4-
 # 17. sdk-ask → direct sdk path, streaming
 if (Invoke-Llm "17. sdk-ask → direct sdk path, streaming" sdk-ask $prompt gpt-5.4-mini -Stream:$true -UseEndpoint:$false) { $pass++ } else { $fail++ }
 
-# 18. sdk-chat → direct sdk path, plain text
-if (Invoke-Llm "18. sdk-chat → direct sdk path, plain" sdk-chat $prompt gpt-5-mini -Stream:$false -UseEndpoint:$false) { $pass++ } else { $fail++ }
+# 18. sdk-ask → direct sdk path, tools
+if (Invoke-Llm "18. sdk-ask → direct sdk path, tools" sdk-ask $toolPrompt gpt-5.4-mini -Stream:$false -Tools -UseEndpoint:$false) { $pass++ } else { $fail++ }
 
-# 19. sdk-chat → direct sdk path, streaming
-if (Invoke-Llm "19. sdk-chat → direct sdk path, streaming" sdk-chat $prompt gpt-5-mini -Stream:$true -UseEndpoint:$false) { $pass++ } else { $fail++ }
+# 19. sdk-ask → direct sdk path, streaming + tools
+if (Invoke-Llm "19. sdk-ask → direct sdk path, streaming + tools" sdk-ask $toolPrompt gpt-5.4-mini -Stream:$true -Tools -UseEndpoint:$false) { $pass++ } else { $fail++ }
+
+# 20. sdk-chat → direct sdk path, plain text
+if (Invoke-Llm "20. sdk-chat → direct sdk path, plain" sdk-chat $prompt gpt-5-mini -Stream:$false -UseEndpoint:$false) { $pass++ } else { $fail++ }
+
+# 21. sdk-chat → direct sdk path, streaming
+if (Invoke-Llm "21. sdk-chat → direct sdk path, streaming" sdk-chat $prompt gpt-5-mini -Stream:$true -UseEndpoint:$false) { $pass++ } else { $fail++ }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Summary
