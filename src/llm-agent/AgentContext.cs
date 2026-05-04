@@ -15,6 +15,12 @@ public sealed class AgentContext
         _items.Add(new UserMessageContextItem(text));
     }
 
+    public void AddAssistantMessage(string text)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+        _items.Add(new AssistantMessageContextItem(text));
+    }
+
     public void AddResponseOutput(IEnumerable<ResponseItem> outputItems)
     {
         ArgumentNullException.ThrowIfNull(outputItems);
@@ -34,11 +40,13 @@ public sealed class AgentContext
         _items.Add(new ToolResultContextItem(callId, output));
     }
 
-    internal JsonElement SerializeInput()
+    public JsonElement ToResponseInput()
     {
         var items = _items.Select(SerializeItem).ToArray();
         return JsonSerializer.SerializeToElement(items, JsonDefaults.Web);
     }
+
+    internal JsonElement SerializeInput() => ToResponseInput();
 
     private static JsonElement SerializeItem(AgentContextItem item) => item switch
     {
@@ -53,6 +61,21 @@ public sealed class AgentContext
                     {
                         type = "input_text",
                         text = userMessage.Text,
+                    },
+                },
+            },
+            JsonDefaults.Web),
+        AssistantMessageContextItem assistantMessage => JsonSerializer.SerializeToElement(
+            new
+            {
+                type = "message",
+                role = "assistant",
+                content = new[]
+                {
+                    new
+                    {
+                        type = "output_text",
+                        text = assistantMessage.Text,
                     },
                 },
             },
@@ -73,6 +96,8 @@ public sealed class AgentContext
 public abstract record AgentContextItem;
 
 public sealed record UserMessageContextItem(string Text) : AgentContextItem;
+
+public sealed record AssistantMessageContextItem(string Text) : AgentContextItem;
 
 public sealed record ResponseOutputContextItem(ResponseItem Item) : AgentContextItem;
 

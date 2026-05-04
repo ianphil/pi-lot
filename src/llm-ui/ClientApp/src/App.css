@@ -1,0 +1,124 @@
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.toolbar button,
+.composer button,
+.composer select {
+  border: 1px solid #d8dee9;
+  background: #ffffff;
+  border-radius: 0.5rem;
+  color: #20242c;
+  font: inherit;
+  padding: 0.6rem 0.85rem;
+}
+
+.toolbar button.active,
+.composer button {
+  background: #20242c;
+  color: #ffffff;
+}
+
+.toolbar button,
+.composer button,
+.composer select {
+  cursor: pointer;
+}
+
+.composer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.conversation {
+  min-height: 24rem;
+  overflow: auto;
+  border: 1px solid #d8dee9;
+  border-radius: 0.75rem;
+  background: #ffffff;
+}
+
+.conversation [data-testid='conversation-editor'],
+.conversation .cm-editor {
+  height: 100%;
+  min-height: 24rem;
+}
+
+.conversation .cm-editor {
+  font-size: 1rem;
+}
+
+.conversation .cm-scroller {
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+}
+
+.markdown-preview {
+  max-width: 58rem;
+  margin: 0 auto;
+  padding: 2rem;
+  line-height: 1.65;
+}
+
+.markdown-preview h2 {
+  margin-top: 2rem;
+}
+
+.markdown-preview h2:first-child {
+  margin-top: 0;
+}
+
+.markdown-preview pre {
+  overflow: auto;
+  padding: 1rem;
+  background: #f5f7fb;
+  border-radius: 0.5rem;
+}
+
+.composer {
+  display: grid;
+  grid-template-columns: minmax(9rem, auto) minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.composer textarea {
+  min-height: 5rem;
+  resize: vertical;
+  border: 1px solid #d8dee9;
+  border-radius: 0.5rem;
+  color: #20242c;
+  font: inherit;
+  padding: 0.75rem;
+}
+
+.status {
+  min-height: 1.25rem;
+  color: #667085;
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.budget-warning {
+  color: #9a6700;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    padding: 1rem;
+  }
+
+  .composer {
+    grid-template-columns: 1fr;
+  }
+}

@@ -31,6 +31,7 @@ public sealed class ModelListService
                     Name = entry.Model.Name,
                     SupportedEndpoints = entry.Model.SupportedEndpoints,
                     ProxySupportedEndpoints = entry.ProxySupportedEndpoints,
+                    TokenLimits = entry.Model.TokenLimits,
                 })
                 .ToArray()
         };

@@ -39,6 +39,15 @@ public static class AgentLoop
             yield return new TurnStarted();
 
             var request = BuildRequest(context, options);
+            var budget = options.ContextBudget is null
+                ? null
+                : await AgentContextBudget.EvaluateAsync(client, request, options.ContextBudget, cancellationToken);
+            AgentContextBudget.ThrowIfExceeded(budget);
+            if (budget?.Level is AgentContextBudgetLevel.Warning)
+            {
+                yield return new ContextBudgetWarning(budget);
+            }
+
             var stream = client.CreateResponseStreamAsync(request, cancellationToken);
 
             yield return new MessageStarted();

@@ -32,6 +32,9 @@ public sealed class OpenAIModelInfo
 
     [JsonPropertyName("proxy_supported_endpoints")]
     public string[]? ProxySupportedEndpoints { get; init; }
+
+    [JsonPropertyName("token_limits")]
+    public ModelTokenLimits? TokenLimits { get; init; }
 }
 
 // ── Error response ───────────────────────────────────────────────────────────

@@ -325,6 +325,12 @@ public sealed class LlmSdkClientTests
                     Name = "GPT 5.4 Mini",
                     OwnedBy = "github-copilot",
                     SupportedEndpoints = ["/responses", "/chat/completions"],
+                    TokenLimits = new ModelTokenLimits
+                    {
+                        MaxContextWindowTokens = 128000,
+                        MaxPromptTokens = 120000,
+                        MaxOutputTokens = 16000,
+                    },
                 },
                 new ModelDescriptor
                 {
@@ -341,6 +347,10 @@ public sealed class LlmSdkClientTests
         Assert.Equal("gpt-5.4-mini", model.Id);
         Assert.NotNull(model.ProxySupportedEndpoints);
         Assert.Equal(["/v1/responses", "/v1/chat/completions"], model.ProxySupportedEndpoints);
+        Assert.NotNull(model.TokenLimits);
+        Assert.Equal(128000, model.TokenLimits.MaxContextWindowTokens);
+        Assert.Equal(120000, model.TokenLimits.MaxPromptTokens);
+        Assert.Equal(16000, model.TokenLimits.MaxOutputTokens);
     }
 
     private static LlmSdkClient CreateClient(

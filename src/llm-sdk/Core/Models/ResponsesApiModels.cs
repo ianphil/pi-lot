@@ -34,8 +34,23 @@ public sealed class ModelDescriptor
     [JsonPropertyName("supported_endpoints")]
     public string[] SupportedEndpoints { get; init; } = [];
 
+    [JsonPropertyName("token_limits")]
+    public ModelTokenLimits? TokenLimits { get; init; }
+
     public bool SupportsResponses => SupportedEndpoints.Contains("/responses", StringComparer.OrdinalIgnoreCase);
     public bool SupportsChatCompletions => SupportedEndpoints.Contains("/chat/completions", StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed class ModelTokenLimits
+{
+    [JsonPropertyName("max_context_window_tokens")]
+    public int? MaxContextWindowTokens { get; init; }
+
+    [JsonPropertyName("max_output_tokens")]
+    public int? MaxOutputTokens { get; init; }
+
+    [JsonPropertyName("max_prompt_tokens")]
+    public int? MaxPromptTokens { get; init; }
 }
 
 public sealed class CreateResponseRequest
