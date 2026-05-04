@@ -69,6 +69,24 @@ test('streams assistant output into the markdown conversation', async ({ page })
   await expect(page.getByRole('status')).toContainText('Ready')
 })
 
+test('shows streamed context budget warnings', async ({ page }) => {
+  await page.route('/api/chat', async (route) => {
+    await route.fulfill({
+      headers: { 'content-type': 'text/event-stream' },
+      body:
+        'data: {"type":"warning","message":"Context estimate is 60% of budget.","estimatedTokens":60,"budgetTokens":100,"usageRatio":0.6}\n\n' +
+        'data: {"type":"done"}\n\n',
+    })
+  })
+  await page.goto('/')
+
+  await page.getByLabel('Message').fill('Ping')
+  await page.getByRole('button', { name: 'Send' }).click()
+
+  await expect(page.getByRole('alert')).toContainText('Context estimate is 60% of budget.')
+  await expect(page.getByRole('status')).toContainText('Ready')
+})
+
 test('shows a validation failure without losing the editable transcript', async ({ page }) => {
   await page.route('/api/chat', async (route) => {
     await route.fulfill({

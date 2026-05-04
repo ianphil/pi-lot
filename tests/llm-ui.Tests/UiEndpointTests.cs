@@ -34,6 +34,38 @@ public sealed class UiEndpointTests
     }
 
     [Fact]
+    public async Task Models_IncludesTokenLimitsFromSdkModels()
+    {
+        var fakeClient = new FakeLlmSdkClient
+        {
+            Models =
+            [
+                new OpenAIModelInfo
+                {
+                    Id = "gpt-5.4",
+                    Name = "GPT 5.4",
+                    TokenLimits = new ModelTokenLimits
+                    {
+                        MaxContextWindowTokens = 128000,
+                        MaxPromptTokens = 120000,
+                        MaxOutputTokens = 16000,
+                    },
+                },
+            ],
+        };
+        using var factory = CreateFactory(fakeClient);
+        using var client = factory.CreateClient();
+
+        var response = await client.GetFromJsonAsync<UiModelsResponse>("/api/models");
+
+        var model = Assert.Single(response?.Models ?? []);
+        Assert.NotNull(model.TokenLimits);
+        Assert.Equal(128000, model.TokenLimits.MaxContextWindowTokens);
+        Assert.Equal(120000, model.TokenLimits.MaxPromptTokens);
+        Assert.Equal(16000, model.TokenLimits.MaxOutputTokens);
+    }
+
+    [Fact]
     public async Task Chat_WithEditedAssistantContext_StreamsDeltaAndSendsAssistantContext()
     {
         var fakeClient = new FakeLlmSdkClient
@@ -76,6 +108,72 @@ public sealed class UiEndpointTests
         Assert.Equal("user", input[0].GetProperty("role").GetString());
         Assert.Equal("assistant", input[1].GetProperty("role").GetString());
         Assert.Equal("output_text", input[1].GetProperty("content")[0].GetProperty("type").GetString());
+    }
+
+    [Fact]
+    public async Task Chat_WhenContextBudgetExceedsWarningThreshold_StreamsWarning()
+    {
+        var fakeClient = new FakeLlmSdkClient
+        {
+            Models =
+            [
+                new OpenAIModelInfo
+                {
+                    Id = "gpt-5.4",
+                    TokenLimits = new ModelTokenLimits { MaxPromptTokens = 1000 },
+                },
+            ],
+            StreamEvents =
+            [
+                new OutputTextDeltaEvent("response.output_text.delta", 1, "pong", 0, 0, "msg_1"),
+            ],
+        };
+        using var factory = CreateFactory(fakeClient);
+        using var client = factory.CreateClient();
+        var largePrompt = string.Concat(Enumerable.Repeat("word ", 700));
+
+        var response = await client.PostAsJsonAsync("/api/chat", new UiChatRequest(
+            "gpt-5.4",
+            $"## User\n\n{largePrompt}",
+            null));
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("\"type\":\"warning\"", body, StringComparison.Ordinal);
+        Assert.Contains("\"type\":\"delta\"", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Chat_WhenContextBudgetExceedsErrorThreshold_StreamsErrorBeforeUpstreamRequest()
+    {
+        var fakeClient = new FakeLlmSdkClient
+        {
+            Models =
+            [
+                new OpenAIModelInfo
+                {
+                    Id = "gpt-5.4",
+                    TokenLimits = new ModelTokenLimits { MaxPromptTokens = 1 },
+                },
+            ],
+        };
+        using var factory = CreateFactory(fakeClient);
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/chat", new UiChatRequest(
+            "gpt-5.4",
+            """
+            ## User
+
+            Ping?
+            """,
+            null));
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("\"type\":\"error\"", body, StringComparison.Ordinal);
+        Assert.Contains("Reduce the conversation before sending.", body, StringComparison.Ordinal);
+        Assert.Null(fakeClient.LastCreateResponseStreamRequest);
     }
 
     [Fact]

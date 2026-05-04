@@ -797,13 +797,76 @@ public sealed class AgentLoopTests
             });
     }
 
+    [Fact]
+    public async Task RunAsync_WhenContextBudgetExceedsWarningThreshold_EmitsWarningBeforeRequest()
+    {
+        var response = StreamHelpers.CreateResponse(StreamHelpers.AssistantMessage("Done."));
+        var client = new FakeLlmSdkClient(
+            createResponseStreamAsync: (_, _) => StreamHelpers.ToAsyncEnumerable(
+                StreamHelpers.Completed(response, sequenceNumber: 1)))
+        {
+            Models =
+            [
+                new OpenAIModelInfo
+                {
+                    Id = "gpt-5.4",
+                    TokenLimits = new ModelTokenLimits { MaxPromptTokens = 1000000 },
+                },
+            ],
+        };
+
+        var events = await CollectEventsAsync(AgentLoop.RunAsync(
+            client,
+            "Hello",
+            CreateOptions(
+                model: "gpt-5.4",
+                contextBudget: new AgentContextBudgetOptions
+                {
+                    WarningThresholdRatio = 0.000001,
+                    ErrorThresholdRatio = 1,
+                })));
+
+        var warning = Assert.IsType<ContextBudgetWarning>(events.Single(evt => evt is ContextBudgetWarning));
+        Assert.Equal("gpt-5.4", warning.Result.Model);
+        Assert.Equal(AgentContextBudgetLevel.Warning, warning.Result.Level);
+        Assert.True(events.IndexOf(warning) < events.FindIndex(evt => evt is MessageStarted));
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenContextBudgetExceedsErrorThreshold_ThrowsBeforeRequest()
+    {
+        var client = new FakeLlmSdkClient
+        {
+            Models =
+            [
+                new OpenAIModelInfo
+                {
+                    Id = "gpt-5.4",
+                    TokenLimits = new ModelTokenLimits { MaxPromptTokens = 1 },
+                },
+            ],
+        };
+
+        var exception = await Assert.ThrowsAsync<AgentContextBudgetExceededException>(async () =>
+            await CollectEventsAsync(AgentLoop.RunAsync(
+                client,
+                "Hello",
+                CreateOptions(
+                    model: "gpt-5.4",
+                    contextBudget: new AgentContextBudgetOptions()))));
+
+        Assert.Equal(AgentContextBudgetLevel.Error, exception.Result.Level);
+        Assert.Null(client.LastCreateResponseStreamRequest);
+    }
+
     private static AgentLoopOptions CreateOptions(
         IReadOnlyList<IAgentTool>? tools = null,
         int? maxTurns = null,
         string model = "gpt-4.1",
         string? instructions = null,
         double? temperature = null,
-        ResponseReasoning? reasoning = null) => new()
+        ResponseReasoning? reasoning = null,
+        AgentContextBudgetOptions? contextBudget = null) => new()
         {
             Model = model,
             Instructions = instructions,
@@ -811,6 +874,7 @@ public sealed class AgentLoopTests
             MaxTurns = maxTurns,
             Temperature = temperature,
             Reasoning = reasoning,
+            ContextBudget = contextBudget,
         };
 
     private static async Task<List<AgentEvent>> CollectEventsAsync(IAsyncEnumerable<AgentEvent> events)

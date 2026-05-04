@@ -33,6 +33,7 @@ public sealed record AgentLoopOptions
     public int? MaxTurns { get; init; }
     public double? Temperature { get; init; }
     public ResponseReasoning? Reasoning { get; init; }
+    public AgentContextBudgetOptions? ContextBudget { get; init; }
 }
 
 public abstract record AgentEvent;
@@ -44,6 +45,8 @@ public sealed record AgentEnded(AgentContext Context) : AgentEvent;
 public sealed record TurnStarted : AgentEvent;
 
 public sealed record TurnEnded(Response Response, IReadOnlyList<AgentToolCallResult> ToolResults) : AgentEvent;
+
+public sealed record ContextBudgetWarning(AgentContextBudgetResult Result) : AgentEvent;
 
 public sealed record MessageStarted : AgentEvent;
 

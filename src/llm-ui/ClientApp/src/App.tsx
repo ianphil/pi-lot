@@ -39,6 +39,7 @@ function App() {
   const [models, setModels] = useState<ModelInfo[]>([])
   const [model, setModel] = useState('gpt-5.4')
   const [status, setStatus] = useState('Ready')
+  const [budgetWarning, setBudgetWarning] = useState('')
   const [isSending, setIsSending] = useState(false)
 
   useEffect(() => {
@@ -79,6 +80,7 @@ function App() {
     setConversationMarkdown(`${markdownWithMessage}\n\n## Assistant\n\n`)
     setMessage('')
     setStatus('Thinking...')
+    setBudgetWarning('')
     setIsSending(true)
 
     try {
@@ -103,6 +105,10 @@ function App() {
 
         if (event.type === 'error') {
           throw new Error(event.message)
+        }
+
+        if (event.type === 'warning') {
+          setBudgetWarning(event.message)
         }
       })
 
@@ -187,6 +193,11 @@ function App() {
       </section>
 
       <footer className="status" role="status">
+        {budgetWarning ? (
+          <span className="budget-warning" role="alert">
+            {budgetWarning}
+          </span>
+        ) : null}
         {status}
       </footer>
     </main>
@@ -200,6 +211,7 @@ function appendSection(markdownText: string, heading: string, content: string) {
 
 type StreamEvent =
   | { type: 'delta'; text: string }
+  | { type: 'warning'; message: string; estimatedTokens: number; budgetTokens: number; usageRatio: number }
   | { type: 'done' }
   | { type: 'error'; message: string }
 

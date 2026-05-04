@@ -180,6 +180,8 @@ dotnet run --project src\llm-ui\llm-ui.csproj
 
 The Markdown transcript format uses `## System`, `## User`, and `## Assistant` sections. Edited assistant sections are sent as assistant context, not as user text. Tool sections are reserved for later.
 
+`llm-ui` uses the `llm-agent` context budget guard before sending. The guard estimates prompt tokens with the GPT `o200k_base` tokenizer, warns at 60% of the model prompt budget, and blocks at 90%. Model budgets come from upstream Copilot model metadata when available.
+
 Run the SPA smoke tests with mocked API responses:
 
 ```powershell

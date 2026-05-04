@@ -4,8 +4,8 @@
 .DESCRIPTION
     Each test-matrix row maps to an llm ask, llm chat, llm sdk-ask, or
     llm sdk-chat invocation that exercises the same surface or SDK path.
-    Proxy-backed rows require the proxy to be running at localhost:5100
-    with valid credentials.
+    Starts llm-svc automatically if the selected endpoint is not already
+    healthy; reuses an already-running proxy otherwise.
 .NOTES
     Models used:
       gpt-5.4-mini     -> /responses only
@@ -13,12 +13,22 @@
       claude-haiku-4.5 -> /chat/completions only
       gpt-5-mini       -> both /chat/completions and /responses (dual)
       sdk-* commands   -> direct ILlmSdkClient path
-    Run:  pwsh scripts\test-matrix.ps1
+    Run:  pwsh scripts\test-matrix.ps1 [-Port 5110] [-NoStream]
+    Options:
+      -Port <port>       Port to use when -Endpoint is not supplied.
+      -HostName <host>   Host to bind when -Endpoint is not supplied.
+      -Endpoint <url>    Full proxy endpoint override.
+      -UseEnvToken       Leave COPILOT_TOKEN unchanged instead of unsetting it.
+      -Dotnet <path>     Path to dotnet executable.
 #>
 
 param(
-    [string]$Endpoint = "http://localhost:5100",
-    [switch]$NoStream
+    [string]$Endpoint,
+    [string]$HostName = "127.0.0.1",
+    [int]$Port = 5100,
+    [switch]$NoStream,
+    [switch]$UseEnvToken,
+    [string]$Dotnet = "dotnet"
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,6 +36,99 @@ $ErrorActionPreference = "Stop"
 # Resolve the llm-cli project relative to this script
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 $llmCli   = Join-Path $repoRoot "src\llm-cli"
+$serviceProject = Join-Path $repoRoot "src\llm-svc\llm-svc.csproj"
+
+if (-not $PSBoundParameters.ContainsKey("Endpoint")) {
+    $Endpoint = "http://${HostName}:$Port"
+}
+
+$serviceProcess = $null
+$startedService = $false
+$stdoutLog = Join-Path ([System.IO.Path]::GetTempPath()) "llm-svc-test-matrix-$PID.out.log"
+$stderrLog = Join-Path ([System.IO.Path]::GetTempPath()) "llm-svc-test-matrix-$PID.err.log"
+
+function Test-ProxyHealth {
+    try {
+        Invoke-WebRequest -Uri "$Endpoint/health" -UseBasicParsing -TimeoutSec 2 | Out-Null
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
+function Get-ServiceLog {
+    $parts = @()
+    if (Test-Path $stdoutLog) {
+        $parts += "stdout:`n$(Get-Content $stdoutLog -Raw)"
+    }
+    if (Test-Path $stderrLog) {
+        $parts += "stderr:`n$(Get-Content $stderrLog -Raw)"
+    }
+
+    return $parts -join "`n"
+}
+
+function Start-ProxyIfNeeded {
+    if (Test-ProxyHealth) {
+        Write-Host "Proxy already healthy at $Endpoint - reusing." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Host "Starting llm-svc at $Endpoint..." -ForegroundColor Yellow
+
+    Remove-Item $stdoutLog, $stderrLog -ErrorAction SilentlyContinue
+
+    $previousToken = $env:COPILOT_TOKEN
+    $hadToken = Test-Path Env:COPILOT_TOKEN
+
+    if (-not $UseEnvToken) {
+        Remove-Item Env:COPILOT_TOKEN -ErrorAction SilentlyContinue
+    }
+
+    try {
+        $script:serviceProcess = Start-Process $Dotnet `
+            -ArgumentList @("run", "--no-launch-profile", "--project", $serviceProject) `
+            -WorkingDirectory $repoRoot `
+            -Environment @{ Kestrel__Endpoints__Http__Url = $Endpoint } `
+            -RedirectStandardOutput $stdoutLog `
+            -RedirectStandardError $stderrLog `
+            -PassThru
+    }
+    finally {
+        if ($hadToken) {
+            $env:COPILOT_TOKEN = $previousToken
+        }
+    }
+
+    $script:startedService = $true
+
+    for ($i = 0; $i -lt 60; $i++) {
+        if ($serviceProcess.HasExited) {
+            throw "llm-svc exited before becoming ready.`n$(Get-ServiceLog)"
+        }
+
+        if (Test-ProxyHealth) {
+            Write-Host "llm-svc ready (pid $($serviceProcess.Id))." -ForegroundColor Green
+            return
+        }
+
+        Start-Sleep -Seconds 1
+    }
+
+    throw "llm-svc did not become ready at $Endpoint.`n$(Get-ServiceLog)"
+}
+
+function Stop-StartedProxy {
+    if ($startedService -and $null -ne $serviceProcess -and -not $serviceProcess.HasExited) {
+        Write-Host ""
+        Write-Host "Stopping llm-svc (pid $($serviceProcess.Id))..." -ForegroundColor Yellow
+        Stop-Process -Id $serviceProcess.Id
+        $serviceProcess.WaitForExit(10000) | Out-Null
+    }
+
+    Remove-Item $stdoutLog, $stderrLog -ErrorAction SilentlyContinue
+}
 
 function Invoke-Llm {
     param(
@@ -48,7 +151,7 @@ function Invoke-Llm {
     Write-Host "  llm $($cliArgs -join ' ')" -ForegroundColor DarkGray
 
     try {
-        $output = & dotnet run --project $llmCli --no-build -- @cliArgs 2>&1
+        $output = & $Dotnet run --project $llmCli --no-build -- @cliArgs 2>&1
         $text = ($output | Out-String).Trim()
         if ($text -match "Unhandled exception|FAIL|error") {
             if ($text.Length -gt 200) { $text = $text.Substring(0, 200) + "..." }
@@ -65,9 +168,16 @@ function Invoke-Llm {
     }
 }
 
+trap {
+    Stop-StartedProxy
+    throw
+}
+
+Start-ProxyIfNeeded
+
 # Build once
 Write-Host "Building llm-cli..." -ForegroundColor Yellow
-dotnet build $llmCli --no-restore -q
+& $Dotnet build $llmCli --no-restore -q
 Write-Host "Build complete." -ForegroundColor Yellow
 
 $useStream = -not $NoStream
@@ -160,5 +270,7 @@ Write-Host ""
 Write-Host "═══════════════════════════════════════" -ForegroundColor White
 Write-Host "  Results: $pass passed, $fail failed  (of $($pass + $fail))" -ForegroundColor $(if ($fail -eq 0) { "Green" } else { "Red" })
 Write-Host "═══════════════════════════════════════" -ForegroundColor White
+
+Stop-StartedProxy
 
 exit $fail

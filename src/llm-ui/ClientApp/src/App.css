@@ -104,7 +104,13 @@
 .status {
   min-height: 1.25rem;
   color: #667085;
+  display: flex;
+  gap: 0.75rem;
   font-size: 0.9rem;
+}
+
+.budget-warning {
+  color: #9a6700;
 }
 
 @media (max-width: 760px) {

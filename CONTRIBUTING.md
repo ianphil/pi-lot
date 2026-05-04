@@ -224,6 +224,7 @@ with an explanation.
 - **README.md** — Project overview and quick start. Keep in sync with major changes.
 - **src/llm-ui/ClientApp/package.json** — SPA dependency manifest. Pin direct dependencies to exact versions and run `npm outdated` after dependency changes.
 - **src/llm-ui/ClientApp/tests/** — Playwright UI smoke tests for the editable Markdown chat experience. Run with `npm run smoke` from `src/llm-ui/ClientApp`.
+- **src/llm-agent/AgentContextBudget.cs** — Context budget guard. It estimates prompt tokens with `Microsoft.ML.Tokenizers` and treats upstream `token_limits` metadata as the source of model budgets.
 
 ## Code Style
 

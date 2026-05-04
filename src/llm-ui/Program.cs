@@ -1,6 +1,7 @@
 using LlmSdk;
 using LlmSdk.Client;
 using LlmSdk.Core.Models;
+using LlmAgent;
 using llm_ui;
 using llm_ui.Services;
 using System.Text.Json;
@@ -21,7 +22,7 @@ app.MapGet("/api/models", async (ILlmSdkClient client, CancellationToken cancell
     var models = await client.ListModelsAsync(cancellationToken);
     var responseModels = models
         .Where(static model => !string.IsNullOrWhiteSpace(model.Id))
-        .Select(static model => new UiModel(model.Id!, model.Name ?? model.Id!))
+        .Select(static model => new UiModel(model.Id!, model.Name ?? model.Id!, model.TokenLimits))
         .OrderBy(static model => model.Id, StringComparer.Ordinal)
         .ToArray();
 
@@ -70,11 +71,25 @@ app.MapPost("/api/chat", async Task<IResult> (
         var context = conversation.ToAgentContext();
         var responseRequest = new CreateResponseRequest
         {
-            Model = string.IsNullOrWhiteSpace(request.Model) ? null : request.Model,
+            Model = string.IsNullOrWhiteSpace(request.Model) ? UiDefaults.DefaultModel : request.Model,
             Input = context.ToResponseInput(),
             Instructions = conversation.Instructions,
             Stream = true,
         };
+
+        var budget = await AgentContextBudget.EvaluateAsync(
+            client,
+            responseRequest,
+            AgentContextBudgetOptions.Default,
+            cancellationToken);
+        AgentContextBudget.ThrowIfExceeded(budget);
+        if (budget?.Level is AgentContextBudgetLevel.Warning)
+        {
+            await WriteSseAsync(
+                httpContext.Response,
+                new UiChatWarning("warning", budget.Message, budget.EstimatedTokens, budget.BudgetTokens, budget.UsageRatio),
+                cancellationToken);
+        }
 
         await foreach (var streamEvent in client.CreateResponseStreamAsync(responseRequest, cancellationToken))
         {

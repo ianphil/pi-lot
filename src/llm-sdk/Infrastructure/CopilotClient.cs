@@ -159,6 +159,14 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
                 Name = model.Name,
                 OwnedBy = "github-copilot",
                 SupportedEndpoints = model.SupportedEndpoints ?? [],
+                TokenLimits = model.Capabilities?.Limits is null
+                    ? null
+                    : new ModelTokenLimits
+                    {
+                        MaxContextWindowTokens = model.Capabilities.Limits.MaxContextWindowTokens,
+                        MaxOutputTokens = model.Capabilities.Limits.MaxOutputTokens,
+                        MaxPromptTokens = model.Capabilities.Limits.MaxPromptTokens,
+                    },
             })
             .ToArray();
     }
