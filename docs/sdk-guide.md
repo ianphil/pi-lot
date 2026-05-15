@@ -210,6 +210,19 @@ Each `OpenAIModelInfo` includes `SupportedEndpoints` (what the upstream API
 supports natively) and `ProxySupportedEndpoints` (what the proxy accepts via
 translation).
 
+For typed capability and pricing metadata, use the model catalogue surface:
+
+```csharp
+var modelInfo = await client.GetModelInfoAsync("gpt-4o");
+
+Console.WriteLine($"{modelInfo.DisplayName}: context={modelInfo.ContextWindow}");
+Console.WriteLine($"Input price / 1M tokens: {modelInfo.Pricing?.InputPerMillionTokens}");
+```
+
+`ListModelInfoAsync()` returns the same catalogue shape for models currently
+reported by upstream. Unknown models use conservative defaults: capability flags
+are false and token limits/pricing are null unless upstream reports token limits.
+
 ---
 
 ## Error handling

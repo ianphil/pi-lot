@@ -23,6 +23,7 @@ public sealed class ServiceCollectionExtensionsTests
         Assert.Same(client, provider.GetRequiredService<IAuthProvider>());
         Assert.Same(client, provider.GetRequiredService<IModelProvider>());
         Assert.NotNull(sdkClient);
+        Assert.IsType<EmbeddedModelCatalogue>(provider.GetRequiredService<IModelCatalogue>());
         Assert.IsType<ResponsesService>(provider.GetRequiredService<IResponsesService>());
         Assert.IsType<ChatCompletionsService>(provider.GetRequiredService<IChatCompletionsService>());
         Assert.IsType<ChatCompletionsTranslator>(provider.GetRequiredService<ChatCompletionsTranslator>());

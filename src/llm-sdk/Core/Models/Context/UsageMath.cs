@@ -20,15 +20,15 @@ public static class UsageMath
         ArgumentNullException.ThrowIfNull(usage);
         ArgumentNullException.ThrowIfNull(model);
 
-        if (model.Pricing is null)
-        {
-            return null;
-        }
+        return CalculateCost(usage, model.Pricing);
+    }
 
-        return CalculatePerMillionTokenCost(usage.InputTokens, model.Pricing.InputPerMillionTokens) +
-               CalculatePerMillionTokenCost(usage.OutputTokens, model.Pricing.OutputPerMillionTokens) +
-               CalculatePerMillionTokenCost(usage.CacheReadTokens, model.Pricing.CacheReadPerMillionTokens) +
-               CalculatePerMillionTokenCost(usage.CacheWriteTokens, model.Pricing.CacheWritePerMillionTokens);
+    public static decimal? CalculateCost(Usage usage, ModelInfo model)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+        ArgumentNullException.ThrowIfNull(model);
+
+        return CalculateCost(usage, model.Pricing);
     }
 
     public static Usage? FromResponseUsage(ResponseUsage? usage) =>
@@ -44,14 +44,19 @@ public static class UsageMath
             ? null
             : new Usage(usage.PromptTokens, usage.CompletionTokens);
 
+    private static decimal? CalculateCost(Usage usage, ModelPricing? pricing)
+    {
+        if (pricing is null)
+        {
+            return null;
+        }
+
+        return CalculatePerMillionTokenCost(usage.InputTokens, pricing.InputPerMillionTokens) +
+               CalculatePerMillionTokenCost(usage.OutputTokens, pricing.OutputPerMillionTokens) +
+               CalculatePerMillionTokenCost(usage.CacheReadTokens, pricing.CacheReadPerMillionTokens) +
+               CalculatePerMillionTokenCost(usage.CacheWriteTokens, pricing.CacheWritePerMillionTokens);
+    }
+
     private static decimal CalculatePerMillionTokenCost(long tokens, decimal pricePerMillionTokens) =>
         tokens / 1_000_000m * pricePerMillionTokens;
-}
-
-public sealed class UsagePricing
-{
-    public decimal InputPerMillionTokens { get; init; }
-    public decimal OutputPerMillionTokens { get; init; }
-    public decimal CacheReadPerMillionTokens { get; init; }
-    public decimal CacheWritePerMillionTokens { get; init; }
 }

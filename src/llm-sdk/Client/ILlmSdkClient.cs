@@ -55,4 +55,13 @@ public interface ILlmSdkClient
 
     Task<IReadOnlyList<OpenAIModelInfo>> ListModelsAsync(
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ModelInfo>> ListModelInfoAsync(
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ModelInfo>>([]);
+
+    Task<ModelInfo> GetModelInfoAsync(
+        string id,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new ModelInfo(id, id, null, null, false, false, [], null));
 }

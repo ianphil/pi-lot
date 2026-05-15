@@ -204,6 +204,23 @@ public sealed class LlmSdkClient : ILlmSdkClient
         return response.Data;
     }
 
+    public Task<IReadOnlyList<ModelInfo>> ListModelInfoAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return _modelListService.GetModelInfoAsync(cancellationToken);
+    }
+
+    public async Task<ModelInfo> GetModelInfoAsync(
+        string id,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        var models = await ListModelInfoAsync(cancellationToken);
+        return models.FirstOrDefault(model => string.Equals(model.Id, id, StringComparison.OrdinalIgnoreCase))
+            ?? new ModelInfo(id, id, null, null, false, false, [], null);
+    }
+
     private CreateResponseRequest Normalize(CreateResponseRequest request, bool stream = false)
     {
         return new CreateResponseRequest

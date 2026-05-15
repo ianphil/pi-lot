@@ -83,6 +83,7 @@ public static class ServiceCollectionExtensions
             sp.GetService<TimeProvider>() ?? TimeProvider.System));
         services.AddSingleton<IAuthProvider>(sp => sp.GetRequiredService<CopilotClient>());
         services.AddSingleton<IModelProvider>(sp => sp.GetRequiredService<CopilotClient>());
+        services.AddSingleton<IModelCatalogue, EmbeddedModelCatalogue>();
         services.AddSingleton<ChatCompletionsTranslator>();
         services.AddSingleton<ChatCompletionsStreamTranslator>();
         services.AddSingleton<ModelListService>();

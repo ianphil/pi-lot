@@ -2,6 +2,7 @@ using System.Text.Json;
 using LlmSdk.Client;
 using LlmSdk.Core.Models;
 using LlmSdk.Core.Services;
+using LlmSdk.Infrastructure;
 using LlmSdk.Proxy;
 using LlmSdk.Tests.Fakes;
 using Microsoft.Extensions.Options;
@@ -354,6 +355,109 @@ public sealed class LlmSdkClientTests
     }
 
     [Fact]
+    public async Task ListModelInfoAsync_ReturnsMergedCatalogueModelInfo()
+    {
+        var modelProvider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelDescriptor
+                {
+                    Id = "gpt-4o",
+                    Name = "GPT-4o from upstream",
+                    SupportedEndpoints = ["/responses"],
+                },
+            ],
+        };
+        var client = CreateClient(modelProvider: modelProvider);
+
+        var models = await client.ListModelInfoAsync();
+
+        var model = Assert.Single(models);
+        Assert.Equal("gpt-4o", model.Id);
+        Assert.Equal("GPT-4o from upstream", model.DisplayName);
+        Assert.Equal(128000, model.ContextWindow);
+        Assert.True(model.SupportsVision);
+        Assert.NotNull(model.Pricing);
+    }
+
+    [Fact]
+    public async Task GetModelInfoAsync_WithKnownModel_ReturnsMergedCatalogueModelInfo()
+    {
+        var modelProvider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelDescriptor
+                {
+                    Id = "gpt-4o",
+                    Name = "GPT-4o from upstream",
+                    SupportedEndpoints = ["/responses"],
+                },
+            ],
+        };
+        var client = CreateClient(modelProvider: modelProvider);
+
+        var model = await client.GetModelInfoAsync("gpt-4o");
+
+        Assert.Equal("gpt-4o", model.Id);
+        Assert.Equal("GPT-4o from upstream", model.DisplayName);
+        Assert.Equal(128000, model.ContextWindow);
+        Assert.True(model.SupportsVision);
+        Assert.NotNull(model.Pricing);
+    }
+
+    [Fact]
+    public async Task GetModelInfoAsync_IsCaseInsensitive()
+    {
+        var modelProvider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelDescriptor
+                {
+                    Id = "gpt-4o",
+                    SupportedEndpoints = ["/responses"],
+                },
+            ],
+        };
+        var client = CreateClient(modelProvider: modelProvider);
+
+        var model = await client.GetModelInfoAsync("GPT-4O");
+
+        Assert.Equal("gpt-4o", model.Id);
+        Assert.Equal(128000, model.ContextWindow);
+    }
+
+    [Fact]
+    public async Task GetModelInfoAsync_WithUnknownModel_ReturnsConservativeDefaults()
+    {
+        var client = CreateClient();
+
+        var model = await client.GetModelInfoAsync("unknown-model");
+
+        Assert.Equal("unknown-model", model.Id);
+        Assert.Equal("unknown-model", model.DisplayName);
+        Assert.Null(model.ContextWindow);
+        Assert.Null(model.MaxOutputTokens);
+        Assert.False(model.SupportsVision);
+        Assert.False(model.SupportsReasoning);
+        Assert.Empty(model.SupportedThinkingLevels);
+        Assert.Null(model.Pricing);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("\t")]
+    public async Task GetModelInfoAsync_WithBlankModel_ThrowsArgumentException(string id)
+    {
+        var client = CreateClient();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => client.GetModelInfoAsync(id));
+    }
+
+    [Fact]
     public async Task CompleteAsync_WithResponsesPreference_TranslatesContextAndReturnsAssistantMessage()
     {
         var expected = CreateResponse("resp_context_123", "Hello from context");
@@ -440,7 +544,7 @@ public sealed class LlmSdkClientTests
         return new LlmSdkClient(
             responsesService ?? new StubResponsesService(ResponseHttpResult.FromBody("{}", 200, "application/json")),
             chatService ?? new StubChatCompletionsService(ResponseHttpResult.FromBody("{}", 200, "application/json")),
-            new ModelListService(modelProvider ?? new FakeModelProvider()),
+            new ModelListService(modelProvider ?? new FakeModelProvider(), new EmbeddedModelCatalogue()),
             Options.Create(options ?? new LlmSdkOptions()));
     }
 
