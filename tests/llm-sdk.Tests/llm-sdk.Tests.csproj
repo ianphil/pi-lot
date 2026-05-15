@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\llm-sdk\llm-sdk.csproj" />
+    <ProjectReference Include="..\..\src\llm-sdk.Testing\llm-sdk.Testing.csproj" />
   </ItemGroup>
 
 </Project>
