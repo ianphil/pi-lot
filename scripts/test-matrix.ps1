@@ -2,8 +2,9 @@
 .SYNOPSIS
     Runs llm CLI commands matching every scenario in the test matrix.
 .DESCRIPTION
-    Each test-matrix row maps to an llm ask, llm chat, llm sdk-ask, or
-    llm sdk-chat invocation that exercises the same surface or SDK path.
+    Each test-matrix row maps to an llm ask, llm chat, llm sdk-ask,
+    llm sdk-context-ask, or llm sdk-chat invocation that exercises the same
+    surface or SDK path.
     Starts llm-svc automatically if the selected endpoint is not already
     healthy; reuses an already-running proxy otherwise.
 .NOTES
@@ -138,13 +139,15 @@ function Invoke-Llm {
         [string]$Model,
         [switch]$Stream,
         [switch]$Tools,
-        [bool]$UseEndpoint = $true
+        [bool]$UseEndpoint = $true,
+        [string[]]$ExtraArgs = @()
     )
 
     $cliArgs = @($Verb, $Prompt, "-m", $Model)
     if ($UseEndpoint) { $cliArgs += @("-e", $Endpoint) }
     if (-not $Stream) { $cliArgs += "--no-stream" }
     if ($Tools)       { $cliArgs += "--tools" }
+    if ($ExtraArgs.Count -gt 0) { $cliArgs += $ExtraArgs }
 
     Write-Host ""
     Write-Host "─── $Label ───" -ForegroundColor Cyan
@@ -185,7 +188,7 @@ $pass = 0
 $fail = 0
 
 $prompt      = "Reply with exactly: hello"
-$toolPrompt  = "Use the fetch_url tool to fetch https://raw.githubusercontent.com/ianphil/faux-foundation/refs/heads/master/README.md and summarize it in one sentence"
+$toolPrompt  = "Use the fetch_url tool to fetch https://raw.githubusercontent.com/ianphil/copilot-llm-svc/refs/heads/main/README.md and summarize it in one sentence"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # /responses surface (llm ask)
@@ -256,11 +259,23 @@ if (Invoke-Llm "18. sdk-ask → direct sdk path, tools" sdk-ask $toolPrompt gpt-
 # 19. sdk-ask → direct sdk path, streaming + tools
 if (Invoke-Llm "19. sdk-ask → direct sdk path, streaming + tools" sdk-ask $toolPrompt gpt-5.4-mini -Stream:$true -Tools -UseEndpoint:$false) { $pass++ } else { $fail++ }
 
-# 20. sdk-chat → direct sdk path, plain text
-if (Invoke-Llm "20. sdk-chat → direct sdk path, plain" sdk-chat $prompt gpt-5-mini -Stream:$false -UseEndpoint:$false) { $pass++ } else { $fail++ }
+# 20. sdk-context-ask → direct SDK Context path, Responses API, plain text
+if (Invoke-Llm "20. sdk-context-ask → context API, responses plain" sdk-context-ask $prompt gpt-5.4-mini -Stream:$false -UseEndpoint:$false -ExtraArgs @("--api", "responses")) { $pass++ } else { $fail++ }
 
-# 21. sdk-chat → direct sdk path, streaming
-if (Invoke-Llm "21. sdk-chat → direct sdk path, streaming" sdk-chat $prompt gpt-5-mini -Stream:$true -UseEndpoint:$false) { $pass++ } else { $fail++ }
+# 21. sdk-context-ask → direct SDK Context path, Responses API, streaming
+if (Invoke-Llm "21. sdk-context-ask → context API, responses streaming" sdk-context-ask $prompt gpt-5.4-mini -Stream:$true -UseEndpoint:$false -ExtraArgs @("--api", "responses")) { $pass++ } else { $fail++ }
+
+# 22. sdk-context-ask → direct SDK Context path, Chat Completions API, plain text
+if (Invoke-Llm "22. sdk-context-ask → context API, chat plain" sdk-context-ask $prompt claude-haiku-4.5 -Stream:$false -UseEndpoint:$false -ExtraArgs @("--api", "chat")) { $pass++ } else { $fail++ }
+
+# 23. sdk-context-ask → direct SDK Context path, Chat Completions API, streaming
+if (Invoke-Llm "23. sdk-context-ask → context API, chat streaming" sdk-context-ask $prompt claude-haiku-4.5 -Stream:$true -UseEndpoint:$false -ExtraArgs @("--api", "chat")) { $pass++ } else { $fail++ }
+
+# 24. sdk-chat → direct sdk path, plain text
+if (Invoke-Llm "24. sdk-chat → direct sdk path, plain" sdk-chat $prompt gpt-5-mini -Stream:$false -UseEndpoint:$false) { $pass++ } else { $fail++ }
+
+# 25. sdk-chat → direct sdk path, streaming
+if (Invoke-Llm "25. sdk-chat → direct sdk path, streaming" sdk-chat $prompt gpt-5-mini -Stream:$true -UseEndpoint:$false) { $pass++ } else { $fail++ }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Summary

@@ -111,7 +111,7 @@ else
 fi
 
 prompt="Reply with exactly: hello"
-tool_prompt="Use the fetch_url tool to fetch https://raw.githubusercontent.com/ianphil/faux-foundation/refs/heads/master/README.md and summarize it in one sentence"
+tool_prompt="Use the fetch_url tool to fetch https://raw.githubusercontent.com/ianphil/copilot-llm-svc/refs/heads/main/README.md and summarize it in one sentence"
 
 pass=0
 fail=0
@@ -212,10 +212,12 @@ invoke_llm "16. sdk-ask → direct sdk path, plain"                    sdk-ask  
 invoke_llm "17. sdk-ask → direct sdk path, streaming"                sdk-ask  "$prompt" gpt-5.4-mini 1 0 0
 invoke_llm "18. sdk-ask → direct sdk path, tools"                    sdk-ask  "$tool_prompt" gpt-5.4-mini 0 1 0
 invoke_llm "19. sdk-ask → direct sdk path, streaming + tools"        sdk-ask  "$tool_prompt" gpt-5.4-mini 1 1 0
-invoke_llm "20. sdk-context-ask → context API, responses"            sdk-context-ask "$prompt" gpt-5.4-mini     0 0 0 --api responses
-invoke_llm "21. sdk-context-ask → context API, chat completions"     sdk-context-ask "$prompt" claude-haiku-4.5 0 0 0 --api chat
-invoke_llm "22. sdk-chat → direct sdk path, plain"                   sdk-chat "$prompt" gpt-5-mini   0 0 0
-invoke_llm "23. sdk-chat → direct sdk path, streaming"               sdk-chat "$prompt" gpt-5-mini   1 0 0
+invoke_llm "20. sdk-context-ask → context API, responses plain"      sdk-context-ask "$prompt" gpt-5.4-mini     0 0 0 --api responses
+invoke_llm "21. sdk-context-ask → context API, responses streaming"  sdk-context-ask "$prompt" gpt-5.4-mini     1 0 0 --api responses
+invoke_llm "22. sdk-context-ask → context API, chat plain"           sdk-context-ask "$prompt" claude-haiku-4.5 0 0 0 --api chat
+invoke_llm "23. sdk-context-ask → context API, chat streaming"       sdk-context-ask "$prompt" claude-haiku-4.5 1 0 0 --api chat
+invoke_llm "24. sdk-chat → direct sdk path, plain"                   sdk-chat "$prompt" gpt-5-mini   0 0 0
+invoke_llm "25. sdk-chat → direct sdk path, streaming"               sdk-chat "$prompt" gpt-5-mini   1 0 0
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Summary
