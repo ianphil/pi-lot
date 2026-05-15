@@ -610,6 +610,134 @@ public sealed class LlmSdkClientTests
         Assert.Single(service.LastRequest?.Messages ?? []);
     }
 
+    [Fact]
+    public async Task StreamAsync_WithResponsesToolCallDeltas_PopulatesParsedSoFar()
+    {
+        var service = new StubResponsesService(ResponseHttpResult.FromStream(ToAsyncEnumerable(
+            ResponseSseSerializer.SerializeEvent("response.output_item.added", new
+            {
+                type = "response.output_item.added",
+                sequence_number = 1,
+                output_index = 0,
+                item = new
+                {
+                    id = "fc_1",
+                    type = "function_call",
+                    call_id = "call_1",
+                    name = "fetch_url",
+                    arguments = "",
+                },
+            }),
+            ResponseSseSerializer.SerializeEvent("response.function_call_arguments.delta", new
+            {
+                type = "response.function_call_arguments.delta",
+                sequence_number = 2,
+                item_id = "fc_1",
+                output_index = 0,
+                delta = """{"url":"https://""",
+            }),
+            ResponseSseSerializer.SerializeEvent("response.function_call_arguments.delta", new
+            {
+                type = "response.function_call_arguments.delta",
+                sequence_number = 3,
+                item_id = "fc_1",
+                output_index = 0,
+                delta = """example.com","method":"GET"}""",
+            }),
+            ResponseSseSerializer.SerializeDone())));
+        var client = CreateClient(responsesService: service);
+
+        var events = await CollectAsync(client.StreamAsync(new Context(), new CompletionOptions { Model = "gpt-5.4-mini" }));
+
+        var deltas = events.OfType<ToolCallDelta>().ToArray();
+        Assert.Equal(2, deltas.Length);
+        Assert.Equal("""{"url":"https://""", deltas[0].ArgumentsJsonChunk);
+        Assert.True(deltas[0].ParsedSoFar.HasValue);
+        var firstParsed = deltas[0].ParsedSoFar.GetValueOrDefault();
+        Assert.Equal("https://", firstParsed.GetProperty("url").GetString());
+        Assert.True(deltas[1].ParsedSoFar.HasValue);
+        var secondParsed = deltas[1].ParsedSoFar.GetValueOrDefault();
+        Assert.Equal("https://example.com", secondParsed.GetProperty("url").GetString());
+        Assert.Equal("GET", secondParsed.GetProperty("method").GetString());
+    }
+
+    [Fact]
+    public async Task StreamAsync_WithChatToolCallDeltas_PopulatesParsedSoFar()
+    {
+        var service = new StubChatCompletionsService(ResponseHttpResult.FromStream(ToAsyncEnumerable(
+            SerializeChatChunk(new ChatCompletionChunk
+            {
+                Id = "chatcmpl_stream_123",
+                Model = "gpt-5.4-mini",
+                Choices =
+                [
+                    new ChatChunkChoice
+                    {
+                        Index = 0,
+                        Delta = new ChatChunkDelta
+                        {
+                            ToolCalls =
+                            [
+                                new ChatChunkToolCall
+                                {
+                                    Index = 0,
+                                    Id = "call_1",
+                                    Function = new ChatChunkToolCallFunction
+                                    {
+                                        Name = "fetch_url",
+                                        Arguments = """{"url":"https://""",
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                ],
+            }),
+            SerializeChatChunk(new ChatCompletionChunk
+            {
+                Id = "chatcmpl_stream_123",
+                Model = "gpt-5.4-mini",
+                Choices =
+                [
+                    new ChatChunkChoice
+                    {
+                        Index = 0,
+                        Delta = new ChatChunkDelta
+                        {
+                            ToolCalls =
+                            [
+                                new ChatChunkToolCall
+                                {
+                                    Index = 0,
+                                    Function = new ChatChunkToolCallFunction
+                                    {
+                                        Arguments = """example.com","method":"GET"}""",
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                ],
+            }),
+            "data: [DONE]\n\n")));
+        var client = CreateClient(chatService: service);
+
+        var events = await CollectAsync(client.StreamAsync(
+            new Context(),
+            new CompletionOptions { Model = "gpt-5.4-mini", PreferredApi = CompletionApi.ChatCompletions }));
+
+        var deltas = events.OfType<ToolCallDelta>().ToArray();
+        Assert.Equal(2, deltas.Length);
+        Assert.Equal("""{"url":"https://""", deltas[0].ArgumentsJsonChunk);
+        Assert.True(deltas[0].ParsedSoFar.HasValue);
+        var firstParsed = deltas[0].ParsedSoFar.GetValueOrDefault();
+        Assert.Equal("https://", firstParsed.GetProperty("url").GetString());
+        Assert.True(deltas[1].ParsedSoFar.HasValue);
+        var secondParsed = deltas[1].ParsedSoFar.GetValueOrDefault();
+        Assert.Equal("https://example.com", secondParsed.GetProperty("url").GetString());
+        Assert.Equal("GET", secondParsed.GetProperty("method").GetString());
+    }
+
     private static LlmSdkClient CreateClient(
         StubResponsesService? responsesService = null,
         StubChatCompletionsService? chatService = null,
