@@ -180,7 +180,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         }
 
         var payload = CreateChatCompletionPayload(request, stream: false);
-        return await SendAsync("/chat/completions", payload, cancellationToken);
+        return await SendAsync("/chat/completions", payload, RequestOptions.From(request), cancellationToken);
     }
 
     public async Task<ProxyHttpResult> SendResponsesAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
@@ -192,7 +192,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         }
 
         var payload = CreateResponsesPayload(request, stream: false);
-        return await SendAsync("/responses", payload, cancellationToken);
+        return await SendAsync("/responses", payload, RequestOptions.From(request), cancellationToken);
     }
 
     public async Task<ProxyStreamResult> StreamChatCompletionsAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
@@ -204,7 +204,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         }
 
         var payload = CreateChatCompletionPayload(request, stream: true);
-        return await SendStreamAsync("/chat/completions", payload, cancellationToken);
+        return await SendStreamAsync("/chat/completions", payload, RequestOptions.From(request), cancellationToken);
     }
 
     public async Task<ProxyStreamResult> StreamResponsesAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
@@ -216,7 +216,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         }
 
         var payload = CreateResponsesPayload(request, stream: true);
-        return await SendStreamAsync("/responses", payload, cancellationToken);
+        return await SendStreamAsync("/responses", payload, RequestOptions.From(request), cancellationToken);
     }
 
     public async Task<ProxyHttpResult> ChatAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
@@ -411,42 +411,76 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         _ => JsonSerializer.Serialize(content, JsonDefaults.Web),
     };
 
-    private async Task<ProxyHttpResult> SendAsync(string path, object payload, CancellationToken cancellationToken)
+    private async Task<ProxyHttpResult> SendAsync(string path, object payload, RequestOptions options, CancellationToken cancellationToken)
     {
-        var resp = await SendPostAsync(path, payload, cancellationToken);
-        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && TryReloadCredentialAfterUnauthorized())
-        {
-            resp.Dispose();
-            resp = await SendPostAsync(path, payload, cancellationToken);
-        }
+        using var timeout = CreateTimeout(options, cancellationToken);
+        var effectiveToken = timeout?.Token ?? cancellationToken;
+        using var resp = await SendPostWithRetriesAsync(path, payload, options, stream: false, effectiveToken);
 
-        var body = await resp.Content.ReadAsStringAsync(cancellationToken);
+        var body = await resp.Content.ReadAsStringAsync(effectiveToken);
         return new ProxyHttpResult(body, (int)resp.StatusCode, resp.Content.Headers.ContentType?.MediaType ?? "application/json");
     }
 
-    private async Task<ProxyStreamResult> SendStreamAsync(string path, object payload, CancellationToken cancellationToken)
+    private async Task<ProxyStreamResult> SendStreamAsync(string path, object payload, RequestOptions options, CancellationToken cancellationToken)
     {
-        var resp = await SendStreamPostAsync(path, payload, cancellationToken);
-        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && TryReloadCredentialAfterUnauthorized())
+        var timeout = CreateTimeout(options, cancellationToken);
+        var effectiveToken = timeout?.Token ?? cancellationToken;
+        try
         {
-            resp.Dispose();
-            resp = await SendStreamPostAsync(path, payload, cancellationToken);
-        }
+            var resp = await SendPostWithRetriesAsync(path, payload, options, stream: true, effectiveToken);
+            var contentType = resp.Content.Headers.ContentType?.MediaType ?? "text/event-stream";
+            if (!resp.IsSuccessStatusCode)
+            {
+                var body = await resp.Content.ReadAsStringAsync(effectiveToken);
+                resp.Dispose();
+                timeout?.Dispose();
+                return new ProxyStreamResult(body, (int)resp.StatusCode, contentType);
+            }
 
-        var contentType = resp.Content.Headers.ContentType?.MediaType ?? "text/event-stream";
-        if (!resp.IsSuccessStatusCode)
+            return new ProxyStreamResult(null, (int)resp.StatusCode, contentType, ReadEventChunks(resp, effectiveToken, timeout));
+        }
+        catch
         {
-            var body = await resp.Content.ReadAsStringAsync(cancellationToken);
-            resp.Dispose();
-            return new ProxyStreamResult(body, (int)resp.StatusCode, contentType);
+            timeout?.Dispose();
+            throw;
         }
-
-        return new ProxyStreamResult(null, (int)resp.StatusCode, contentType, ReadEventChunks(resp, cancellationToken));
     }
 
-    private Task<HttpResponseMessage> SendPostAsync(string path, object payload, CancellationToken cancellationToken)
+    private async Task<HttpResponseMessage> SendPostWithRetriesAsync(
+        string path,
+        object payload,
+        RequestOptions options,
+        bool stream,
+        CancellationToken cancellationToken)
     {
-        var req = CreatePostRequest(path, payload);
+        var maxRetries = Math.Max(0, options.MaxRetries ?? 0);
+        for (var attempt = 0; ; attempt++)
+        {
+            var response = stream
+                ? await SendStreamPostAsync(path, payload, options, cancellationToken)
+                : await SendPostAsync(path, payload, options, cancellationToken);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized && TryReloadCredentialAfterUnauthorized())
+            {
+                response.Dispose();
+                response = stream
+                    ? await SendStreamPostAsync(path, payload, options, cancellationToken)
+                    : await SendPostAsync(path, payload, options, cancellationToken);
+            }
+
+            if (!ShouldRetry(response.StatusCode) || attempt >= maxRetries)
+            {
+                return response;
+            }
+
+            response.Dispose();
+            await Task.Delay(GetRetryDelay(attempt, options), cancellationToken);
+        }
+    }
+
+    private Task<HttpResponseMessage> SendPostAsync(string path, object payload, RequestOptions options, CancellationToken cancellationToken)
+    {
+        var req = CreatePostRequest(path, payload, options);
         return _http.SendAsync(req, cancellationToken);
     }
 
@@ -456,14 +490,18 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         return _http.SendAsync(req);
     }
 
-    private Task<HttpResponseMessage> SendStreamPostAsync(string path, object payload, CancellationToken cancellationToken)
+    private Task<HttpResponseMessage> SendStreamPostAsync(string path, object payload, RequestOptions options, CancellationToken cancellationToken)
     {
-        var req = CreatePostRequest(path, payload);
+        var req = CreatePostRequest(path, payload, options);
         return _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
     }
 
-    private static async IAsyncEnumerable<string> ReadEventChunks(HttpResponseMessage response, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    private static async IAsyncEnumerable<string> ReadEventChunks(
+        HttpResponseMessage response,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default,
+        CancellationTokenSource? timeoutOwner = null)
     {
+        using var timeout = timeoutOwner;
         using var resp = response;
         using var stream = await resp.Content.ReadAsStreamAsync(cancellationToken);
         using var reader = new StreamReader(stream);
@@ -473,7 +511,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var line = await reader.ReadLineAsync();
+            var line = await reader.ReadLineAsync(cancellationToken);
             if (line is null)
             {
                 break;
@@ -509,6 +547,11 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         TopP = request.TopP,
         Tools = request.Tools,
         ToolChoice = request.ToolChoice,
+        Headers = request.Headers,
+        TimeoutMs = request.TimeoutMs,
+        MaxRetries = request.MaxRetries,
+        MaxRetryDelayMs = request.MaxRetryDelayMs,
+        Metadata = request.Metadata,
     };
 
     private static CreateResponseRequest CreateResponsesPayload(CreateResponseRequest request, bool stream) => new()
@@ -535,6 +578,10 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         Metadata = request.Metadata,
         MaxToolCalls = request.MaxToolCalls,
         Reasoning = request.Reasoning,
+        Headers = request.Headers,
+        TimeoutMs = request.TimeoutMs,
+        MaxRetries = request.MaxRetries,
+        MaxRetryDelayMs = request.MaxRetryDelayMs,
     };
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string path)
@@ -549,7 +596,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         return req;
     }
 
-    private HttpRequestMessage CreatePostRequest(string path, object payload)
+    private HttpRequestMessage CreatePostRequest(string path, object payload, RequestOptions options)
     {
         var req = CreateRequest(HttpMethod.Post, path);
         req.Headers.TryAddWithoutValidation("X-Initiator", "user");
@@ -558,7 +605,77 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
             JsonSerializer.Serialize(payload, JsonDefaults.Web),
             Encoding.UTF8,
             "application/json");
+        ApplyPerCallHeaders(req, options.Headers);
         return req;
+    }
+
+    private static void ApplyPerCallHeaders(HttpRequestMessage request, IReadOnlyDictionary<string, string>? headers)
+    {
+        if (headers is null)
+        {
+            return;
+        }
+
+        foreach (var (key, value) in headers)
+        {
+            if (string.Equals(key, "Authorization", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            request.Headers.Remove(key);
+            request.Headers.TryAddWithoutValidation(key, value);
+        }
+    }
+
+    private static CancellationTokenSource? CreateTimeout(RequestOptions options, CancellationToken cancellationToken)
+    {
+        if (options.TimeoutMs is null)
+        {
+            return null;
+        }
+
+        if (options.TimeoutMs <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options.TimeoutMs), "TimeoutMs must be greater than zero.");
+        }
+
+        var source = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        source.CancelAfter(TimeSpan.FromMilliseconds(options.TimeoutMs.Value));
+        return source;
+    }
+
+    private static bool ShouldRetry(System.Net.HttpStatusCode statusCode) =>
+        (int)statusCode is 408 or 429 or >= 500;
+
+    private static TimeSpan GetRetryDelay(int attempt, RequestOptions options)
+    {
+        var uncapped = TimeSpan.FromMilliseconds(100 * Math.Pow(2, attempt));
+        if (options.MaxRetryDelayMs is null)
+        {
+            return uncapped;
+        }
+
+        if (options.MaxRetryDelayMs <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options.MaxRetryDelayMs), "MaxRetryDelayMs must be greater than zero.");
+        }
+
+        var cap = TimeSpan.FromMilliseconds(options.MaxRetryDelayMs.Value);
+        return uncapped <= cap ? uncapped : cap;
+    }
+
+    private sealed record RequestOptions(
+        IReadOnlyDictionary<string, string>? Headers,
+        int? TimeoutMs,
+        int? MaxRetries,
+        int? MaxRetryDelayMs)
+    {
+        public static RequestOptions From(CreateResponseRequest request) =>
+            new(request.Headers, request.TimeoutMs, request.MaxRetries, request.MaxRetryDelayMs);
+
+        public static RequestOptions From(ChatCompletionRequest request) =>
+            new(request.Headers, request.TimeoutMs, request.MaxRetries, request.MaxRetryDelayMs);
     }
 
     private bool TryReloadCredentialAfterUnauthorized()

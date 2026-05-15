@@ -33,6 +33,21 @@ public sealed class ChatCompletionRequest
 
     [JsonPropertyName("tool_choice")]
     public object? ToolChoice { get; init; }
+
+    [JsonIgnore]
+    public IReadOnlyDictionary<string, string>? Headers { get; init; }
+
+    [JsonIgnore]
+    public int? TimeoutMs { get; init; }
+
+    [JsonIgnore]
+    public int? MaxRetries { get; init; }
+
+    [JsonIgnore]
+    public int? MaxRetryDelayMs { get; init; }
+
+    [JsonIgnore]
+    public IReadOnlyDictionary<string, string>? Metadata { get; init; }
 }
 
 public sealed class ChatMessage

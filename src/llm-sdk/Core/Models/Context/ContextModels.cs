@@ -179,10 +179,16 @@ public sealed record CompletionOptions
     public double? Temperature { get; init; }
     public double? TopP { get; init; }
     public ToolChoice? ToolChoice { get; init; }
+    public IReadOnlyDictionary<string, string>? Headers { get; init; }
+    public int? TimeoutMs { get; init; }
+    public int? MaxRetries { get; init; }
+    public int? MaxRetryDelayMs { get; init; }
+    public IReadOnlyDictionary<string, string>? Metadata { get; init; }
 }
 
 public enum CompletionApi
 {
+    Auto,
     Responses,
     ChatCompletions,
 }

@@ -120,6 +120,18 @@ public sealed class CreateResponseRequest
 
     [JsonPropertyName("reasoning")]
     public ResponseReasoning? Reasoning { get; init; }
+
+    [JsonIgnore]
+    public IReadOnlyDictionary<string, string>? Headers { get; init; }
+
+    [JsonIgnore]
+    public int? TimeoutMs { get; init; }
+
+    [JsonIgnore]
+    public int? MaxRetries { get; init; }
+
+    [JsonIgnore]
+    public int? MaxRetryDelayMs { get; init; }
 }
 
 public sealed class Response

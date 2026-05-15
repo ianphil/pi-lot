@@ -19,6 +19,11 @@ public static class ContextTranslator
             MaxOutputTokens = options?.MaxOutputTokens,
             Temperature = options?.Temperature,
             TopP = options?.TopP,
+            Metadata = options?.Metadata,
+            Headers = options?.Headers,
+            TimeoutMs = options?.TimeoutMs,
+            MaxRetries = options?.MaxRetries,
+            MaxRetryDelayMs = options?.MaxRetryDelayMs,
         };
     }
 
@@ -43,6 +48,11 @@ public static class ContextTranslator
             MaxCompletionTokens = options?.MaxOutputTokens,
             Temperature = options?.Temperature,
             TopP = options?.TopP,
+            Headers = options?.Headers,
+            TimeoutMs = options?.TimeoutMs,
+            MaxRetries = options?.MaxRetries,
+            MaxRetryDelayMs = options?.MaxRetryDelayMs,
+            Metadata = options?.Metadata,
         };
     }
 
