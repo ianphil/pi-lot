@@ -171,6 +171,10 @@ public sealed record ToolDefinition(
         string.Equals(left.Value.GetRawText(), right.Value.GetRawText(), StringComparison.Ordinal);
 }
 
+public sealed record ToolValidationResult(
+    bool IsValid,
+    IReadOnlyList<string> Errors);
+
 public sealed record CompletionOptions
 {
     public string? Model { get; init; }

@@ -336,6 +336,23 @@ matching to handle specific event types:
 | `FunctionCallArgumentsDeltaEvent` | `Delta`, `OutputIndex` | Tool call argument chunk |
 | `FunctionCallArgumentsDoneEvent` | `Arguments`, `OutputIndex` | Tool call arguments finalized |
 
+Use `ToolValidator` to validate completed tool-call arguments against a
+`ToolDefinition` schema before invoking local code:
+
+```csharp
+var result = ToolValidator.Validate(tool, toolCall.ArgumentsJson);
+
+if (!result.IsValid)
+{
+    var errorContent = result.ToErrorResult(toolCall.Id);
+    // Append errorContent in a ToolMessage so the model can self-correct.
+}
+```
+
+The built-in validator supports the JSON Schema subset used by SDK tool
+definitions: `type`, `required`, `properties`, `additionalProperties`, and
+`enum`.
+
 ### Refusal
 
 | Event | Key properties | When |
