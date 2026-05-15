@@ -353,6 +353,84 @@ public sealed class LlmSdkClientTests
         Assert.Equal(16000, model.TokenLimits.MaxOutputTokens);
     }
 
+    [Fact]
+    public async Task CompleteAsync_WithResponsesPreference_TranslatesContextAndReturnsAssistantMessage()
+    {
+        var expected = CreateResponse("resp_context_123", "Hello from context");
+        var service = new StubResponsesService(ResponseHttpResult.FromBody(
+            JsonSerializer.Serialize(expected, JsonDefaults.Web),
+            200,
+            "application/json"));
+        var client = CreateClient(responsesService: service);
+
+        var message = await client.CompleteAsync(
+            new Context
+            {
+                System = "Be concise.",
+                Messages = [new UserMessage([new TextContent("Hello!")])],
+            },
+            new CompletionOptions { Model = "gpt-5.4-mini", PreferredApi = CompletionApi.Responses });
+
+        Assert.Equal(StopReason.Stop, message.StopReason);
+        var text = Assert.IsType<TextContent>(Assert.Single(message.Content));
+        Assert.Equal("Hello from context", text.Text);
+        Assert.Equal("gpt-5.4-mini", service.LastRequest?.Model);
+        Assert.Equal("Be concise.", service.LastRequest?.Instructions);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WithChatCompletionsPreference_TranslatesContextAndReturnsAssistantMessage()
+    {
+        var service = new StubChatCompletionsService(ResponseHttpResult.FromBody(
+            JsonSerializer.Serialize(new ChatCompletionResponse
+            {
+                Id = "chatcmpl_context_123",
+                Model = "gpt-5.4-mini",
+                Choices =
+                [
+                    new ChatChoice
+                    {
+                        Index = 0,
+                        FinishReason = "tool_calls",
+                        Message = new ChatMessage
+                        {
+                            Role = "assistant",
+                            ToolCalls =
+                            [
+                                new ChatToolCall
+                                {
+                                    Id = "call_1",
+                                    Function = new ChatToolCallFunction
+                                    {
+                                        Name = "get_weather",
+                                        Arguments = "{\"city\":\"London\"}",
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                ],
+            }, JsonDefaults.Web),
+            200,
+            "application/json"));
+        var client = CreateClient(chatService: service);
+
+        var message = await client.CompleteAsync(
+            new Context
+            {
+                Messages = [new UserMessage([new TextContent("Weather in London?")])],
+            },
+            new CompletionOptions { Model = "gpt-5.4-mini", PreferredApi = CompletionApi.ChatCompletions });
+
+        Assert.Equal(StopReason.ToolUse, message.StopReason);
+        var toolCall = Assert.IsType<ToolCallContent>(Assert.Single(message.Content));
+        Assert.Equal("call_1", toolCall.Id);
+        Assert.Equal("get_weather", toolCall.Name);
+        Assert.Equal("{\"city\":\"London\"}", toolCall.ArgumentsJson);
+        Assert.Equal("gpt-5.4-mini", service.LastRequest?.Model);
+        Assert.Single(service.LastRequest?.Messages ?? []);
+    }
+
     private static LlmSdkClient CreateClient(
         StubResponsesService? responsesService = null,
         StubChatCompletionsService? chatService = null,
