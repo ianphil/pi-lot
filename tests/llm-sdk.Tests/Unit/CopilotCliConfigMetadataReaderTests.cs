@@ -105,6 +105,32 @@ public sealed class CopilotCliConfigMetadataReaderTests : IDisposable
         Assert.Equal("https://github.com:octocat", metadata.PreferredAccount);
     }
 
+    [Fact]
+    public void Read_WhenConfigFileUsesCamelCaseAndComments_ReturnsLastLoggedInUser()
+    {
+        var tempDirectory = CreateTempDirectory();
+        var configPath = Path.Combine(tempDirectory, "config.json");
+        File.WriteAllText(
+            configPath,
+            """
+            // User settings belong in settings.json.
+            // This file is managed automatically.
+            {
+              "trustedFolders": [],
+              "lastLoggedInUser": {
+                "host": "https://github.com",
+                "login": "octocat"
+              }
+            }
+            """);
+
+        var reader = new CopilotCliConfigMetadataReader(configPath);
+        var metadata = reader.Read();
+
+        Assert.Equal("octocat", metadata.LastLoggedInUser);
+        Assert.Equal("https://github.com:octocat", metadata.PreferredAccount);
+    }
+
     private string CreateTempDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());

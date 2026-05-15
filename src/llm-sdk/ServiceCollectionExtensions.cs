@@ -53,6 +53,10 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<CopilotCliConfigMetadataReader>();
             services.AddSingleton<ISecretServiceClient, SecretServiceDbusClient>();
         }
+        else if (OperatingSystem.IsMacOS())
+        {
+            services.AddSingleton<CopilotCliConfigMetadataReader>();
+        }
 
         services.AddSingleton<ICopilotCredentialStore>(static sp =>
         {
@@ -64,6 +68,11 @@ public static class ServiceCollectionExtensions
             if (OperatingSystem.IsLinux())
             {
                 return ActivatorUtilities.CreateInstance<LinuxSecretServiceCredentialStore>(sp);
+            }
+
+            if (OperatingSystem.IsMacOS())
+            {
+                return ActivatorUtilities.CreateInstance<MacOSKeychainCredentialStore>(sp);
             }
 
             return new NoOpCopilotCredentialStore();

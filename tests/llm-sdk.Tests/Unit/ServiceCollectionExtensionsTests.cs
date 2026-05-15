@@ -47,6 +47,14 @@ public sealed class ServiceCollectionExtensionsTests
             return;
         }
 
+        if (OperatingSystem.IsMacOS())
+        {
+            Assert.IsType<MacOSKeychainCredentialStore>(provider.GetRequiredService<ICopilotCredentialStore>());
+            Assert.IsType<CopilotCliConfigMetadataReader>(provider.GetRequiredService<CopilotCliConfigMetadataReader>());
+            Assert.Null(provider.GetService<ISecretServiceClient>());
+            return;
+        }
+
         Assert.IsType<NoOpCopilotCredentialStore>(provider.GetRequiredService<ICopilotCredentialStore>());
         Assert.Null(provider.GetService<CopilotCliConfigMetadataReader>());
         Assert.Null(provider.GetService<ISecretServiceClient>());
