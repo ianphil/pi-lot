@@ -5,7 +5,7 @@ namespace LlmSdk.Core.Models;
 
 // ── OpenAI-compatible request/response types ─────────────────────────────────
 
-public sealed class ChatCompletionRequest
+public sealed record class ChatCompletionRequest
 {
     [JsonPropertyName("model")]
     public string? Model { get; init; }

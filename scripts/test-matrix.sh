@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Runs llm CLI commands matching every scenario in the test matrix.
+# Runs real CLI/proxy/SDK scenarios matching the test matrix.
 #
 # Each row exercises a different surface + upstream routing path.
 # Starts llm-svc automatically if the port is free; reuses an
@@ -176,6 +176,51 @@ invoke_llm() {
   fi
 }
 
+invoke_proxy_knobs() {
+  local label="$1"
+  local model="$2"
+  local response_file
+  response_file="$(mktemp)"
+
+  echo ""
+  echo -e "─── \033[36m${label}\033[0m ───"
+  echo -e "  \033[90mcurl ${endpoint}/v1/responses with proxy knob headers\033[0m"
+
+  total=$((total + 1))
+
+  local status
+  if status=$(curl -sS \
+      -o "$response_file" \
+      -w "%{http_code}" \
+      -X POST "${endpoint}/v1/responses" \
+      -H "Content-Type: application/json" \
+      -H "X-LLM-Upstream-Header-X-Request-Id: test-matrix-proxy-knobs" \
+      -H "X-LLM-Upstream-Timeout-Ms: 60000" \
+      -H "X-LLM-Upstream-Max-Retries: 1" \
+      -H "X-LLM-Upstream-Max-Retry-Delay-Ms: 1000" \
+      --data "{\"model\":\"${model}\",\"input\":\"${prompt}\",\"metadata\":{\"test\":\"proxy-knobs\"},\"stream\":false}" 2>&1); then
+    local output
+    output="$(cat "$response_file")"
+    rm -f "$response_file"
+
+    local text
+    text=$(echo "$output" | tr '\n' ' ' | head -c 200)
+    if [[ "$status" =~ ^2 ]]; then
+      echo -e "  \033[32mOK: ${text}\033[0m"
+      pass=$((pass + 1))
+    else
+      echo -e "  \033[31mFAIL (${status}): ${text}\033[0m"
+      fail=$((fail + 1))
+    fi
+  else
+    rm -f "$response_file"
+    local text
+    text=$(echo "$status" | tr '\n' ' ' | head -c 200)
+    echo -e "  \033[31mFAIL: ${text}\033[0m"
+    fail=$((fail + 1))
+  fi
+}
+
 use_stream=1
 if [[ "$no_stream" == "1" ]]; then
   use_stream=0
@@ -192,6 +237,7 @@ invoke_llm "4. ask → chat-only model, streaming translation"     ask "$prompt"
 invoke_llm "5. ask → chat-only model, tools"                     ask "$tool_prompt" claude-haiku-4.5 0 1
 invoke_llm "6. ask → chat-only model, streaming + tools"         ask "$tool_prompt" claude-haiku-4.5 "$use_stream" 1
 invoke_llm "7. ask → dual-endpoint model, prefers responses"     ask "$prompt"      gpt-5-mini       0
+invoke_proxy_knobs "7b. responses → proxy per-call HTTP knobs"   gpt-5.4-mini
 
 # ══════════════════════════════════════════════════════════════════════════════
 # /chat/completions surface (llm chat)

@@ -53,7 +53,7 @@ public sealed class ModelTokenLimits
     public int? MaxPromptTokens { get; init; }
 }
 
-public sealed class CreateResponseRequest
+public sealed record class CreateResponseRequest
 {
     [JsonPropertyName("model")]
     public string? Model { get; init; }

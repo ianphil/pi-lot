@@ -262,6 +262,43 @@ public sealed class ChatCompletionsServiceTests : IClassFixture<ResponsesWebAppl
         Assert.Null(_factory.Provider.LastResponsesRequest);
     }
 
+    [Fact]
+    public async Task PostChatCompletions_WithProxyKnobHeaders_ForwardsAllowedOptions()
+    {
+        _factory.Provider.ResetCapturedRequests();
+        _factory.Provider.Models =
+        [
+            new ModelDescriptor
+            {
+                Id = "gpt-5-mini",
+                SupportedEndpoints = ["/chat/completions"],
+            },
+        ];
+
+        using var client = _factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/chat/completions")
+        {
+            Content = JsonContent.Create(new
+            {
+                model = "gpt-5-mini",
+                messages = new[] { new { role = "user", content = "Hi" } },
+            }),
+        };
+        request.Headers.Add("X-LLM-Upstream-Header-X-Correlation-Id", "chat-test");
+        request.Headers.Add("X-LLM-Upstream-Timeout-Ms", "45000");
+        request.Headers.Add("X-LLM-Upstream-Max-Retries", "1");
+        request.Headers.Add("X-LLM-Upstream-Max-Retry-Delay-Ms", "750");
+
+        var httpResponse = await client.SendAsync(request);
+
+        httpResponse.EnsureSuccessStatusCode();
+        Assert.NotNull(_factory.Provider.LastChatRequest);
+        Assert.Equal("chat-test", _factory.Provider.LastChatRequest!.Headers!["X-Correlation-Id"]);
+        Assert.Equal(45000, _factory.Provider.LastChatRequest.TimeoutMs);
+        Assert.Equal(1, _factory.Provider.LastChatRequest.MaxRetries);
+        Assert.Equal(750, _factory.Provider.LastChatRequest.MaxRetryDelayMs);
+    }
+
     private static async IAsyncEnumerable<string> AsAsyncChunks(params string[] chunks)
     {
         foreach (var chunk in chunks)

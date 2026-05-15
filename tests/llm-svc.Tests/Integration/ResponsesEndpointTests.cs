@@ -606,6 +606,78 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
         Assert.Contains("event: response.completed", body);
     }
 
+    [Fact]
+    public async Task PostResponses_WithProxyKnobHeaders_ForwardsAllowedOptions()
+    {
+        _factory.Provider.ResetCapturedRequests();
+        _factory.Provider.Models =
+        [
+            new ModelDescriptor
+            {
+                Id = "gpt-5.4-mini",
+                SupportedEndpoints = ["/responses"],
+            },
+        ];
+
+        using var client = _factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/responses")
+        {
+            Content = JsonContent.Create(new
+            {
+                model = "gpt-5.4-mini",
+                input = "Hi there",
+                metadata = new
+                {
+                    test = "responses-proxy-knobs",
+                },
+            }),
+        };
+        request.Headers.Add("X-LLM-Upstream-Header-X-Request-Id", "responses-test");
+        request.Headers.Add("X-LLM-Upstream-Timeout-Ms", "60000");
+        request.Headers.Add("X-LLM-Upstream-Max-Retries", "2");
+        request.Headers.Add("X-LLM-Upstream-Max-Retry-Delay-Ms", "1000");
+
+        var httpResponse = await client.SendAsync(request);
+
+        httpResponse.EnsureSuccessStatusCode();
+        Assert.NotNull(_factory.Provider.LastResponsesRequest);
+        Assert.Equal("responses-test", _factory.Provider.LastResponsesRequest!.Headers!["X-Request-Id"]);
+        Assert.Equal(60000, _factory.Provider.LastResponsesRequest.TimeoutMs);
+        Assert.Equal(2, _factory.Provider.LastResponsesRequest.MaxRetries);
+        Assert.Equal(1000, _factory.Provider.LastResponsesRequest.MaxRetryDelayMs);
+    }
+
+    [Fact]
+    public async Task PostResponses_WithMalformedProxyKnobHeader_ReturnsBadRequest()
+    {
+        _factory.Provider.ResetCapturedRequests();
+        _factory.Provider.Models =
+        [
+            new ModelDescriptor
+            {
+                Id = "gpt-5.4-mini",
+                SupportedEndpoints = ["/responses"],
+            },
+        ];
+
+        using var client = _factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/responses")
+        {
+            Content = JsonContent.Create(new
+            {
+                model = "gpt-5.4-mini",
+                input = "Hi there",
+            }),
+        };
+        request.Headers.Add("X-LLM-Upstream-Timeout-Ms", "not-an-int");
+
+        var httpResponse = await client.SendAsync(request);
+
+        Assert.Equal(400, (int)httpResponse.StatusCode);
+        Assert.Null(_factory.Provider.LastResponsesRequest);
+        Assert.Null(_factory.Provider.LastChatRequest);
+    }
+
     private static async IAsyncEnumerable<string> AsAsyncChunks(params string[] chunks)
     {
         foreach (var chunk in chunks)

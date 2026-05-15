@@ -181,6 +181,10 @@ public sealed class ResponsesService : IResponsesService
         Metadata = request.Metadata,
         MaxToolCalls = request.MaxToolCalls,
         Reasoning = request.Reasoning,
+        Headers = request.Headers,
+        TimeoutMs = request.TimeoutMs,
+        MaxRetries = request.MaxRetries,
+        MaxRetryDelayMs = request.MaxRetryDelayMs,
     };
 
     private static CreateResponseRequest CloneForStreaming(CreateResponseRequest request) => new()
@@ -207,6 +211,10 @@ public sealed class ResponsesService : IResponsesService
         Metadata = request.Metadata,
         MaxToolCalls = request.MaxToolCalls,
         Reasoning = request.Reasoning,
+        Headers = request.Headers,
+        TimeoutMs = request.TimeoutMs,
+        MaxRetries = request.MaxRetries,
+        MaxRetryDelayMs = request.MaxRetryDelayMs,
     };
 
     private static ResponseHttpResult NormalizeError(ProxyHttpResult upstream)

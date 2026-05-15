@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <RootNamespace>llm_svc</RootNamespace>
-    <Version>0.6.1</Version>
+    <Version>0.7.0</Version>
     <OutputType>WinExe</OutputType>
     <NoWarn>CA1416</NoWarn>
     <UserSecretsId>13f9f324-1cb8-498a-974b-79931682afe6</UserSecretsId>

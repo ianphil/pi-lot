@@ -144,6 +144,10 @@ public sealed class ChatCompletionsService : IChatCompletionsService
             ToolChoice = request.ToolChoice is not null
                 ? JsonDocument.Parse(JsonSerializer.Serialize(request.ToolChoice, JsonDefaults.Web)).RootElement.Clone()
                 : null,
+            Headers = request.Headers,
+            TimeoutMs = request.TimeoutMs,
+            MaxRetries = request.MaxRetries,
+            MaxRetryDelayMs = request.MaxRetryDelayMs,
         };
     }
 
@@ -269,6 +273,11 @@ public sealed class ChatCompletionsService : IChatCompletionsService
         TopP = request.TopP,
         Tools = request.Tools,
         ToolChoice = request.ToolChoice,
+        Headers = request.Headers,
+        TimeoutMs = request.TimeoutMs,
+        MaxRetries = request.MaxRetries,
+        MaxRetryDelayMs = request.MaxRetryDelayMs,
+        Metadata = request.Metadata,
     };
 
     private static ChatCompletionRequest CloneForStreaming(ChatCompletionRequest request) => new()
@@ -282,6 +291,11 @@ public sealed class ChatCompletionsService : IChatCompletionsService
         TopP = request.TopP,
         Tools = request.Tools,
         ToolChoice = request.ToolChoice,
+        Headers = request.Headers,
+        TimeoutMs = request.TimeoutMs,
+        MaxRetries = request.MaxRetries,
+        MaxRetryDelayMs = request.MaxRetryDelayMs,
+        Metadata = request.Metadata,
     };
 
     private static ResponseHttpResult MakeErrorResult(int statusCode, string message, string code)
