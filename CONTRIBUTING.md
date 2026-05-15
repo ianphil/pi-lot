@@ -141,6 +141,13 @@ streaming, tools, or context. Use `llm-agent.Tests` only for the agent library.
 SDK behavior belongs in `llm-sdk.Tests`; CLI command behavior belongs in
 `llm-cli.Tests`; service endpoint behavior belongs in `llm-svc.Tests`.
 
+Test doubles belong in the owning test project, usually under `Fakes/`. For
+SDK consumer tests that use the portable `Context` API, prefer scripted
+`ILlmSdkClient` fakes that record the `Context` / `CompletionOptions` request
+and return scripted `AssistantMessage` or `AssistantStreamEvent` sequences.
+Keep those helpers internal to the test project that owns the consumer; do not
+create separate test-support projects unless the repo explicitly adopts one.
+
 ### E2E Test Matrix
 
 The `scripts/test-matrix.*` scripts are end-to-end validation, not unit or
