@@ -43,6 +43,10 @@ if (-not $PSBoundParameters.ContainsKey("Endpoint")) {
     $Endpoint = "http://${HostName}:$Port"
 }
 
+Write-Host "Building llm-cli..." -ForegroundColor Yellow
+& $Dotnet build $llmCli --no-restore --disable-build-servers -m:1 --no-incremental
+Write-Host "Build complete." -ForegroundColor Yellow
+
 $serviceProcess = $null
 $startedService = $false
 $stdoutLog = Join-Path ([System.IO.Path]::GetTempPath()) "llm-svc-test-matrix-$PID.out.log"
@@ -178,17 +182,12 @@ trap {
 
 Start-ProxyIfNeeded
 
-# Build once
-Write-Host "Building llm-cli..." -ForegroundColor Yellow
-& $Dotnet build $llmCli --no-restore -q
-Write-Host "Build complete." -ForegroundColor Yellow
-
 $useStream = -not $NoStream
 $pass = 0
 $fail = 0
 
 $prompt      = "Reply with exactly: hello"
-$toolPrompt  = "Use the fetch_url tool to fetch https://raw.githubusercontent.com/ianphil/copilot-llm-svc/refs/heads/main/README.md and summarize it in one sentence"
+$toolPrompt  = "Use the fetch_url tool to fetch https://raw.githubusercontent.com/github/gitignore/main/README.md and summarize it in one sentence"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # /responses surface (llm ask)

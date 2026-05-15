@@ -67,6 +67,12 @@ else
   dotnet="$(command -v dotnet)"
 fi
 
+# Build before starting the proxy so the running service cannot interfere with
+# shared project outputs during CLI compilation.
+echo -e "\033[33mBuilding llm-cli...\033[0m"
+$dotnet build "$llm_cli" --no-restore --disable-build-servers -m:1 --no-incremental 2>&1
+echo -e "\033[33mBuild complete.\033[0m"
+
 # ── Service lifecycle ────────────────────────────────────────────────────────
 log_file="$(mktemp)"
 service_pid=""
@@ -111,7 +117,7 @@ else
 fi
 
 prompt="Reply with exactly: hello"
-tool_prompt="Use the fetch_url tool to fetch https://raw.githubusercontent.com/ianphil/copilot-llm-svc/refs/heads/main/README.md and summarize it in one sentence"
+tool_prompt="Use the fetch_url tool to fetch https://raw.githubusercontent.com/github/gitignore/main/README.md and summarize it in one sentence"
 
 pass=0
 fail=0
@@ -169,10 +175,6 @@ invoke_llm() {
     fail=$((fail + 1))
   fi
 }
-
-echo -e "\033[33mBuilding llm-cli...\033[0m"
-$dotnet build "$llm_cli" --no-restore -q 2>&1
-echo -e "\033[33mBuild complete.\033[0m"
 
 use_stream=1
 if [[ "$no_stream" == "1" ]]; then
