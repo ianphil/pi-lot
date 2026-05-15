@@ -9,23 +9,28 @@ internal sealed class FakeLlmSdkClient : ILlmSdkClient
     private readonly Func<CreateResponseRequest, CancellationToken, IAsyncEnumerable<ResponseStreamEvent>>? _createResponseStreamAsync;
     private readonly Func<ChatCompletionRequest, CancellationToken, Task<ChatCompletionResponse>>? _createChatCompletionAsync;
     private readonly Func<ChatCompletionRequest, CancellationToken, IAsyncEnumerable<ChatCompletionChunk>>? _createChatCompletionStreamAsync;
+    private readonly Func<Context, CompletionOptions?, CancellationToken, Task<AssistantMessage>>? _completeAsync;
 
     public FakeLlmSdkClient(
         Func<CreateResponseRequest, CancellationToken, Task<Response>>? createResponseAsync = null,
         Func<CreateResponseRequest, CancellationToken, IAsyncEnumerable<ResponseStreamEvent>>? createResponseStreamAsync = null,
         Func<ChatCompletionRequest, CancellationToken, Task<ChatCompletionResponse>>? createChatCompletionAsync = null,
-        Func<ChatCompletionRequest, CancellationToken, IAsyncEnumerable<ChatCompletionChunk>>? createChatCompletionStreamAsync = null)
+        Func<ChatCompletionRequest, CancellationToken, IAsyncEnumerable<ChatCompletionChunk>>? createChatCompletionStreamAsync = null,
+        Func<Context, CompletionOptions?, CancellationToken, Task<AssistantMessage>>? completeAsync = null)
     {
         _createResponseAsync = createResponseAsync;
         _createResponseStreamAsync = createResponseStreamAsync;
         _createChatCompletionAsync = createChatCompletionAsync;
         _createChatCompletionStreamAsync = createChatCompletionStreamAsync;
+        _completeAsync = completeAsync;
     }
 
     public CreateResponseRequest? LastCreateResponseRequest { get; private set; }
     public CreateResponseRequest? LastCreateResponseStreamRequest { get; private set; }
     public ChatCompletionRequest? LastCreateChatCompletionRequest { get; private set; }
     public ChatCompletionRequest? LastCreateChatCompletionStreamRequest { get; private set; }
+    public Context? LastCompleteContext { get; private set; }
+    public CompletionOptions? LastCompletionOptions { get; private set; }
 
     public Task<Response> CreateResponseAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
     {
@@ -56,6 +61,17 @@ internal sealed class FakeLlmSdkClient : ILlmSdkClient
 
     public Task<ChatCompletionResponse> CreateChatCompletionAsync(string? model, string message, CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
+
+    public Task<AssistantMessage> CompleteAsync(
+        Context context,
+        CompletionOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        LastCompleteContext = context;
+        LastCompletionOptions = options;
+        return _completeAsync?.Invoke(context, options, cancellationToken)
+            ?? throw new NotSupportedException();
+    }
 
     public IAsyncEnumerable<ChatCompletionChunk> CreateChatCompletionStreamAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
     {
