@@ -21,7 +21,11 @@ public sealed class CopilotCliConfigMetadataReader
         try
         {
             using var stream = File.OpenRead(_configPath);
-            using var document = JsonDocument.Parse(stream);
+            using var document = JsonDocument.Parse(stream, new JsonDocumentOptions
+            {
+                CommentHandling = JsonCommentHandling.Skip,
+                AllowTrailingCommas = true,
+            });
             var root = document.RootElement;
 
             if (root.ValueKind != JsonValueKind.Object)
@@ -42,7 +46,7 @@ public sealed class CopilotCliConfigMetadataReader
 
     private static string[] ReadLoggedInUsers(JsonElement root)
     {
-        if (!root.TryGetProperty("logged_in_users", out var loggedInUsersElement))
+        if (!TryGetPropertyEither(root, "logged_in_users", "loggedInUsers", out var loggedInUsersElement))
         {
             return [];
         }
@@ -70,7 +74,7 @@ public sealed class CopilotCliConfigMetadataReader
 
     private static string? ReadLastLoggedInUser(JsonElement root, string[] loggedInUsers)
     {
-        if (!root.TryGetProperty("last_logged_in_user", out var lastLoggedInUserElement))
+        if (!TryGetPropertyEither(root, "last_logged_in_user", "lastLoggedInUser", out var lastLoggedInUserElement))
         {
             return null;
         }
@@ -115,6 +119,16 @@ public sealed class CopilotCliConfigMetadataReader
         }
 
         return loginElement.GetString()?.Trim();
+    }
+
+    private static bool TryGetPropertyEither(JsonElement root, string snakeName, string camelName, out JsonElement value)
+    {
+        if (root.TryGetProperty(snakeName, out value))
+        {
+            return true;
+        }
+
+        return root.TryGetProperty(camelName, out value);
     }
 
     private static string GetDefaultConfigPath()
