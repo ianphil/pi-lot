@@ -123,6 +123,35 @@ Run smoke tests (proxy must be running):
 dotnet test --filter "Category=Smoke" --no-restore
 ```
 
+### Unit and Integration Test Location
+
+Place unit and integration tests under the test project that owns the changed
+surface:
+
+| Changed surface | Test project |
+|---|---|
+| `src/llm-sdk/` SDK client, Core models/services, Infrastructure adapters | `tests/llm-sdk.Tests/` |
+| `src/llm-svc/` host, HTTP endpoints, service wiring | `tests/llm-svc.Tests/` |
+| `src/llm-cli/` commands, CLI agents, local tools | `tests/llm-cli.Tests/` |
+| `src/llm-agent/` agent loop, agent events, context budget | `tests/llm-agent.Tests/` |
+| `src/llm-ui/` browser UI behavior | `tests/llm-ui.Tests/` |
+
+Do not put tests in `llm-agent.Tests` just because a feature touches prompts,
+streaming, tools, or context. Use `llm-agent.Tests` only for the agent library.
+SDK behavior belongs in `llm-sdk.Tests`; CLI command behavior belongs in
+`llm-cli.Tests`; service endpoint behavior belongs in `llm-svc.Tests`.
+
+### E2E Test Matrix
+
+The `scripts/test-matrix.*` scripts are end-to-end validation, not unit or
+integration tests. Every row must run a real CLI command against the real proxy
+or direct SDK path, use real Copilot auth, and call an actual LLM model.
+
+Fakes, mocks, stubs, `WebApplicationFactory`, test servers, and `dotnet test`
+are fine in `Unit` and `Integration` tests, but they do not belong in the test
+matrix execution path. If a feature needs matrix coverage, expose a real CLI or
+service path that exercises the production code and live upstream behavior.
+
 ### What to Test Before Submitting
 
 - If you changed **src/llm-sdk/**: run `llm-sdk.Tests`.

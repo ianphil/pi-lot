@@ -35,6 +35,9 @@ public sealed class OpenAIModelInfo
 
     [JsonPropertyName("token_limits")]
     public ModelTokenLimits? TokenLimits { get; init; }
+
+    [JsonPropertyName("pricing")]
+    public UsagePricing? Pricing { get; init; }
 }
 
 // ── Error response ───────────────────────────────────────────────────────────

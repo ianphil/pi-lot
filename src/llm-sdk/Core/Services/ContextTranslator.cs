@@ -67,7 +67,7 @@ public static class ContextTranslator
             }
         }
 
-        return new AssistantMessage(content, ToStopReason(response.Status), Usage: null, ErrorMessage: response.Error?.Message);
+        return new AssistantMessage(content, ToStopReason(response.Status), UsageMath.FromResponseUsage(response.Usage), response.Error?.Message);
     }
 
     public static AssistantMessage ToAssistantMessage(ChatCompletionResponse response)
@@ -93,7 +93,7 @@ public static class ContextTranslator
                     toolCall.Function.Arguments ?? "{}")));
         }
 
-        return new AssistantMessage(content, ToStopReason(choice.FinishReason));
+        return new AssistantMessage(content, ToStopReason(choice.FinishReason), UsageMath.FromUsageInfo(response.Usage));
     }
 
     private static object ToResponseInputItem(Message message) => message switch

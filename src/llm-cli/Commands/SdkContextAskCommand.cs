@@ -11,6 +11,7 @@ public static class SdkContextAskCommand
         var prompt = CommandOptions.Prompt();
         var model = CommandOptions.Model("gpt-5.4-mini");
         var system = CommandOptions.System();
+        var noStream = CommandOptions.NoStream();
         var api = new Option<string>("--api")
         {
             Description = "Preferred SDK API for Context translation: responses or chat",
@@ -20,7 +21,7 @@ public static class SdkContextAskCommand
         var command = new Command("sdk-context-ask",
             "Send a prompt directly through the portable LlmSdk Context API")
         {
-            prompt, model, system, api,
+            prompt, model, system, noStream, api,
         };
 
         command.SetAction(async (parseResult, cancellationToken) =>
@@ -35,7 +36,14 @@ public static class SdkContextAskCommand
 
             return await SdkAskCommand.RunSdkCommandAsync(modelValue, async client =>
             {
-                await SdkContextAskAgent.RunAsync(client, request, preferredApi, Console.Out, cancellationToken);
+                if (parseResult.GetValue(noStream))
+                {
+                    await SdkContextAskAgent.RunNonStreamingAsync(client, request, preferredApi, Console.Out, cancellationToken);
+                }
+                else
+                {
+                    await SdkContextAskAgent.RunStreamingAsync(client, request, preferredApi, Console.Out, cancellationToken);
+                }
             });
         });
 
