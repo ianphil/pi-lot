@@ -125,6 +125,11 @@ invoke_llm() {
   local stream="$5"
   local tools="${6:-0}"
   local use_endpoint="${7:-1}"
+  local -a extra_args=()
+  if [[ "$#" -gt 7 ]]; then
+    shift 7
+    extra_args=("$@")
+  fi
 
   local -a cli_args=("$verb" "$prompt_text" "-m" "$model")
   if [[ "$use_endpoint" == "1" ]]; then
@@ -135,6 +140,9 @@ invoke_llm() {
   fi
   if [[ "$tools" == "1" ]]; then
     cli_args+=("--tools")
+  fi
+  if [[ "${#extra_args[@]}" -gt 0 ]]; then
+    cli_args+=("${extra_args[@]}")
   fi
 
   echo ""
@@ -204,8 +212,10 @@ invoke_llm "16. sdk-ask → direct sdk path, plain"                    sdk-ask  
 invoke_llm "17. sdk-ask → direct sdk path, streaming"                sdk-ask  "$prompt" gpt-5.4-mini 1 0 0
 invoke_llm "18. sdk-ask → direct sdk path, tools"                    sdk-ask  "$tool_prompt" gpt-5.4-mini 0 1 0
 invoke_llm "19. sdk-ask → direct sdk path, streaming + tools"        sdk-ask  "$tool_prompt" gpt-5.4-mini 1 1 0
-invoke_llm "20. sdk-chat → direct sdk path, plain"                   sdk-chat "$prompt" gpt-5-mini   0 0 0
-invoke_llm "21. sdk-chat → direct sdk path, streaming"               sdk-chat "$prompt" gpt-5-mini   1 0 0
+invoke_llm "20. sdk-context-ask → context API, responses"            sdk-context-ask "$prompt" gpt-5.4-mini     0 0 0 --api responses
+invoke_llm "21. sdk-context-ask → context API, chat completions"     sdk-context-ask "$prompt" claude-haiku-4.5 0 0 0 --api chat
+invoke_llm "22. sdk-chat → direct sdk path, plain"                   sdk-chat "$prompt" gpt-5-mini   0 0 0
+invoke_llm "23. sdk-chat → direct sdk path, streaming"               sdk-chat "$prompt" gpt-5-mini   1 0 0
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Summary

@@ -32,6 +32,12 @@ public interface ILlmSdkClient
         string message,
         CancellationToken cancellationToken = default);
 
+    Task<AssistantMessage> CompleteAsync(
+        Context context,
+        CompletionOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        LlmSdkClientContextAdapter.CompleteAsync(this, context, options, cancellationToken);
+
     IAsyncEnumerable<ChatCompletionChunk> CreateChatCompletionStreamAsync(
         ChatCompletionRequest request,
         [EnumeratorCancellation] CancellationToken cancellationToken = default);

@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <RootNamespace>LlmSdk</RootNamespace>
-    <Version>0.3.1</Version>
+    <Version>0.4.0</Version>
     <PackageId>LlmSdk</PackageId>
     <Authors>ianphil</Authors>
     <Description>A .NET library for accessing GitHub Copilot's LLM API with OpenAI-compatible Responses and Chat Completions services.</Description>

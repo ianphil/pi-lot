@@ -16,9 +16,9 @@ var root = new RootCommand(LoadHelpText());
 root.Subcommands.Add(AskCommand.Build(endpointOption));
 root.Subcommands.Add(ChatCommand.Build(endpointOption));
 root.Subcommands.Add(SdkAskCommand.Build());
+root.Subcommands.Add(SdkContextAskCommand.Build());
 root.Subcommands.Add(SdkChatCommand.Build());
 root.Subcommands.Add(ModelsCommand.Build(endpointOption));
 root.Subcommands.Add(HealthCommand.Build(endpointOption));
 
 return await root.Parse(args).InvokeAsync();
-

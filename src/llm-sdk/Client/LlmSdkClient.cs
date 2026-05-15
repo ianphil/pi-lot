@@ -127,6 +127,14 @@ public sealed class LlmSdkClient : ILlmSdkClient
         }, cancellationToken);
     }
 
+    public Task<AssistantMessage> CompleteAsync(
+        Context context,
+        CompletionOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        return LlmSdkClientContextAdapter.CompleteAsync(this, context, options, cancellationToken);
+    }
+
     public async IAsyncEnumerable<ChatCompletionChunk> CreateChatCompletionStreamAsync(
         ChatCompletionRequest request,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
