@@ -1,6 +1,6 @@
 using LlmSdk.Client;
 using LlmSdk.Core.Models;
-using LlmSdk.Testing;
+using LlmSdk.Tests.Fakes;
 
 namespace LlmSdk.Tests.Unit;
 

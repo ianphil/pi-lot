@@ -1,9 +1,9 @@
 using LlmSdk.Client;
 using LlmSdk.Core.Models;
 
-namespace LlmSdk.Testing;
+namespace LlmSdk.Tests.Fakes;
 
-public sealed record FauxResponse(
+internal sealed record FauxResponse(
     IReadOnlyList<AssistantStreamEvent> Events,
     TimeSpan? PerEventDelay = null,
     Usage? Usage = null)

@@ -2,9 +2,9 @@ using System.Runtime.CompilerServices;
 using LlmSdk.Client;
 using LlmSdk.Core.Models;
 
-namespace LlmSdk.Testing;
+namespace LlmSdk.Tests.Fakes;
 
-public sealed class FauxLlmSdkClient : ILlmSdkClient
+internal sealed class FauxLlmSdkClient : ILlmSdkClient
 {
     private readonly List<Context> _recordedRequests = [];
     private int _callCount;
