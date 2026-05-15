@@ -29,6 +29,11 @@ public sealed class MacOSKeychainCredentialStore : ICopilotCredentialStore
 
     public string? GetCredential()
     {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return null;
+        }
+
         try
         {
             var metadata = _metadataReader.Read();
