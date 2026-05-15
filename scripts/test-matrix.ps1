@@ -198,19 +198,19 @@ $toolPrompt  = "Use the fetch_url tool to fetch https://raw.githubusercontent.co
 if (Invoke-Llm "1. ask → responses-only model, plain" ask $prompt gpt-5.4-mini -Stream:$false) { $pass++ } else { $fail++ }
 
 # 2. /responses → /responses only model, streaming
-if (Invoke-Llm "2. ask → responses-only model, streaming" ask $prompt gpt-5.4-mini -Stream:$true) { $pass++ } else { $fail++ }
+if (Invoke-Llm "2. ask → responses-only model, streaming" ask $prompt gpt-5.4-mini -Stream:$useStream) { $pass++ } else { $fail++ }
 
 # 3. /responses → chat-only model, plain text translation
 if (Invoke-Llm "3. ask → chat-only model, plain translation" ask $prompt claude-haiku-4.5 -Stream:$false) { $pass++ } else { $fail++ }
 
 # 4. /responses → chat-only model, streaming translation
-if (Invoke-Llm "4. ask → chat-only model, streaming translation" ask $prompt claude-haiku-4.5 -Stream:$true) { $pass++ } else { $fail++ }
+if (Invoke-Llm "4. ask → chat-only model, streaming translation" ask $prompt claude-haiku-4.5 -Stream:$useStream) { $pass++ } else { $fail++ }
 
 # 5. /responses → chat-only model, tool definition forwarding
 if (Invoke-Llm "5. ask → chat-only model, tools" ask $toolPrompt claude-haiku-4.5 -Stream:$false -Tools) { $pass++ } else { $fail++ }
 
 # 6. /responses → chat-only model, streaming tool round-trip
-if (Invoke-Llm "6. ask → chat-only model, streaming + tools" ask $toolPrompt claude-haiku-4.5 -Stream:$true -Tools) { $pass++ } else { $fail++ }
+if (Invoke-Llm "6. ask → chat-only model, streaming + tools" ask $toolPrompt claude-haiku-4.5 -Stream:$useStream -Tools) { $pass++ } else { $fail++ }
 
 # 7. /responses → dual-endpoint model, should prefer native /responses
 if (Invoke-Llm "7. ask → dual-endpoint model, prefers responses" ask $prompt gpt-5-mini -Stream:$false) { $pass++ } else { $fail++ }
@@ -223,25 +223,25 @@ if (Invoke-Llm "7. ask → dual-endpoint model, prefers responses" ask $prompt g
 if (Invoke-Llm "8. chat → chat-capable model, plain" chat $prompt claude-haiku-4.5 -Stream:$false) { $pass++ } else { $fail++ }
 
 # 9. /chat/completions → chat-capable model, SSE streaming
-if (Invoke-Llm "9. chat → chat-capable model, streaming" chat $prompt claude-haiku-4.5 -Stream:$true) { $pass++ } else { $fail++ }
+if (Invoke-Llm "9. chat → chat-capable model, streaming" chat $prompt claude-haiku-4.5 -Stream:$useStream) { $pass++ } else { $fail++ }
 
 # 10. /chat/completions → chat-capable model, SSE streaming + tools
-if (Invoke-Llm "10. chat → chat-capable model, streaming + tools" chat $toolPrompt claude-haiku-4.5 -Stream:$true -Tools) { $pass++ } else { $fail++ }
+if (Invoke-Llm "10. chat → chat-capable model, streaming + tools" chat $toolPrompt claude-haiku-4.5 -Stream:$useStream -Tools) { $pass++ } else { $fail++ }
 
 # 11. /chat/completions → responses-only model, plain text translation
 if (Invoke-Llm "11. chat → responses-only model, plain translation" chat $prompt gpt-5.4-mini -Stream:$false) { $pass++ } else { $fail++ }
 
 # 12. /chat/completions → responses-only model, SSE streaming translation
-if (Invoke-Llm "12. chat → responses-only model, streaming translation" chat $prompt gpt-5.4-mini -Stream:$true) { $pass++ } else { $fail++ }
+if (Invoke-Llm "12. chat → responses-only model, streaming translation" chat $prompt gpt-5.4-mini -Stream:$useStream) { $pass++ } else { $fail++ }
 
 # 13. /chat/completions → responses-only model, SSE streaming tool round-trip
-if (Invoke-Llm "13. chat → responses-only model, streaming + tools" chat $toolPrompt gpt-5.4-mini -Stream:$true -Tools) { $pass++ } else { $fail++ }
+if (Invoke-Llm "13. chat → responses-only model, streaming + tools" chat $toolPrompt gpt-5.4-mini -Stream:$useStream -Tools) { $pass++ } else { $fail++ }
 
 # 14. /chat/completions → dual-endpoint model, should prefer native /chat
 if (Invoke-Llm "14. chat → dual-endpoint model, prefers chat" chat $prompt gpt-5-mini -Stream:$false) { $pass++ } else { $fail++ }
 
 # 15. /chat/completions → dual-endpoint model, SSE streaming prefers native
-if (Invoke-Llm "15. chat → dual-endpoint model, streaming prefers chat" chat $prompt gpt-5-mini -Stream:$true) { $pass++ } else { $fail++ }
+if (Invoke-Llm "15. chat → dual-endpoint model, streaming prefers chat" chat $prompt gpt-5-mini -Stream:$useStream) { $pass++ } else { $fail++ }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # SDK surface (llm sdk-ask / llm sdk-chat)
@@ -251,31 +251,31 @@ if (Invoke-Llm "15. chat → dual-endpoint model, streaming prefers chat" chat $
 if (Invoke-Llm "16. sdk-ask → direct sdk path, plain" sdk-ask $prompt gpt-5.4-mini -Stream:$false -UseEndpoint:$false) { $pass++ } else { $fail++ }
 
 # 17. sdk-ask → direct sdk path, streaming
-if (Invoke-Llm "17. sdk-ask → direct sdk path, streaming" sdk-ask $prompt gpt-5.4-mini -Stream:$true -UseEndpoint:$false) { $pass++ } else { $fail++ }
+if (Invoke-Llm "17. sdk-ask → direct sdk path, streaming" sdk-ask $prompt gpt-5.4-mini -Stream:$useStream -UseEndpoint:$false) { $pass++ } else { $fail++ }
 
 # 18. sdk-ask → direct sdk path, tools
 if (Invoke-Llm "18. sdk-ask → direct sdk path, tools" sdk-ask $toolPrompt gpt-5.4-mini -Stream:$false -Tools -UseEndpoint:$false) { $pass++ } else { $fail++ }
 
 # 19. sdk-ask → direct sdk path, streaming + tools
-if (Invoke-Llm "19. sdk-ask → direct sdk path, streaming + tools" sdk-ask $toolPrompt gpt-5.4-mini -Stream:$true -Tools -UseEndpoint:$false) { $pass++ } else { $fail++ }
+if (Invoke-Llm "19. sdk-ask → direct sdk path, streaming + tools" sdk-ask $toolPrompt gpt-5.4-mini -Stream:$useStream -Tools -UseEndpoint:$false) { $pass++ } else { $fail++ }
 
 # 20. sdk-context-ask → direct SDK Context path, Responses API, plain text
 if (Invoke-Llm "20. sdk-context-ask → context API, responses plain" sdk-context-ask $prompt gpt-5.4-mini -Stream:$false -UseEndpoint:$false -ExtraArgs @("--api", "responses")) { $pass++ } else { $fail++ }
 
 # 21. sdk-context-ask → direct SDK Context path, Responses API, streaming
-if (Invoke-Llm "21. sdk-context-ask → context API, responses streaming" sdk-context-ask $prompt gpt-5.4-mini -Stream:$true -UseEndpoint:$false -ExtraArgs @("--api", "responses")) { $pass++ } else { $fail++ }
+if (Invoke-Llm "21. sdk-context-ask → context API, responses streaming" sdk-context-ask $prompt gpt-5.4-mini -Stream:$useStream -UseEndpoint:$false -ExtraArgs @("--api", "responses")) { $pass++ } else { $fail++ }
 
 # 22. sdk-context-ask → direct SDK Context path, Chat Completions API, plain text
 if (Invoke-Llm "22. sdk-context-ask → context API, chat plain" sdk-context-ask $prompt claude-haiku-4.5 -Stream:$false -UseEndpoint:$false -ExtraArgs @("--api", "chat")) { $pass++ } else { $fail++ }
 
 # 23. sdk-context-ask → direct SDK Context path, Chat Completions API, streaming
-if (Invoke-Llm "23. sdk-context-ask → context API, chat streaming" sdk-context-ask $prompt claude-haiku-4.5 -Stream:$true -UseEndpoint:$false -ExtraArgs @("--api", "chat")) { $pass++ } else { $fail++ }
+if (Invoke-Llm "23. sdk-context-ask → context API, chat streaming" sdk-context-ask $prompt claude-haiku-4.5 -Stream:$useStream -UseEndpoint:$false -ExtraArgs @("--api", "chat")) { $pass++ } else { $fail++ }
 
 # 24. sdk-chat → direct sdk path, plain text
 if (Invoke-Llm "24. sdk-chat → direct sdk path, plain" sdk-chat $prompt gpt-5-mini -Stream:$false -UseEndpoint:$false) { $pass++ } else { $fail++ }
 
 # 25. sdk-chat → direct sdk path, streaming
-if (Invoke-Llm "25. sdk-chat → direct sdk path, streaming" sdk-chat $prompt gpt-5-mini -Stream:$true -UseEndpoint:$false) { $pass++ } else { $fail++ }
+if (Invoke-Llm "25. sdk-chat → direct sdk path, streaming" sdk-chat $prompt gpt-5-mini -Stream:$useStream -UseEndpoint:$false) { $pass++ } else { $fail++ }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Summary

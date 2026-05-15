@@ -184,11 +184,11 @@ fi
 # ══════════════════════════════════════════════════════════════════════════════
 
 invoke_llm "1. ask → responses-only model, plain"                ask "$prompt"      gpt-5.4-mini     0
-invoke_llm "2. ask → responses-only model, streaming"            ask "$prompt"      gpt-5.4-mini     1
+invoke_llm "2. ask → responses-only model, streaming"            ask "$prompt"      gpt-5.4-mini     "$use_stream"
 invoke_llm "3. ask → chat-only model, plain translation"         ask "$prompt"      claude-haiku-4.5 0
-invoke_llm "4. ask → chat-only model, streaming translation"     ask "$prompt"      claude-haiku-4.5 1
+invoke_llm "4. ask → chat-only model, streaming translation"     ask "$prompt"      claude-haiku-4.5 "$use_stream"
 invoke_llm "5. ask → chat-only model, tools"                     ask "$tool_prompt" claude-haiku-4.5 0 1
-invoke_llm "6. ask → chat-only model, streaming + tools"         ask "$tool_prompt" claude-haiku-4.5 1 1
+invoke_llm "6. ask → chat-only model, streaming + tools"         ask "$tool_prompt" claude-haiku-4.5 "$use_stream" 1
 invoke_llm "7. ask → dual-endpoint model, prefers responses"     ask "$prompt"      gpt-5-mini       0
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -196,28 +196,28 @@ invoke_llm "7. ask → dual-endpoint model, prefers responses"     ask "$prompt"
 # ══════════════════════════════════════════════════════════════════════════════
 
 invoke_llm "8. chat → chat-capable model, plain"                     chat "$prompt"      claude-haiku-4.5 0
-invoke_llm "9. chat → chat-capable model, streaming"                 chat "$prompt"      claude-haiku-4.5 1
-invoke_llm "10. chat → chat-capable model, streaming + tools"        chat "$tool_prompt" claude-haiku-4.5 1 1
+invoke_llm "9. chat → chat-capable model, streaming"                 chat "$prompt"      claude-haiku-4.5 "$use_stream"
+invoke_llm "10. chat → chat-capable model, streaming + tools"        chat "$tool_prompt" claude-haiku-4.5 "$use_stream" 1
 invoke_llm "11. chat → responses-only model, plain translation"      chat "$prompt"      gpt-5.4-mini     0
-invoke_llm "12. chat → responses-only model, streaming translation"  chat "$prompt"      gpt-5.4-mini     1
-invoke_llm "13. chat → responses-only model, streaming + tools"      chat "$tool_prompt" gpt-5.4-mini     1 1
+invoke_llm "12. chat → responses-only model, streaming translation"  chat "$prompt"      gpt-5.4-mini     "$use_stream"
+invoke_llm "13. chat → responses-only model, streaming + tools"      chat "$tool_prompt" gpt-5.4-mini     "$use_stream" 1
 invoke_llm "14. chat → dual-endpoint model, prefers chat"            chat "$prompt"      gpt-5-mini       0
-invoke_llm "15. chat → dual-endpoint model, streaming prefers chat"  chat "$prompt"      gpt-5-mini       1
+invoke_llm "15. chat → dual-endpoint model, streaming prefers chat"  chat "$prompt"      gpt-5-mini       "$use_stream"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # SDK surface (llm sdk-ask / llm sdk-chat)
 # ══════════════════════════════════════════════════════════════════════════════
 
 invoke_llm "16. sdk-ask → direct sdk path, plain"                    sdk-ask  "$prompt" gpt-5.4-mini 0 0 0
-invoke_llm "17. sdk-ask → direct sdk path, streaming"                sdk-ask  "$prompt" gpt-5.4-mini 1 0 0
+invoke_llm "17. sdk-ask → direct sdk path, streaming"                sdk-ask  "$prompt" gpt-5.4-mini "$use_stream" 0 0
 invoke_llm "18. sdk-ask → direct sdk path, tools"                    sdk-ask  "$tool_prompt" gpt-5.4-mini 0 1 0
-invoke_llm "19. sdk-ask → direct sdk path, streaming + tools"        sdk-ask  "$tool_prompt" gpt-5.4-mini 1 1 0
+invoke_llm "19. sdk-ask → direct sdk path, streaming + tools"        sdk-ask  "$tool_prompt" gpt-5.4-mini "$use_stream" 1 0
 invoke_llm "20. sdk-context-ask → context API, responses plain"      sdk-context-ask "$prompt" gpt-5.4-mini     0 0 0 --api responses
-invoke_llm "21. sdk-context-ask → context API, responses streaming"  sdk-context-ask "$prompt" gpt-5.4-mini     1 0 0 --api responses
+invoke_llm "21. sdk-context-ask → context API, responses streaming"  sdk-context-ask "$prompt" gpt-5.4-mini     "$use_stream" 0 0 --api responses
 invoke_llm "22. sdk-context-ask → context API, chat plain"           sdk-context-ask "$prompt" claude-haiku-4.5 0 0 0 --api chat
-invoke_llm "23. sdk-context-ask → context API, chat streaming"       sdk-context-ask "$prompt" claude-haiku-4.5 1 0 0 --api chat
+invoke_llm "23. sdk-context-ask → context API, chat streaming"       sdk-context-ask "$prompt" claude-haiku-4.5 "$use_stream" 0 0 --api chat
 invoke_llm "24. sdk-chat → direct sdk path, plain"                   sdk-chat "$prompt" gpt-5-mini   0 0 0
-invoke_llm "25. sdk-chat → direct sdk path, streaming"               sdk-chat "$prompt" gpt-5-mini   1 0 0
+invoke_llm "25. sdk-chat → direct sdk path, streaming"               sdk-chat "$prompt" gpt-5-mini   "$use_stream" 0 0
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Summary

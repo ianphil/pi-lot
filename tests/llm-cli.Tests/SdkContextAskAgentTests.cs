@@ -16,7 +16,7 @@ public sealed class SdkContextAskAgentTests
                 [new TextContent("Hello from context")],
                 StopReason.Stop)));
 
-        await SdkContextAskAgent.RunAsync(
+        await SdkContextAskAgent.RunNonStreamingAsync(
             client,
             new AskRequest("Hi there", "gpt-5.4-mini", "Be brief", false),
             CompletionApi.Responses,
@@ -41,7 +41,7 @@ public sealed class SdkContextAskAgentTests
                 [new TextContent("Use a tool")],
                 StopReason.ToolUse)));
 
-        await SdkContextAskAgent.RunAsync(
+        await SdkContextAskAgent.RunNonStreamingAsync(
             client,
             new AskRequest("Hi there", "claude-haiku-4.5", null, false),
             CompletionApi.ChatCompletions,

@@ -5,14 +5,6 @@ namespace llm_cli.Agents;
 
 public static class SdkContextAskAgent
 {
-    public static Task RunAsync(
-        ILlmSdkClient client,
-        AskRequest request,
-        CompletionApi preferredApi,
-        TextWriter writer,
-        CancellationToken cancellationToken = default)
-        => RunNonStreamingAsync(client, request, preferredApi, writer, cancellationToken);
-
     public static async Task RunNonStreamingAsync(
         ILlmSdkClient client,
         AskRequest request,
