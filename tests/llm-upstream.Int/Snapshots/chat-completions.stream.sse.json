@@ -1,0 +1,238 @@
+{
+  "name": "POST /chat/completions stream",
+  "base_url": "https://api.enterprise.githubcopilot.com",
+  "request": {
+    "method": "POST",
+    "path": "/chat/completions",
+    "headers": {
+      "Authorization": [
+        "\u003CREDACTED\u003E"
+      ],
+      "Content-Type": [
+        "application/json; charset=utf-8"
+      ],
+      "Copilot-Integration-Id": [
+        "copilot-developer-cli"
+      ],
+      "User-Agent": [
+        "copilot/1.0.11 (win32) term/service"
+      ]
+    },
+    "body": {
+      "model": "gpt-5-mini",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Reply with exactly: hello"
+        }
+      ],
+      "stream": true
+    }
+  },
+  "response": {
+    "status_code": 200,
+    "reason_phrase": "OK",
+    "headers": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Content-Security-Policy": [
+        "default-src \u0027none\u0027; sandbox"
+      ],
+      "Content-Type": [
+        "text/event-stream"
+      ],
+      "Date": [
+        "Sat, 16 May 2026 16:56:24 GMT"
+      ],
+      "Strict-Transport-Security": [
+        "max-age=31536000"
+      ],
+      "Transfer-Encoding": [
+        "chunked"
+      ],
+      "x-copilot-api-exp-assignment-context": [
+        "e4hcf520:1109203;t_33b5c122:1165002;"
+      ],
+      "x-github-backend": [
+        "Kubernetes"
+      ],
+      "X-GitHub-Request-Id": [
+        "E6E9:34E5A8:2C7F3B:34D218:6A08A1B7"
+      ],
+      "X-Request-ID": [
+        "00000-eea2c0b0-b462-4b93-8990-af3b70ab8205"
+      ]
+    },
+    "sse_events": [
+      {
+        "index": 0,
+        "event": null,
+        "data": [
+          {
+            "choices": [],
+            "created": 0,
+            "id": "",
+            "model": "gpt-5-mini",
+            "prompt_filter_results": [
+              {
+                "content_filter_results": {
+                  "hate": {
+                    "filtered": false,
+                    "severity": "safe"
+                  },
+                  "self_harm": {
+                    "filtered": false,
+                    "severity": "safe"
+                  },
+                  "sexual": {
+                    "filtered": false,
+                    "severity": "safe"
+                  },
+                  "violence": {
+                    "filtered": false,
+                    "severity": "safe"
+                  }
+                },
+                "prompt_index": 0
+              }
+            ]
+          }
+        ],
+        "raw": "data: {\u0022choices\u0022:[],\u0022created\u0022:0,\u0022id\u0022:\u0022\u0022,\u0022model\u0022:\u0022gpt-5-mini\u0022,\u0022prompt_filter_results\u0022:[{\u0022content_filter_results\u0022:{\u0022hate\u0022:{\u0022filtered\u0022:false,\u0022severity\u0022:\u0022safe\u0022},\u0022self_harm\u0022:{\u0022filtered\u0022:false,\u0022severity\u0022:\u0022safe\u0022},\u0022sexual\u0022:{\u0022filtered\u0022:false,\u0022severity\u0022:\u0022safe\u0022},\u0022violence\u0022:{\u0022filtered\u0022:false,\u0022severity\u0022:\u0022safe\u0022}},\u0022prompt_index\u0022:0}]}\n\n"
+      },
+      {
+        "index": 1,
+        "event": null,
+        "data": [
+          {
+            "choices": [
+              {
+                "index": 0,
+                "content_filter_results": {},
+                "delta": {
+                  "content": "",
+                  "role": "assistant"
+                }
+              }
+            ],
+            "created": 1778950583,
+            "id": "chatcmpl-DgCbH5en7YU7pCtHY2NC8qSB2dV0i",
+            "model": "gpt-5-mini"
+          }
+        ],
+        "raw": "data: {\u0022choices\u0022:[{\u0022index\u0022:0,\u0022content_filter_results\u0022:{},\u0022delta\u0022:{\u0022content\u0022:\u0022\u0022,\u0022role\u0022:\u0022assistant\u0022}}],\u0022created\u0022:1778950583,\u0022id\u0022:\u0022chatcmpl-DgCbH5en7YU7pCtHY2NC8qSB2dV0i\u0022,\u0022model\u0022:\u0022gpt-5-mini\u0022}\n\n"
+      },
+      {
+        "index": 2,
+        "event": null,
+        "data": [
+          {
+            "choices": [
+              {
+                "index": 0,
+                "content_filter_results": {
+                  "hate": {
+                    "filtered": false,
+                    "severity": "safe"
+                  },
+                  "self_harm": {
+                    "filtered": false,
+                    "severity": "safe"
+                  },
+                  "sexual": {
+                    "filtered": false,
+                    "severity": "safe"
+                  },
+                  "violence": {
+                    "filtered": false,
+                    "severity": "safe"
+                  }
+                },
+                "delta": {
+                  "content": "hello"
+                }
+              }
+            ],
+            "created": 1778950583,
+            "id": "chatcmpl-DgCbH5en7YU7pCtHY2NC8qSB2dV0i",
+            "model": "gpt-5-mini"
+          }
+        ],
+        "raw": "data: {\u0022choices\u0022:[{\u0022index\u0022:0,\u0022content_filter_results\u0022:{\u0022hate\u0022:{\u0022filtered\u0022:false,\u0022severity\u0022:\u0022safe\u0022},\u0022self_harm\u0022:{\u0022filtered\u0022:false,\u0022severity\u0022:\u0022safe\u0022},\u0022sexual\u0022:{\u0022filtered\u0022:false,\u0022severity\u0022:\u0022safe\u0022},\u0022violence\u0022:{\u0022filtered\u0022:false,\u0022severity\u0022:\u0022safe\u0022}},\u0022delta\u0022:{\u0022content\u0022:\u0022hello\u0022}}],\u0022created\u0022:1778950583,\u0022id\u0022:\u0022chatcmpl-DgCbH5en7YU7pCtHY2NC8qSB2dV0i\u0022,\u0022model\u0022:\u0022gpt-5-mini\u0022}\n\n"
+      },
+      {
+        "index": 3,
+        "event": null,
+        "data": [
+          {
+            "choices": [
+              {
+                "finish_reason": "stop",
+                "index": 0,
+                "content_filter_results": {},
+                "delta": {
+                  "content": null
+                }
+              }
+            ],
+            "created": 1778950583,
+            "id": "chatcmpl-DgCbH5en7YU7pCtHY2NC8qSB2dV0i",
+            "usage": {
+              "completion_tokens": 75,
+              "completion_tokens_details": {
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              },
+              "prompt_tokens": 11,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "total_tokens": 86,
+              "reasoning_tokens": 64
+            },
+            "model": "gpt-5-mini",
+            "copilot_usage": {
+              "token_details": [
+                {
+                  "batch_size": 1000000,
+                  "cost_per_batch": 25000000000,
+                  "token_count": 11,
+                  "token_type": "input"
+                },
+                {
+                  "batch_size": 1000000,
+                  "cost_per_batch": 2500000000,
+                  "token_count": 0,
+                  "token_type": "cache_read"
+                },
+                {
+                  "batch_size": 1000000,
+                  "cost_per_batch": 0,
+                  "token_count": 0,
+                  "token_type": "cache_write"
+                },
+                {
+                  "batch_size": 1000000,
+                  "cost_per_batch": 200000000000,
+                  "token_count": 75,
+                  "token_type": "output"
+                }
+              ],
+              "total_nano_aiu": 15275000
+            }
+          }
+        ],
+        "raw": "data: {\u0022choices\u0022:[{\u0022finish_reason\u0022:\u0022stop\u0022,\u0022index\u0022:0,\u0022content_filter_results\u0022:{},\u0022delta\u0022:{\u0022content\u0022:null}}],\u0022created\u0022:1778950583,\u0022id\u0022:\u0022chatcmpl-DgCbH5en7YU7pCtHY2NC8qSB2dV0i\u0022,\u0022usage\u0022:{\u0022completion_tokens\u0022:75,\u0022completion_tokens_details\u0022:{\u0022accepted_prediction_tokens\u0022:0,\u0022rejected_prediction_tokens\u0022:0},\u0022prompt_tokens\u0022:11,\u0022prompt_tokens_details\u0022:{\u0022cached_tokens\u0022:0},\u0022total_tokens\u0022:86,\u0022reasoning_tokens\u0022:64},\u0022model\u0022:\u0022gpt-5-mini\u0022,\u0022copilot_usage\u0022:{\u0022token_details\u0022:[{\u0022batch_size\u0022:1000000,\u0022cost_per_batch\u0022:25000000000,\u0022token_count\u0022:11,\u0022token_type\u0022:\u0022input\u0022},{\u0022batch_size\u0022:1000000,\u0022cost_per_batch\u0022:2500000000,\u0022token_count\u0022:0,\u0022token_type\u0022:\u0022cache_read\u0022},{\u0022batch_size\u0022:1000000,\u0022cost_per_batch\u0022:0,\u0022token_count\u0022:0,\u0022token_type\u0022:\u0022cache_write\u0022},{\u0022batch_size\u0022:1000000,\u0022cost_per_batch\u0022:200000000000,\u0022token_count\u0022:75,\u0022token_type\u0022:\u0022output\u0022}],\u0022total_nano_aiu\u0022:15275000}}\n\n"
+      },
+      {
+        "index": 4,
+        "event": null,
+        "data": [
+          "[DONE]"
+        ],
+        "raw": "data: [DONE]\n\n"
+      }
+    ]
+  }
+}

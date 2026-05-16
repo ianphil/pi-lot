@@ -140,6 +140,7 @@ surface:
 | `src/llm-agent/` agent loop, agent events, context budget | `tests/llm-agent.Tests/` |
 | `src/llm-agent/` fake/live agent loop behavior against SDK client surface | `tests/llm-agent.Int/` |
 | `src/llm-ui/` browser UI behavior | `tests/llm-ui.Tests/` |
+| Upstream Copilot API capture docs and drift detection | `tests/llm-upstream.Int/` |
 
 Do not put tests in `llm-agent.Tests` just because a feature touches prompts,
 streaming, tools, or context. Use `llm-agent.Tests` only for the agent library.
@@ -165,6 +166,26 @@ capabilities should prefer paired tests:
 
 The fake-provider test is the CI-friendly correctness check. The live test is
 the upstream compatibility check and should be marked `Category=Smoke`.
+
+### Upstream API Capture Pattern
+
+Use `tests/llm-upstream.Int` for direct Copilot upstream capture contracts.
+These tests bypass `LlmSdk`, `llm-svc`, `llm-agent`, and `llm-cli` request
+abstractions. They use existing credential loading only to obtain a token, then
+call `https://api.enterprise.githubcopilot.com` directly.
+
+The committed snapshots are living upstream capability documentation. Redact
+secrets and credential-like values only; do not normalize IDs, timestamps, model
+revisions, usage counts, response headers, SSE payloads, unknown fields, or other
+upstream details just because this repo does not consume them yet.
+
+All upstream capture tests are `Category=Smoke`. Refresh snapshots only when
+intentionally documenting accepted upstream drift:
+
+```powershell
+$env:LLM_UPSTREAM_UPDATE_SNAPSHOTS = "1"
+dotnet test tests\llm-upstream.Int --filter "Category=Smoke"
+```
 
 ### Agent Integration Test Pattern
 
