@@ -152,6 +152,8 @@ public sealed class ChatCompletionsService : IChatCompletionsService
             TimeoutMs = request.TimeoutMs,
             MaxRetries = request.MaxRetries,
             MaxRetryDelayMs = request.MaxRetryDelayMs,
+            OnPayload = request.OnPayload,
+            OnResponse = request.OnResponse,
         };
     }
 
@@ -284,6 +286,8 @@ public sealed class ChatCompletionsService : IChatCompletionsService
         MaxRetries = request.MaxRetries,
         MaxRetryDelayMs = request.MaxRetryDelayMs,
         Metadata = request.Metadata,
+        OnPayload = request.OnPayload,
+        OnResponse = request.OnResponse,
     };
 
     private static ChatCompletionRequest CloneForStreaming(ChatCompletionRequest request) => new()
@@ -304,6 +308,8 @@ public sealed class ChatCompletionsService : IChatCompletionsService
         MaxRetries = request.MaxRetries,
         MaxRetryDelayMs = request.MaxRetryDelayMs,
         Metadata = request.Metadata,
+        OnPayload = request.OnPayload,
+        OnResponse = request.OnResponse,
     };
 
     private static ResponseHttpResult MakeErrorResult(int statusCode, string message, string code)

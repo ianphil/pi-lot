@@ -40,6 +40,8 @@ public sealed class ChatCompletionsTranslator
             MaxRetries = request.MaxRetries,
             MaxRetryDelayMs = request.MaxRetryDelayMs,
             Metadata = request.Metadata as IReadOnlyDictionary<string, string>,
+            OnPayload = request.OnPayload,
+            OnResponse = request.OnResponse,
         };
     }
 

@@ -24,4 +24,5 @@ public static class LogEvents
 
     // ── Errors (4xxx) ────────────────────────────────────────────────────────
     public static readonly EventId UnexpectedError = new(4000, "UnexpectedError");
+    public static readonly EventId InspectionHookFailed = new(4001, "InspectionHookFailed");
 }

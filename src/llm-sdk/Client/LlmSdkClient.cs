@@ -242,6 +242,8 @@ public sealed class LlmSdkClient : ILlmSdkClient
             TimeoutMs = request.TimeoutMs,
             MaxRetries = request.MaxRetries,
             MaxRetryDelayMs = request.MaxRetryDelayMs,
+            OnPayload = request.OnPayload,
+            OnResponse = request.OnResponse,
         };
     }
 
@@ -265,6 +267,8 @@ public sealed class LlmSdkClient : ILlmSdkClient
             MaxRetries = request.MaxRetries,
             MaxRetryDelayMs = request.MaxRetryDelayMs,
             Metadata = request.Metadata,
+            OnPayload = request.OnPayload,
+            OnResponse = request.OnResponse,
         };
     }
 

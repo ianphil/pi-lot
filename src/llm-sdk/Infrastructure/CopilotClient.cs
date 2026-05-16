@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using LlmSdk.Core;
 using LlmSdk.Core.Models;
 using LlmSdk.Proxy;
@@ -280,6 +282,14 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
                 ToolChoice = request.ToolChoice is not null
                     ? JsonDocument.Parse(JsonSerializer.Serialize(request.ToolChoice, JsonDefaults.Web)).RootElement.Clone()
                     : null,
+                Headers = request.Headers,
+                RequestId = request.RequestId,
+                CorrelationId = request.CorrelationId,
+                TimeoutMs = request.TimeoutMs,
+                MaxRetries = request.MaxRetries,
+                MaxRetryDelayMs = request.MaxRetryDelayMs,
+                OnPayload = request.OnPayload,
+                OnResponse = request.OnResponse,
             };
 
             upstream = await SendResponsesAsync(responsesRequest, cancellationToken);
@@ -423,7 +433,8 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
     {
         using var timeout = CreateTimeout(options, cancellationToken);
         var effectiveToken = timeout?.Token ?? cancellationToken;
-        using var resp = await SendPostWithRetriesAsync(path, payload, options, stream: false, effectiveToken);
+        var requestBody = CreatePayloadBody(payload, options);
+        using var resp = await SendPostWithRetriesAsync(path, requestBody, options, stream: false, effectiveToken);
 
         var body = await resp.Content.ReadAsStringAsync(effectiveToken);
         return new ProxyHttpResult(
@@ -439,7 +450,8 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         var effectiveToken = timeout?.Token ?? cancellationToken;
         try
         {
-            var resp = await SendPostWithRetriesAsync(path, payload, options, stream: true, effectiveToken);
+            var requestBody = CreatePayloadBody(payload, options);
+            var resp = await SendPostWithRetriesAsync(path, requestBody, options, stream: true, effectiveToken);
             var contentType = resp.Content.Headers.ContentType?.MediaType ?? "text/event-stream";
             if (!resp.IsSuccessStatusCode)
             {
@@ -466,28 +478,31 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
 
     private async Task<HttpResponseMessage> SendPostWithRetriesAsync(
         string path,
-        object payload,
+        string requestBody,
         RequestOptions options,
         bool stream,
         CancellationToken cancellationToken)
     {
         var maxRetries = Math.Max(0, options.MaxRetries ?? 0);
+        var stopwatch = Stopwatch.StartNew();
         for (var attempt = 0; ; attempt++)
         {
             var response = stream
-                ? await SendStreamPostAsync(path, payload, options, cancellationToken)
-                : await SendPostAsync(path, payload, options, cancellationToken);
+                ? await SendStreamPostAsync(path, requestBody, options, cancellationToken)
+                : await SendPostAsync(path, requestBody, options, cancellationToken);
 
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized && TryReloadCredentialAfterUnauthorized())
             {
                 response.Dispose();
                 response = stream
-                    ? await SendStreamPostAsync(path, payload, options, cancellationToken)
-                    : await SendPostAsync(path, payload, options, cancellationToken);
+                    ? await SendStreamPostAsync(path, requestBody, options, cancellationToken)
+                    : await SendPostAsync(path, requestBody, options, cancellationToken);
             }
 
             if (!ShouldRetry(response.StatusCode) || attempt >= maxRetries)
             {
+                stopwatch.Stop();
+                InvokeResponseHook(options.OnResponse, response, stopwatch.Elapsed, new Uri($"{BaseUrl}{path}"));
                 return response;
             }
 
@@ -496,10 +511,10 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         }
     }
 
-    private Task<HttpResponseMessage> SendPostAsync(string path, object payload, RequestOptions options, CancellationToken cancellationToken)
+    private Task<HttpResponseMessage> SendPostAsync(string path, string requestBody, RequestOptions options, CancellationToken cancellationToken)
     {
-        var req = CreatePostRequest(path, payload, options);
-        return _http.SendAsync(req, cancellationToken);
+        var req = CreatePostRequest(path, requestBody, options);
+        return _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
     }
 
     private Task<HttpResponseMessage> SendModelsRequestAsync()
@@ -508,9 +523,9 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         return _http.SendAsync(req);
     }
 
-    private Task<HttpResponseMessage> SendStreamPostAsync(string path, object payload, RequestOptions options, CancellationToken cancellationToken)
+    private Task<HttpResponseMessage> SendStreamPostAsync(string path, string requestBody, RequestOptions options, CancellationToken cancellationToken)
     {
-        var req = CreatePostRequest(path, payload, options);
+        var req = CreatePostRequest(path, requestBody, options);
         return _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
     }
 
@@ -572,6 +587,8 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         MaxRetries = request.MaxRetries,
         MaxRetryDelayMs = request.MaxRetryDelayMs,
         Metadata = request.Metadata,
+        OnPayload = request.OnPayload,
+        OnResponse = request.OnResponse,
     };
 
     private static CreateResponseRequest CreateResponsesPayload(CreateResponseRequest request, bool stream) => new()
@@ -604,6 +621,8 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         TimeoutMs = request.TimeoutMs,
         MaxRetries = request.MaxRetries,
         MaxRetryDelayMs = request.MaxRetryDelayMs,
+        OnPayload = request.OnPayload,
+        OnResponse = request.OnResponse,
     };
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string path)
@@ -618,18 +637,60 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         return req;
     }
 
-    private HttpRequestMessage CreatePostRequest(string path, object payload, RequestOptions options)
+    private HttpRequestMessage CreatePostRequest(string path, string requestBody, RequestOptions options)
     {
         var req = CreateRequest(HttpMethod.Post, path);
         req.Headers.TryAddWithoutValidation("X-Initiator", "user");
         req.Headers.TryAddWithoutValidation("Openai-Intent", "conversation-edits");
-        req.Content = new StringContent(
-            JsonSerializer.Serialize(payload, JsonDefaults.Web),
-            Encoding.UTF8,
-            "application/json");
+        req.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
         ApplyPerCallHeaders(req, options.Headers);
         ApplyRequestId(req, options.RequestId);
         return req;
+    }
+
+    private string CreatePayloadBody(object payload, RequestOptions options)
+    {
+        var originalBody = JsonSerializer.Serialize(payload, JsonDefaults.Web);
+        if (options.OnPayload is null)
+        {
+            return originalBody;
+        }
+
+        try
+        {
+            var node = JsonNode.Parse(originalBody)
+                ?? throw new JsonException("Serialized payload did not produce a JSON node.");
+            var replacement = options.OnPayload(node);
+            return replacement is null
+                ? originalBody
+                : replacement.ToJsonString(JsonDefaults.Web);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(LogEvents.InspectionHookFailed, ex, "OnPayload hook failed; continuing with original payload.");
+            return originalBody;
+        }
+    }
+
+    private void InvokeResponseHook(Action<ResponseSnapshot>? onResponse, HttpResponseMessage response, TimeSpan elapsed, Uri requestUri)
+    {
+        if (onResponse is null)
+        {
+            return;
+        }
+
+        try
+        {
+            onResponse(new ResponseSnapshot(
+                (int)response.StatusCode,
+                CaptureHeaderLists(response),
+                elapsed,
+                response.RequestMessage?.RequestUri ?? requestUri));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(LogEvents.InspectionHookFailed, ex, "OnResponse hook failed; continuing with response processing.");
+        }
     }
 
     private static void ApplyPerCallHeaders(HttpRequestMessage request, IReadOnlyDictionary<string, string>? headers)
@@ -665,6 +726,22 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
     private static IReadOnlyDictionary<string, string[]> CaptureHeaders(HttpResponseMessage response)
     {
         var headers = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        foreach (var header in response.Headers)
+        {
+            headers[header.Key] = header.Value.ToArray();
+        }
+
+        foreach (var header in response.Content.Headers)
+        {
+            headers[header.Key] = header.Value.ToArray();
+        }
+
+        return headers;
+    }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>> CaptureHeaderLists(HttpResponseMessage response)
+    {
+        var headers = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var header in response.Headers)
         {
             headers[header.Key] = header.Value.ToArray();
@@ -720,13 +797,29 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         string? RequestId,
         int? TimeoutMs,
         int? MaxRetries,
-        int? MaxRetryDelayMs)
+        int? MaxRetryDelayMs,
+        Func<JsonNode, JsonNode?>? OnPayload,
+        Action<ResponseSnapshot>? OnResponse)
     {
         public static RequestOptions From(CreateResponseRequest request) =>
-            new(request.Headers, request.RequestId, request.TimeoutMs, request.MaxRetries, request.MaxRetryDelayMs);
+            new(
+                request.Headers,
+                request.RequestId,
+                request.TimeoutMs,
+                request.MaxRetries,
+                request.MaxRetryDelayMs,
+                request.OnPayload,
+                request.OnResponse);
 
         public static RequestOptions From(ChatCompletionRequest request) =>
-            new(request.Headers, request.RequestId, request.TimeoutMs, request.MaxRetries, request.MaxRetryDelayMs);
+            new(
+                request.Headers,
+                request.RequestId,
+                request.TimeoutMs,
+                request.MaxRetries,
+                request.MaxRetryDelayMs,
+                request.OnPayload,
+                request.OnResponse);
     }
 
     private bool TryReloadCredentialAfterUnauthorized()
