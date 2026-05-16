@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using LlmSdk.Client;
 using LlmSdk.Core.Models;
+using LlmSdk.Core.Services;
 
 namespace LlmAgent;
 
@@ -105,6 +106,14 @@ public static class AgentLoop
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                if (ValidateToolCall(options.Tools, functionCall) is { } validationError)
+                {
+                    toolResults.Add(new AgentToolCallResult(functionCall.CallId, functionCall.Name, validationError.Content, validationError.IsError));
+                    context.AddToolResult(functionCall.CallId, validationError.Content);
+                    yield return new ToolExecutionEnded(functionCall.CallId, functionCall.Name, validationError);
+                    continue;
+                }
+
                 yield return new ToolExecutionStarted(functionCall.CallId, functionCall.Name, functionCall.Arguments);
 
                 var result = await ExecuteToolAsync(options.Tools, functionCall, cancellationToken);
@@ -142,6 +151,28 @@ public static class AgentLoop
             MaxRetryDelayMs = options.MaxRetryDelayMs,
             Tools = options.Tools.Select(static tool => tool.ToToolDefinition()).ToArray(),
         };
+
+    private static AgentToolResult? ValidateToolCall(
+        IReadOnlyList<IAgentTool> tools,
+        ResponseFunctionCallItem functionCall)
+    {
+        var tool = tools.FirstOrDefault(candidate => string.Equals(candidate.Name, functionCall.Name, StringComparison.Ordinal));
+        if (tool is null)
+        {
+            return null;
+        }
+
+        var validation = ToolValidator.Validate(
+            new ToolDefinition(tool.Name, tool.Description, tool.Parameters, tool.Strict),
+            functionCall.Arguments);
+        if (validation.IsValid)
+        {
+            return null;
+        }
+
+        var result = validation.ToErrorResult(functionCall.CallId);
+        return new AgentToolResult(result.Output, result.IsError);
+    }
 
     private static async Task<AgentToolResult> ExecuteToolAsync(
         IReadOnlyList<IAgentTool> tools,

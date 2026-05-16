@@ -75,6 +75,82 @@ public sealed class ProxyEndpointIntTests
     }
 
     [Fact]
+    public async Task PostResponses_WithFakeApiTools_ForwardsToolsAndReturnsFunctionCallUnchanged()
+    {
+        var provider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelInfo
+                {
+                    Id = "fake-gpt-5.5",
+                    SupportedEndpoints = ["/responses"],
+                },
+            ],
+            ResponsesResult = new(JsonSerializer.Serialize(new Response
+            {
+                Id = "resp_fake_tool",
+                Model = "fake-gpt-5.5",
+                Output =
+                [
+                    new ResponseFunctionCallItem
+                    {
+                        Id = "fc_fake",
+                        CallId = "call_fake",
+                        Name = "get_weather",
+                        Arguments = """{"city":123}""",
+                    },
+                ],
+            }, JsonDefaults.Web), 200),
+        };
+        await using var factory = SvcIntWebApplicationFactory.CreateFake(provider);
+        using var client = factory.CreateClient();
+
+        var httpResponse = await client.PostAsJsonAsync("/v1/responses", new
+        {
+            model = "fake-gpt-5.5",
+            input = "Use get_weather for Seattle.",
+            tools = new object[]
+            {
+                new
+                {
+                    type = "function",
+                    name = "get_weather",
+                    description = "Get weather.",
+                    parameters = new
+                    {
+                        type = "object",
+                        required = new[] { "city" },
+                        additionalProperties = false,
+                        properties = new
+                        {
+                            city = new { type = "string" },
+                        },
+                    },
+                    strict = true,
+                },
+            },
+            tool_choice = new
+            {
+                type = "function",
+                name = "get_weather",
+            },
+        });
+        var body = await httpResponse.Content.ReadAsStringAsync();
+        _output.WriteLine(body);
+
+        httpResponse.EnsureSuccessStatusCode();
+        Assert.Single(provider.LastResponsesRequest?.Tools ?? []);
+        Assert.Equal("get_weather", provider.LastResponsesRequest?.Tools?[0].Name);
+        Assert.Equal("function", provider.LastResponsesRequest?.ToolChoice?.GetProperty("type").GetString());
+
+        var response = JsonSerializer.Deserialize<Response>(body, JsonDefaults.Web);
+        var toolCall = Assert.IsType<ResponseFunctionCallItem>(Assert.Single(response?.Output ?? []));
+        Assert.Equal("get_weather", toolCall.Name);
+        Assert.Equal("""{"city":123}""", toolCall.Arguments);
+    }
+
+    [Fact]
     public async Task PostChatCompletions_WithFakeApi_ReturnsChatCompletion()
     {
         var provider = new FakeModelProvider
@@ -146,5 +222,55 @@ public sealed class ProxyEndpointIntTests
         Assert.Equal("response", response?.Object);
         Assert.StartsWith("gpt-5.4-mini", response?.Model, StringComparison.Ordinal);
         Assert.NotEmpty(response?.Output ?? []);
+    }
+
+    [Fact]
+    [Trait("Category", "Smoke")]
+    public async Task PostResponses_WithLiveApiTools_ReturnsFunctionCall()
+    {
+        await using var factory = SvcIntWebApplicationFactory.CreateLive();
+        using var client = factory.CreateClient();
+        var auth = factory.Services.GetRequiredService<IAuthProvider>();
+        Assert.True(auth.TryLoadCredential(), "Could not load Copilot credentials from COPILOT_TOKEN or the local credential store.");
+
+        var httpResponse = await client.PostAsJsonAsync("/v1/responses", new
+        {
+            model = "gpt-5.4-mini",
+            input = "Use get_weather for Seattle.",
+            tools = new object[]
+            {
+                new
+                {
+                    type = "function",
+                    name = "get_weather",
+                    description = "Get current weather for a city.",
+                    parameters = new
+                    {
+                        type = "object",
+                        required = new[] { "city" },
+                        additionalProperties = false,
+                        properties = new
+                        {
+                            city = new { type = "string" },
+                        },
+                    },
+                    strict = true,
+                },
+            },
+            tool_choice = new
+            {
+                type = "function",
+                name = "get_weather",
+            },
+        });
+        var body = await httpResponse.Content.ReadAsStringAsync();
+        _output.WriteLine(body);
+
+        httpResponse.EnsureSuccessStatusCode();
+        var response = JsonSerializer.Deserialize<Response>(body, JsonDefaults.Web);
+        var toolCall = Assert.IsType<ResponseFunctionCallItem>(Assert.Single(response?.Output ?? []));
+        Assert.Equal("get_weather", toolCall.Name);
+        using var arguments = JsonDocument.Parse(toolCall.Arguments);
+        Assert.False(string.IsNullOrWhiteSpace(arguments.RootElement.GetProperty("city").GetString()));
     }
 }
