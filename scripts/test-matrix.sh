@@ -194,10 +194,10 @@ invoke_proxy_knobs() {
       -w "%{http_code}" \
       -X POST "${endpoint}/v1/responses" \
       -H "Content-Type: application/json" \
-      -H "X-LLM-Upstream-Header-X-Request-Id: test-matrix-proxy-knobs" \
-      -H "X-LLM-Upstream-Timeout-Ms: 60000" \
-      -H "X-LLM-Upstream-Max-Retries: 1" \
-      -H "X-LLM-Upstream-Max-Retry-Delay-Ms: 1000" \
+      -H "X-LLM-Request-Id: test-matrix-proxy-knobs" \
+      -H "X-LLM-Timeout-Ms: 60000" \
+      -H "X-LLM-Max-Retries: 1" \
+      -H "X-LLM-Max-Retry-Delay-Ms: 1000" \
       --data "{\"model\":\"${model}\",\"input\":\"${prompt}\",\"metadata\":{\"test\":\"proxy-knobs\"},\"stream\":false}" 2>&1); then
     local output
     output="$(cat "$response_file")"

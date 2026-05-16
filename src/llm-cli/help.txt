@@ -80,6 +80,12 @@ ASK FLAGS
   -s, --system          System instructions prepended to the conversation
   --no-stream           Disable streaming, return complete response at once
   --tools               Enable local tools (currently: fetch_url)
+  --request-id          Request ID sent upstream as X-Request-Id
+  --correlation-id      Local SDK/proxy correlation ID
+  --metadata            Local metadata as key=value (repeatable)
+  --timeout-ms          Per-call upstream timeout in milliseconds
+  --max-retries         Per-call maximum retry count
+  --max-retry-delay-ms  Per-call maximum retry delay in milliseconds
 
 CHAT FLAGS
   <prompt>              The prompt to send (required, positional)
@@ -87,18 +93,36 @@ CHAT FLAGS
   -s, --system          System instructions prepended to the conversation
   --no-stream           Disable streaming, return complete response at once
   --tools               Enable local tools (currently: fetch_url)
+  --request-id          Request ID sent upstream as X-Request-Id
+  --correlation-id      Local SDK/proxy correlation ID
+  --metadata            Local metadata as key=value (repeatable)
+  --timeout-ms          Per-call upstream timeout in milliseconds
+  --max-retries         Per-call maximum retry count
+  --max-retry-delay-ms  Per-call maximum retry delay in milliseconds
 
 SDK-ASK FLAGS
   <prompt>              The prompt to send (required, positional)
   -m, --model           Model ID (default: gpt-5.4-mini)
   -s, --system          System instructions prepended to the conversation
   --no-stream           Disable streaming, return complete response at once
+  --request-id          Request ID sent upstream as X-Request-Id
+  --correlation-id      Local SDK/proxy correlation ID
+  --metadata            Local metadata as key=value (repeatable)
+  --timeout-ms          Per-call upstream timeout in milliseconds
+  --max-retries         Per-call maximum retry count
+  --max-retry-delay-ms  Per-call maximum retry delay in milliseconds
 
 SDK-CHAT FLAGS
   <prompt>              The prompt to send (required, positional)
   -m, --model           Model ID (default: gpt-5-mini)
   -s, --system          System instructions prepended to the conversation
   --no-stream           Disable streaming, return complete response at once
+  --request-id          Request ID sent upstream as X-Request-Id
+  --correlation-id      Local SDK/proxy correlation ID
+  --metadata            Local metadata as key=value (repeatable)
+  --timeout-ms          Per-call upstream timeout in milliseconds
+  --max-retries         Per-call maximum retry count
+  --max-retry-delay-ms  Per-call maximum retry delay in milliseconds
 
 GLOBAL FLAGS
   -e, --endpoint        Base URL of the proxy (default: http://localhost:5100)

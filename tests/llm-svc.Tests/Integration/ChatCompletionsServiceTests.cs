@@ -284,16 +284,20 @@ public sealed class ChatCompletionsServiceTests : IClassFixture<ResponsesWebAppl
                 messages = new[] { new { role = "user", content = "Hi" } },
             }),
         };
-        request.Headers.Add("X-LLM-Upstream-Header-X-Request-Id", "chat-test");
-        request.Headers.Add("X-LLM-Upstream-Timeout-Ms", "45000");
-        request.Headers.Add("X-LLM-Upstream-Max-Retries", "1");
-        request.Headers.Add("X-LLM-Upstream-Max-Retry-Delay-Ms", "750");
+        request.Headers.Add("X-LLM-Request-Id", "chat-test");
+        request.Headers.Add("X-LLM-Correlation-Id", "chat-correlation");
+        request.Headers.Add("X-LLM-Metadata-test", "chat-metadata");
+        request.Headers.Add("X-LLM-Timeout-Ms", "45000");
+        request.Headers.Add("X-LLM-Max-Retries", "1");
+        request.Headers.Add("X-LLM-Max-Retry-Delay-Ms", "750");
 
         var httpResponse = await client.SendAsync(request);
 
         httpResponse.EnsureSuccessStatusCode();
         Assert.NotNull(_factory.Provider.LastChatRequest);
         Assert.Equal("chat-test", _factory.Provider.LastChatRequest!.RequestId);
+        Assert.Equal("chat-correlation", _factory.Provider.LastChatRequest.CorrelationId);
+        Assert.Equal("chat-metadata", _factory.Provider.LastChatRequest.Metadata!["test"]);
         Assert.Equal(45000, _factory.Provider.LastChatRequest.TimeoutMs);
         Assert.Equal(1, _factory.Provider.LastChatRequest.MaxRetries);
         Assert.Equal(750, _factory.Provider.LastChatRequest.MaxRetryDelayMs);

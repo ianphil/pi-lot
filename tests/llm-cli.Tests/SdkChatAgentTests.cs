@@ -32,7 +32,17 @@ public sealed class SdkChatAgentTests
 
         await SdkChatAgent.RunNonStreamingAsync(
             client,
-            new AskRequest("Hi there", "gpt-5-mini", "Be brief", false),
+            new AskRequest(
+                "Hi there",
+                "gpt-5-mini",
+                "Be brief",
+                false,
+                RequestId: "request-123",
+                CorrelationId: "correlation-123",
+                Metadata: new Dictionary<string, string> { ["trace"] = "trace-123" },
+                TimeoutMs: 10000,
+                MaxRetries: 1,
+                MaxRetryDelayMs: 500),
             writer,
             CancellationToken.None);
 
@@ -45,6 +55,12 @@ public sealed class SdkChatAgentTests
         Assert.Equal("user", client.LastCreateChatCompletionRequest.Messages[1].Role);
         Assert.Equal("Hi there", client.LastCreateChatCompletionRequest.Messages[1].Content);
         Assert.Null(client.LastCreateChatCompletionRequest.Stream);
+        Assert.Equal("request-123", client.LastCreateChatCompletionRequest.RequestId);
+        Assert.Equal("correlation-123", client.LastCreateChatCompletionRequest.CorrelationId);
+        Assert.Equal("trace-123", client.LastCreateChatCompletionRequest.Metadata?["trace"]);
+        Assert.Equal(10000, client.LastCreateChatCompletionRequest.TimeoutMs);
+        Assert.Equal(1, client.LastCreateChatCompletionRequest.MaxRetries);
+        Assert.Equal(500, client.LastCreateChatCompletionRequest.MaxRetryDelayMs);
     }
 
     [Fact]

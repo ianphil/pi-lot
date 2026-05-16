@@ -33,6 +33,12 @@ public sealed record AgentLoopOptions
     public int? MaxTurns { get; init; }
     public double? Temperature { get; init; }
     public ResponseReasoning? Reasoning { get; init; }
+    public string? RequestId { get; init; }
+    public string? CorrelationId { get; init; }
+    public IReadOnlyDictionary<string, string>? Metadata { get; init; }
+    public int? TimeoutMs { get; init; }
+    public int? MaxRetries { get; init; }
+    public int? MaxRetryDelayMs { get; init; }
     public AgentContextBudgetOptions? ContextBudget { get; init; }
 }
 

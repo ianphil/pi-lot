@@ -18,7 +18,17 @@ public sealed class SdkContextAskAgentTests
 
         await SdkContextAskAgent.RunNonStreamingAsync(
             client,
-            new AskRequest("Hi there", "gpt-5.4-mini", "Be brief", false),
+            new AskRequest(
+                "Hi there",
+                "gpt-5.4-mini",
+                "Be brief",
+                false,
+                RequestId: "request-123",
+                CorrelationId: "correlation-123",
+                Metadata: new Dictionary<string, string> { ["trace"] = "trace-123" },
+                TimeoutMs: 10000,
+                MaxRetries: 1,
+                MaxRetryDelayMs: 500),
             CompletionApi.Responses,
             writer,
             CancellationToken.None);
@@ -30,6 +40,12 @@ public sealed class SdkContextAskAgentTests
         Assert.Equal("Hi there", Assert.IsType<TextContent>(Assert.Single(userMessage.Content)).Text);
         Assert.Equal("gpt-5.4-mini", client.LastCompletionOptions?.Model);
         Assert.Equal(CompletionApi.Responses, client.LastCompletionOptions?.PreferredApi);
+        Assert.Equal("request-123", client.LastCompletionOptions?.RequestId);
+        Assert.Equal("correlation-123", client.LastCompletionOptions?.CorrelationId);
+        Assert.Equal("trace-123", client.LastCompletionOptions?.Metadata?["trace"]);
+        Assert.Equal(10000, client.LastCompletionOptions?.TimeoutMs);
+        Assert.Equal(1, client.LastCompletionOptions?.MaxRetries);
+        Assert.Equal(500, client.LastCompletionOptions?.MaxRetryDelayMs);
     }
 
     [Fact]

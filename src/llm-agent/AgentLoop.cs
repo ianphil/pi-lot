@@ -134,6 +134,12 @@ public static class AgentLoop
             Instructions = options.Instructions,
             Temperature = options.Temperature,
             Reasoning = options.Reasoning,
+            RequestId = options.RequestId,
+            CorrelationId = options.CorrelationId,
+            Metadata = options.Metadata,
+            TimeoutMs = options.TimeoutMs,
+            MaxRetries = options.MaxRetries,
+            MaxRetryDelayMs = options.MaxRetryDelayMs,
             Tools = options.Tools.Select(static tool => tool.ToToolDefinition()).ToArray(),
         };
 

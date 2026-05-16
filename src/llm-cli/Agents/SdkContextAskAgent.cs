@@ -16,11 +16,7 @@ public static class SdkContextAskAgent
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(writer);
 
-        var response = await client.CompleteAsync(CreateContext(request), new CompletionOptions
-        {
-            Model = request.Model,
-            PreferredApi = preferredApi,
-        }, cancellationToken);
+        var response = await client.CompleteAsync(CreateContext(request), CreateOptions(request, preferredApi), cancellationToken);
 
         var text = string.Concat(response.Content.OfType<TextContent>().Select(static content => content.Text));
         writer.WriteLine(string.IsNullOrEmpty(text) ? "No output text was returned." : text);
@@ -43,11 +39,7 @@ public static class SdkContextAskAgent
         ArgumentNullException.ThrowIfNull(writer);
 
         var wroteText = false;
-        await foreach (var streamEvent in client.StreamAsync(CreateContext(request), new CompletionOptions
-                       {
-                           Model = request.Model,
-                           PreferredApi = preferredApi,
-                       }, cancellationToken))
+        await foreach (var streamEvent in client.StreamAsync(CreateContext(request), CreateOptions(request, preferredApi), cancellationToken))
         {
             switch (streamEvent)
             {
@@ -109,5 +101,17 @@ public static class SdkContextAskAgent
         [
             new UserMessage([new TextContent(request.Prompt)]),
         ],
+    };
+
+    private static CompletionOptions CreateOptions(AskRequest request, CompletionApi preferredApi) => new()
+    {
+        Model = request.Model,
+        PreferredApi = preferredApi,
+        RequestId = request.RequestId,
+        CorrelationId = request.CorrelationId,
+        Metadata = request.Metadata,
+        TimeoutMs = request.TimeoutMs,
+        MaxRetries = request.MaxRetries,
+        MaxRetryDelayMs = request.MaxRetryDelayMs,
     };
 }
