@@ -114,6 +114,7 @@ Run CI-safe tests (unit + integration):
 ```powershell
 dotnet test tests\llm-sdk.Tests --no-restore
 dotnet test tests\llm-svc.Tests --filter "Category!=Smoke" --no-restore
+dotnet test tests\llm-svc.Int --filter "Category!=Smoke" --no-restore
 dotnet test tests\llm-cli.Tests --filter "Category!=Smoke" --no-restore
 ```
 
@@ -133,6 +134,7 @@ surface:
 |---|---|
 | `src/llm-sdk/` SDK client, Core models/services, Infrastructure adapters | `tests/llm-sdk.Tests/` |
 | `src/llm-svc/` host, HTTP endpoints, service wiring | `tests/llm-svc.Tests/` |
+| `src/llm-svc/` fake/live proxy behavior against real host wiring | `tests/llm-svc.Int/` |
 | `src/llm-cli/` commands, CLI agents, local tools | `tests/llm-cli.Tests/` |
 | `src/llm-agent/` agent loop, agent events, context budget | `tests/llm-agent.Tests/` |
 | `src/llm-ui/` browser UI behavior | `tests/llm-ui.Tests/` |
@@ -162,19 +164,33 @@ capabilities should prefer paired tests:
 The fake-provider test is the CI-friendly correctness check. The live test is
 the upstream compatibility check and should be marked `Category=Smoke`.
 
+### Service Integration Test Pattern
+
+Use `tests/llm-svc.Int` for service/proxy behavior that benefits from the same
+fake/live pairing:
+
+- a deterministic `WebApplicationFactory` test with fake SDK proxy ports for
+  endpoint routing, option forwarding, and translation behavior
+- a live smoke test against the same HTTP endpoint shape and real Copilot
+  upstream
+
+Keep service/proxy correctness here instead of expanding the CLI matrix. The CLI
+matrix should stay a small user-facing smoke suite for command parsing, process
+execution, local tools, and endpoint connectivity.
+
 ### E2E Test Matrix
 
-The `scripts/test-matrix.*` scripts are CLI/proxy end-to-end validation, not
-unit or integration tests. Every row must run a real CLI command against the
-real proxy or call the real proxy directly, use real Copilot auth, and call an
-actual LLM model.
+The `scripts/test-matrix.*` scripts are CLI smoke validation, not unit or
+integration tests. Every row must run a real CLI command against the real proxy,
+use real Copilot auth, and call an actual LLM model.
 
 Fakes, mocks, stubs, `WebApplicationFactory`, test servers, and `dotnet test`
 are fine in `Unit` and `Integration` tests, but they do not belong in the test
 matrix execution path. If SDK behavior needs fake/live coverage, prefer paired
-`llm-sdk.Int` tests instead of adding CLI matrix rows. If CLI behavior needs
-matrix coverage, expose a real CLI or service path that exercises the production
-code and live upstream behavior.
+`llm-sdk.Int` tests instead of adding CLI matrix rows. If service/proxy behavior
+needs fake/live coverage, prefer paired `llm-svc.Int` tests. If CLI behavior
+needs matrix coverage, expose a real CLI path that exercises the production code
+and live upstream behavior.
 
 ### What to Test Before Submitting
 

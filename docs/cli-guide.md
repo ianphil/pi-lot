@@ -79,8 +79,8 @@ Send a prompt directly through `ILlmSdkClient` in-process. By default it streams
 Responses API output directly; with `--tools` it runs the `llm-agent` loop for
 local tool execution. No proxy required. See `docs/agent-guide.md` for the
 underlying agent-loop library. This command is primarily a reference/debug path;
-new SDK behavior should be validated in `tests/llm-sdk.Int` instead of adding
-CLI matrix coverage.
+new SDK behavior should be validated in `tests/llm-sdk.Int`, and service/proxy
+behavior in `tests/llm-svc.Int`, instead of adding CLI matrix coverage.
 
 ```bash
 llm sdk-ask "your prompt"
@@ -97,7 +97,8 @@ Default model: `gpt-5.4-mini`
 Send a prompt directly through `ILlmSdkClient.CreateChatCompletionAsync` /
 `CreateChatCompletionStreamAsync`. No proxy required. This command is primarily
 a reference/debug path; new SDK behavior should be validated in
-`tests/llm-sdk.Int` instead of adding CLI matrix coverage.
+`tests/llm-sdk.Int`, and service/proxy behavior in `tests/llm-svc.Int`, instead
+of adding CLI matrix coverage.
 
 ```bash
 llm sdk-chat "your prompt"
@@ -266,7 +267,8 @@ proxy needed — they call the Copilot API through the SDK's HTTP adapter.
 `sdk-ask --tools` layers `llm-agent` on top of that client so local tool calls
 run in-process too. Credentials are still required via `COPILOT_TOKEN` or a
 platform credential store. These commands are not the primary SDK correctness
-harness; prefer paired fake/live tests in `tests/llm-sdk.Int` for SDK behavior.
+harness; prefer paired fake/live tests in `tests/llm-sdk.Int` for SDK behavior
+and `tests/llm-svc.Int` for service/proxy behavior.
 
 ### Routing
 

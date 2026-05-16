@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 #
-# Runs real CLI/proxy scenarios matching the test matrix.
+# Runs real CLI smoke scenarios against llm-svc.
 #
-# Each row exercises a different CLI/proxy surface + upstream routing path.
+# Each row exercises a user-visible CLI path against a live proxy. Service
+# routing and translation correctness belongs in llm-svc.Int.
 # Starts llm-svc automatically if the port is free; reuses an
 # already-running proxy otherwise.
 #
 # Models used:
-#   gpt-5.4-mini     -> /responses only
-#   gpt-5.4          -> /responses only
-#   claude-haiku-4.5 -> /chat/completions only
-#   gpt-5-mini       -> both /chat/completions and /responses (dual)
+#   gpt-5.4-mini -> responses smoke
+#   gpt-5-mini   -> chat smoke
 #
 # Usage:  bash scripts/test-matrix.sh [--port 5110] [--no-stream]
 
@@ -172,48 +171,31 @@ invoke_llm() {
   fi
 }
 
-invoke_proxy_knobs() {
+invoke_cli() {
   local label="$1"
-  local model="$2"
-  local response_file
-  response_file="$(mktemp)"
+  shift
+  local -a cli_args=("$@")
 
   echo ""
   echo -e "─── \033[36m${label}\033[0m ───"
-  echo -e "  \033[90mcurl ${endpoint}/v1/responses with proxy knob headers\033[0m"
+  echo -e "  \033[90mllm ${cli_args[*]}\033[0m"
 
   total=$((total + 1))
 
-  local status
-  if status=$(curl -sS \
-      -o "$response_file" \
-      -w "%{http_code}" \
-      -X POST "${endpoint}/v1/responses" \
-      -H "Content-Type: application/json" \
-      -H "X-LLM-Request-Id: test-matrix-proxy-knobs" \
-      -H "X-LLM-Correlation-Id: test-matrix-proxy-correlation" \
-      -H "X-LLM-Metadata-test: proxy-knobs" \
-      -H "X-LLM-Timeout-Ms: 60000" \
-      -H "X-LLM-Max-Retries: 1" \
-      -H "X-LLM-Max-Retry-Delay-Ms: 1000" \
-      --data "{\"model\":\"${model}\",\"input\":\"${prompt}\",\"stream\":false}" 2>&1); then
-    local output
-    output="$(cat "$response_file")"
-    rm -f "$response_file"
-
+  local output
+  if output=$($dotnet run --project "$llm_cli" --no-build -- "${cli_args[@]}" 2>&1); then
     local text
     text=$(echo "$output" | tr '\n' ' ' | head -c 200)
-    if [[ "$status" =~ ^2 ]]; then
+    if echo "$output" | grep -qiE "Unhandled exception|FAIL|error"; then
+      echo -e "  \033[31mFAIL: ${text}\033[0m"
+      fail=$((fail + 1))
+    else
       echo -e "  \033[32mOK: ${text}\033[0m"
       pass=$((pass + 1))
-    else
-      echo -e "  \033[31mFAIL (${status}): ${text}\033[0m"
-      fail=$((fail + 1))
     fi
   else
-    rm -f "$response_file"
     local text
-    text=$(echo "$status" | tr '\n' ' ' | head -c 200)
+    text=$(echo "$output" | tr '\n' ' ' | head -c 200)
     echo -e "  \033[31mFAIL: ${text}\033[0m"
     fail=$((fail + 1))
   fi
@@ -224,42 +206,14 @@ if [[ "$no_stream" == "1" ]]; then
   use_stream=0
 fi
 
-# ══════════════════════════════════════════════════════════════════════════════
-# /responses surface (llm ask)
-# ══════════════════════════════════════════════════════════════════════════════
-
-invoke_llm "1. ask → responses-only model, plain"                ask "$prompt"      gpt-5.4-mini     0
-invoke_llm "2. ask → responses-only model, streaming"            ask "$prompt"      gpt-5.4-mini     "$use_stream"
-invoke_llm "3. ask → chat-only model, plain translation"         ask "$prompt"      claude-haiku-4.5 0
-invoke_llm "4. ask → chat-only model, streaming translation"     ask "$prompt"      claude-haiku-4.5 "$use_stream"
-invoke_llm "5. ask → chat-only model, tools"                     ask "$tool_prompt" claude-haiku-4.5 0 1
-invoke_llm "6. ask → chat-only model, streaming + tools"         ask "$tool_prompt" claude-haiku-4.5 "$use_stream" 1
-invoke_llm "7. ask → dual-endpoint model, prefers responses"     ask "$prompt"      gpt-5-mini       0
-invoke_llm "7b. ask → proxy CLI per-call knobs"                  ask "$prompt"      gpt-5.4-mini     0 0 \
+invoke_cli "1. health → CLI can reach proxy" health -e "$endpoint"
+invoke_llm "2. ask → responses smoke" ask "$prompt" gpt-5.4-mini 0
+invoke_llm "3. chat → chat smoke" chat "$prompt" gpt-5-mini "$use_stream"
+invoke_llm "4. ask → local tools smoke" ask "$tool_prompt" gpt-5-mini 0 1
+invoke_llm "5. ask → CLI per-call knobs smoke" ask "$prompt" gpt-5.4-mini 0 0 \
   --request-id test-matrix-cli-ask \
   --correlation-id test-matrix-cli-correlation \
   --metadata surface=ask \
-  --timeout-ms 60000 \
-  --max-retries 1 \
-  --max-retry-delay-ms 1000
-invoke_proxy_knobs "7c. responses → raw proxy per-call knobs"    gpt-5.4-mini
-
-# ══════════════════════════════════════════════════════════════════════════════
-# /chat/completions surface (llm chat)
-# ══════════════════════════════════════════════════════════════════════════════
-
-invoke_llm "8. chat → chat-capable model, plain"                     chat "$prompt"      claude-haiku-4.5 0
-invoke_llm "9. chat → chat-capable model, streaming"                 chat "$prompt"      claude-haiku-4.5 "$use_stream"
-invoke_llm "10. chat → chat-capable model, streaming + tools"        chat "$tool_prompt" claude-haiku-4.5 "$use_stream" 1
-invoke_llm "11. chat → responses-only model, plain translation"      chat "$prompt"      gpt-5.4-mini     0
-invoke_llm "12. chat → responses-only model, streaming translation"  chat "$prompt"      gpt-5.4-mini     "$use_stream"
-invoke_llm "13. chat → responses-only model, streaming + tools"      chat "$tool_prompt" gpt-5.4-mini     "$use_stream" 1
-invoke_llm "14. chat → dual-endpoint model, prefers chat"            chat "$prompt"      gpt-5-mini       0
-invoke_llm "15. chat → dual-endpoint model, streaming prefers chat"  chat "$prompt"      gpt-5-mini       "$use_stream"
-invoke_llm "15b. chat → proxy CLI per-call knobs"                    chat "$prompt"      gpt-5-mini       0 0 \
-  --request-id test-matrix-cli-chat \
-  --correlation-id test-matrix-cli-correlation \
-  --metadata surface=chat \
   --timeout-ms 60000 \
   --max-retries 1 \
   --max-retry-delay-ms 1000
