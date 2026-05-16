@@ -96,6 +96,13 @@ paths consume the same behavior and prove both public surfaces. If a feature is
 client-only, service-only, or agent-only, make that boundary decision explicit in
 the PR and test only the owning surface plus the units underneath it.
 
+Do not cross package boundaries just because another package may eventually use
+the feature. Potential future consumption is not scope. A SDK PR must not modify
+or add tests under `llm-agent`, `llm-svc`, `llm-cli`, or `llm-ui` unless the
+issue explicitly changes that package's owned behavior. Prove SDK-owned behavior
+in `llm-sdk.Tests` / `llm-sdk.Int`; create a separate follow-up issue or PR when
+a consumer package should adopt the new SDK surface.
+
 ## Build and Test
 
 ### ⚠️ File-Lock Warning
@@ -211,13 +218,13 @@ integration test should catch "the helper works, but the product never calls it"
 before the PR is ready.
 
 For SDK issue work, unit-test the units that own the logic, then add fake/live
-integration coverage for every intended public surface. For example, shared SDK
-semantics used by both agent/client consumers and `llm-svc` proxy consumers need
-tests through the `ILlmSdkClient` path and the service/proxy path. Ergonomic
-portable-client APIs such as `CompleteAsync(Context)` or `StreamAsync(Context)`
-belong in `llm-sdk.Int`; HTTP proxy wire behavior belongs in `llm-svc.Int` or
-`llm-svc.Tests`; agent-owned behavior belongs in `llm-agent.Tests` or
-`llm-agent.Int`.
+integration coverage for the SDK public surface that owns the behavior. Raw SDK
+APIs such as `CreateResponseAsync` and `CreateResponseStreamAsync` belong in
+`llm-sdk.Int`; ergonomic portable-client APIs such as `CompleteAsync(Context)`
+or `StreamAsync(Context)` also belong in `llm-sdk.Int`. HTTP proxy wire behavior
+belongs in `llm-svc.Int` or `llm-svc.Tests` only when the service contract itself
+changes; agent-owned behavior belongs in `llm-agent.Tests` or `llm-agent.Int`
+only when the agent loop itself changes.
 
 Run all PR-safe fake integration tests with:
 
