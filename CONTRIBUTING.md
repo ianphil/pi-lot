@@ -130,7 +130,9 @@ dotnet test --filter "Category=Smoke" --no-restore
 ### Unit and Integration Test Location
 
 Place unit and integration tests under the test project that owns the changed
-surface:
+surface. Test the package that owns the behavior, not the first consumer where
+the behavior was noticed. For example, SDK validation belongs in SDK tests even
+when an agent scenario revealed the gap.
 
 | Changed surface | Test project |
 |---|---|
@@ -171,8 +173,20 @@ Each important integration scenario should usually have two tests in the owning
 | Live integration | `[Trait("Category", "Smoke")]` | Compatibility with real Copilot credentials, network, and upstream behavior | manual/live only |
 
 Fake tests should use the same public surface as the live test and assert the
-shape of forwarded requests, options, events, and responses. Live tests should be
-small smoke/reference checks; do not use them for exhaustive edge cases.
+shape of forwarded requests, options, events, and responses. They are the right
+place for deterministic negative, edge-case, and error-path coverage because
+they can force malformed upstream data or failure responses without depending on
+model behavior.
+
+Live tests should be small happy-path smoke/reference checks. They prove the
+same public surface works with real credentials, network, model behavior, and
+upstream wire shape. Do not rely on live tests to trigger validation failures,
+rare errors, or other behavior the model may not reproduce reliably.
+
+When a feature only has unit tests or helper-level coverage, ask whether the
+owning package actually uses the new code in its public flow. A paired fake/live
+integration test should catch "the helper works, but the product never calls it"
+before the PR is ready.
 
 Run all PR-safe fake integration tests with:
 
