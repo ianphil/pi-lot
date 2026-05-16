@@ -38,6 +38,12 @@ public sealed record class ChatCompletionRequest
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
 
     [JsonIgnore]
+    public string? RequestId { get; init; }
+
+    [JsonIgnore]
+    public string? CorrelationId { get; init; }
+
+    [JsonIgnore]
     public int? TimeoutMs { get; init; }
 
     [JsonIgnore]

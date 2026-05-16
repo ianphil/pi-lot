@@ -558,6 +558,8 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         Tools = request.Tools,
         ToolChoice = request.ToolChoice,
         Headers = request.Headers,
+        RequestId = request.RequestId,
+        CorrelationId = request.CorrelationId,
         TimeoutMs = request.TimeoutMs,
         MaxRetries = request.MaxRetries,
         MaxRetryDelayMs = request.MaxRetryDelayMs,
@@ -589,6 +591,8 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         MaxToolCalls = request.MaxToolCalls,
         Reasoning = request.Reasoning,
         Headers = request.Headers,
+        RequestId = request.RequestId,
+        CorrelationId = request.CorrelationId,
         TimeoutMs = request.TimeoutMs,
         MaxRetries = request.MaxRetries,
         MaxRetryDelayMs = request.MaxRetryDelayMs,
@@ -616,6 +620,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
             Encoding.UTF8,
             "application/json");
         ApplyPerCallHeaders(req, options.Headers);
+        ApplyRequestId(req, options.RequestId);
         return req;
     }
 
@@ -636,6 +641,17 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
             request.Headers.Remove(key);
             request.Headers.TryAddWithoutValidation(key, value);
         }
+    }
+
+    private static void ApplyRequestId(HttpRequestMessage request, string? requestId)
+    {
+        if (string.IsNullOrWhiteSpace(requestId))
+        {
+            return;
+        }
+
+        request.Headers.Remove("X-Request-Id");
+        request.Headers.TryAddWithoutValidation("X-Request-Id", requestId);
     }
 
     private static IReadOnlyDictionary<string, string[]> CaptureHeaders(HttpResponseMessage response)
@@ -693,15 +709,16 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
 
     private sealed record RequestOptions(
         IReadOnlyDictionary<string, string>? Headers,
+        string? RequestId,
         int? TimeoutMs,
         int? MaxRetries,
         int? MaxRetryDelayMs)
     {
         public static RequestOptions From(CreateResponseRequest request) =>
-            new(request.Headers, request.TimeoutMs, request.MaxRetries, request.MaxRetryDelayMs);
+            new(request.Headers, request.RequestId, request.TimeoutMs, request.MaxRetries, request.MaxRetryDelayMs);
 
         public static RequestOptions From(ChatCompletionRequest request) =>
-            new(request.Headers, request.TimeoutMs, request.MaxRetries, request.MaxRetryDelayMs);
+            new(request.Headers, request.RequestId, request.TimeoutMs, request.MaxRetries, request.MaxRetryDelayMs);
     }
 
     private bool TryReloadCredentialAfterUnauthorized()

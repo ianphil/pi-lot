@@ -16,7 +16,6 @@ const int MaxRetryDelayMs = 30_000;
 
 var allowedUpstreamHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 {
-    "X-Correlation-Id",
     "X-Request-Id",
 };
 
@@ -109,6 +108,7 @@ async Task<IResult> CreateResponseAsync(
     request = request with
     {
         Headers = options.Headers,
+        RequestId = options.RequestId,
         TimeoutMs = options.TimeoutMs,
         MaxRetries = options.MaxRetries,
         MaxRetryDelayMs = options.MaxRetryDelayMs,
@@ -131,6 +131,7 @@ async Task<IResult> ProxyChatCompletionsAsync(
     request = request with
     {
         Headers = options.Headers,
+        RequestId = options.RequestId,
         TimeoutMs = options.TimeoutMs,
         MaxRetries = options.MaxRetries,
         MaxRetryDelayMs = options.MaxRetryDelayMs,
@@ -154,6 +155,7 @@ bool TryReadProxyOptions(
     }
 
     var upstreamHeaders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    string? requestId = null;
     foreach (var header in headers)
     {
         if (!header.Key.StartsWith(UpstreamHeaderPrefix, StringComparison.OrdinalIgnoreCase))
@@ -173,11 +175,19 @@ bool TryReadProxyOptions(
             return false;
         }
 
-        upstreamHeaders[upstreamHeaderName] = value;
+        if (string.Equals(upstreamHeaderName, "X-Request-Id", StringComparison.OrdinalIgnoreCase))
+        {
+            requestId = value;
+        }
+        else
+        {
+            upstreamHeaders[upstreamHeaderName] = value;
+        }
     }
 
     options = new ProxyRequestOptions(
         upstreamHeaders.Count == 0 ? null : upstreamHeaders,
+        requestId,
         timeoutMs,
         maxRetries,
         maxRetryDelayMs);
@@ -243,6 +253,7 @@ IResult BadRequest(string message) => Results.Json(
 
 readonly record struct ProxyRequestOptions(
     IReadOnlyDictionary<string, string>? Headers,
+    string? RequestId,
     int? TimeoutMs,
     int? MaxRetries,
     int? MaxRetryDelayMs);

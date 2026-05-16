@@ -106,13 +106,17 @@ public sealed class LlmSdkClientTests
         {
             Model = "gpt-5.4-mini",
             Input = JsonSerializer.SerializeToElement("Hello!", JsonDefaults.Web),
-            Headers = new Dictionary<string, string> { ["X-Request-Id"] = "request-123" },
+            RequestId = "request-123",
+            CorrelationId = "correlation-123",
+            Metadata = new Dictionary<string, string> { ["traceId"] = "trace-123" },
             TimeoutMs = 10000,
             MaxRetries = 1,
             MaxRetryDelayMs = 500,
         });
 
-        Assert.Equal("request-123", service.LastRequest?.Headers?["X-Request-Id"]);
+        Assert.Equal("request-123", service.LastRequest?.RequestId);
+        Assert.Equal("correlation-123", service.LastRequest?.CorrelationId);
+        Assert.Equal("trace-123", Assert.IsType<Dictionary<string, string>>(service.LastRequest?.Metadata)["traceId"]);
         Assert.Equal(10000, service.LastRequest?.TimeoutMs);
         Assert.Equal(1, service.LastRequest?.MaxRetries);
         Assert.Equal(500, service.LastRequest?.MaxRetryDelayMs);

@@ -23,7 +23,7 @@ public sealed class SdkPerCallKnobTests
     }
 
     [Fact]
-    public async Task SendResponsesAsync_WithGitHubRequestAndCorrelationHeaders_ReturnsObservedUpstreamHeaders()
+    public async Task SendResponsesAsync_WithGitHubRequestIdAndLocalCorrelationId_ReturnsObservedUpstreamHeaders()
     {
         var requestId = "sdk-int-" + Guid.NewGuid().ToString("N");
         var correlationId = "sdk-correlation-" + Guid.NewGuid().ToString("N");
@@ -37,13 +37,13 @@ public sealed class SdkPerCallKnobTests
             Headers = new Dictionary<string, string>
             {
                 ["X-GitHub-Request-Id"] = requestId,
-                ["X-Correlation-Id"] = correlationId,
             },
+            CorrelationId = correlationId,
             TimeoutMs = 60000,
         });
 
         _output.WriteLine($"Sent X-GitHub-Request-Id: {requestId}");
-        _output.WriteLine($"Sent X-Correlation-Id: {correlationId}");
+        _output.WriteLine($"Local CorrelationId: {correlationId}");
         _output.WriteLine($"Status: {result.StatusCode}");
         foreach (var header in result.Headers.OrderBy(static item => item.Key, StringComparer.OrdinalIgnoreCase))
         {
@@ -74,10 +74,7 @@ public sealed class SdkPerCallKnobTests
         {
             Model = "gpt-5.4-mini",
             Input = CreatePrompt(),
-            Headers = new Dictionary<string, string>
-            {
-                ["X-Request-Id"] = requestId,
-            },
+            RequestId = requestId,
             Metadata = new Dictionary<string, string>
             {
                 ["test_case"] = metadataValue,
@@ -107,10 +104,7 @@ public sealed class SdkPerCallKnobTests
         {
             Model = "gpt-5.4-mini",
             Input = CreatePrompt(),
-            Headers = new Dictionary<string, string>
-            {
-                ["X-Request-Id"] = requestId,
-            },
+            RequestId = requestId,
             TimeoutMs = 60000,
             MaxRetries = 1,
             MaxRetryDelayMs = 1000,

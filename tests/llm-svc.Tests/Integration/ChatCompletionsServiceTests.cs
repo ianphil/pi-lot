@@ -284,7 +284,7 @@ public sealed class ChatCompletionsServiceTests : IClassFixture<ResponsesWebAppl
                 messages = new[] { new { role = "user", content = "Hi" } },
             }),
         };
-        request.Headers.Add("X-LLM-Upstream-Header-X-Correlation-Id", "chat-test");
+        request.Headers.Add("X-LLM-Upstream-Header-X-Request-Id", "chat-test");
         request.Headers.Add("X-LLM-Upstream-Timeout-Ms", "45000");
         request.Headers.Add("X-LLM-Upstream-Max-Retries", "1");
         request.Headers.Add("X-LLM-Upstream-Max-Retry-Delay-Ms", "750");
@@ -293,7 +293,7 @@ public sealed class ChatCompletionsServiceTests : IClassFixture<ResponsesWebAppl
 
         httpResponse.EnsureSuccessStatusCode();
         Assert.NotNull(_factory.Provider.LastChatRequest);
-        Assert.Equal("chat-test", _factory.Provider.LastChatRequest!.Headers!["X-Correlation-Id"]);
+        Assert.Equal("chat-test", _factory.Provider.LastChatRequest!.RequestId);
         Assert.Equal(45000, _factory.Provider.LastChatRequest.TimeoutMs);
         Assert.Equal(1, _factory.Provider.LastChatRequest.MaxRetries);
         Assert.Equal(750, _factory.Provider.LastChatRequest.MaxRetryDelayMs);

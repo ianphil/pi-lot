@@ -112,7 +112,7 @@ public sealed record class CreateResponseRequest
     [JsonPropertyName("service_tier")]
     public string? ServiceTier { get; init; }
 
-    [JsonPropertyName("metadata")]
+    [JsonIgnore]
     public object? Metadata { get; init; }
 
     [JsonPropertyName("max_tool_calls")]
@@ -123,6 +123,12 @@ public sealed record class CreateResponseRequest
 
     [JsonIgnore]
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
+
+    [JsonIgnore]
+    public string? RequestId { get; init; }
+
+    [JsonIgnore]
+    public string? CorrelationId { get; init; }
 
     [JsonIgnore]
     public int? TimeoutMs { get; init; }

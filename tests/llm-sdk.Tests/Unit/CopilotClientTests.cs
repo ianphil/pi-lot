@@ -300,10 +300,7 @@ public sealed class CopilotClientTests
         {
             Model = "gpt-5.4-mini",
             Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
-            Headers = new Dictionary<string, string>
-            {
-                ["X-Request-Id"] = "request-123",
-            },
+            RequestId = "request-123",
         });
 
         Assert.Equal("request-123", Assert.Single(result.Headers["X-Request-Id"]));
@@ -331,10 +328,7 @@ public sealed class CopilotClientTests
         {
             Model = "gpt-5.4-mini",
             Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
-            Headers = new Dictionary<string, string>
-            {
-                ["X-Request-Id"] = "stream-request-123",
-            },
+            RequestId = "stream-request-123",
         });
 
         Assert.Equal("stream-request-123", Assert.Single(result.Headers["X-Request-Id"]));
@@ -342,7 +336,7 @@ public sealed class CopilotClientTests
     }
 
     [Fact]
-    public async Task SendResponsesAsync_WithMetadata_SerializesMetadata()
+    public async Task SendResponsesAsync_WithMetadata_DoesNotSerializeMetadata()
     {
         string? body = null;
         var client = CreateClient(request =>
@@ -360,7 +354,7 @@ public sealed class CopilotClientTests
 
         Assert.NotNull(body);
         using var document = JsonDocument.Parse(body);
-        Assert.Equal("abc123", document.RootElement.GetProperty("metadata").GetProperty("traceId").GetString());
+        Assert.False(document.RootElement.TryGetProperty("metadata", out _));
     }
 
     [Fact]

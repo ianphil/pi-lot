@@ -34,6 +34,8 @@ public sealed class ChatCompletionsTranslator
             Tools = tools,
             ToolChoice = toolChoice,
             Headers = request.Headers,
+            RequestId = request.RequestId,
+            CorrelationId = request.CorrelationId,
             TimeoutMs = request.TimeoutMs,
             MaxRetries = request.MaxRetries,
             MaxRetryDelayMs = request.MaxRetryDelayMs,

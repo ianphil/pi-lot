@@ -626,10 +626,6 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
             {
                 model = "gpt-5.4-mini",
                 input = "Hi there",
-                metadata = new
-                {
-                    test = "responses-proxy-knobs",
-                },
             }),
         };
         request.Headers.Add("X-LLM-Upstream-Header-X-Request-Id", "responses-test");
@@ -641,7 +637,7 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
 
         httpResponse.EnsureSuccessStatusCode();
         Assert.NotNull(_factory.Provider.LastResponsesRequest);
-        Assert.Equal("responses-test", _factory.Provider.LastResponsesRequest!.Headers!["X-Request-Id"]);
+        Assert.Equal("responses-test", _factory.Provider.LastResponsesRequest!.RequestId);
         Assert.Equal(60000, _factory.Provider.LastResponsesRequest.TimeoutMs);
         Assert.Equal(2, _factory.Provider.LastResponsesRequest.MaxRetries);
         Assert.Equal(1000, _factory.Provider.LastResponsesRequest.MaxRetryDelayMs);
