@@ -66,7 +66,8 @@ public sealed class ChatCompletionsService : IChatCompletionsService
             return ResponseHttpResult.FromStream(
                 _streamTranslator.TranslateStream(upstream.Chunks ?? EmptyChunks(), request, cancellationToken),
                 200,
-                "text/event-stream");
+                "text/event-stream",
+                upstream.Headers);
         }
 
         if (model.SupportsChatCompletions)
@@ -81,7 +82,8 @@ public sealed class ChatCompletionsService : IChatCompletionsService
             return ResponseHttpResult.FromStream(
                 upstream.Chunks ?? EmptyChunks(),
                 upstream.StatusCode,
-                upstream.ContentType);
+                upstream.ContentType,
+                upstream.Headers);
         }
 
         return MakeErrorResult(400,
@@ -111,7 +113,7 @@ public sealed class ChatCompletionsService : IChatCompletionsService
             body = ChatCompletionBodyTranslator.TranslateResponseBodyToChatCompletion(body);
         }
 
-        return ResponseHttpResult.FromBody(body, upstream.StatusCode, "application/json");
+        return ResponseHttpResult.FromBody(body, upstream.StatusCode, "application/json", upstream.Headers);
     }
 
     private static void Validate(ChatCompletionRequest request)
@@ -144,6 +146,12 @@ public sealed class ChatCompletionsService : IChatCompletionsService
             ToolChoice = request.ToolChoice is not null
                 ? JsonDocument.Parse(JsonSerializer.Serialize(request.ToolChoice, JsonDefaults.Web)).RootElement.Clone()
                 : null,
+            Headers = request.Headers,
+            RequestId = request.RequestId,
+            CorrelationId = request.CorrelationId,
+            TimeoutMs = request.TimeoutMs,
+            MaxRetries = request.MaxRetries,
+            MaxRetryDelayMs = request.MaxRetryDelayMs,
         };
     }
 
@@ -269,6 +277,13 @@ public sealed class ChatCompletionsService : IChatCompletionsService
         TopP = request.TopP,
         Tools = request.Tools,
         ToolChoice = request.ToolChoice,
+        Headers = request.Headers,
+        RequestId = request.RequestId,
+        CorrelationId = request.CorrelationId,
+        TimeoutMs = request.TimeoutMs,
+        MaxRetries = request.MaxRetries,
+        MaxRetryDelayMs = request.MaxRetryDelayMs,
+        Metadata = request.Metadata,
     };
 
     private static ChatCompletionRequest CloneForStreaming(ChatCompletionRequest request) => new()
@@ -282,6 +297,13 @@ public sealed class ChatCompletionsService : IChatCompletionsService
         TopP = request.TopP,
         Tools = request.Tools,
         ToolChoice = request.ToolChoice,
+        Headers = request.Headers,
+        RequestId = request.RequestId,
+        CorrelationId = request.CorrelationId,
+        TimeoutMs = request.TimeoutMs,
+        MaxRetries = request.MaxRetries,
+        MaxRetryDelayMs = request.MaxRetryDelayMs,
+        Metadata = request.Metadata,
     };
 
     private static ResponseHttpResult MakeErrorResult(int statusCode, string message, string code)
@@ -301,7 +323,8 @@ public sealed class ChatCompletionsService : IChatCompletionsService
         return ResponseHttpResult.FromBody(
             upstream.Body ?? "{\"error\":{\"message\":\"Upstream streaming request failed.\"}}",
             upstream.StatusCode,
-            "application/json");
+            "application/json",
+            upstream.Headers);
     }
 
     private static async IAsyncEnumerable<string> EmptyChunks()

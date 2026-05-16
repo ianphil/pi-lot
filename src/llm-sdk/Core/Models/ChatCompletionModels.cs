@@ -5,7 +5,7 @@ namespace LlmSdk.Core.Models;
 
 // ── OpenAI-compatible request/response types ─────────────────────────────────
 
-public sealed class ChatCompletionRequest
+public sealed record class ChatCompletionRequest
 {
     [JsonPropertyName("model")]
     public string? Model { get; init; }
@@ -33,6 +33,27 @@ public sealed class ChatCompletionRequest
 
     [JsonPropertyName("tool_choice")]
     public object? ToolChoice { get; init; }
+
+    [JsonIgnore]
+    public IReadOnlyDictionary<string, string>? Headers { get; init; }
+
+    [JsonIgnore]
+    public string? RequestId { get; init; }
+
+    [JsonIgnore]
+    public string? CorrelationId { get; init; }
+
+    [JsonIgnore]
+    public int? TimeoutMs { get; init; }
+
+    [JsonIgnore]
+    public int? MaxRetries { get; init; }
+
+    [JsonIgnore]
+    public int? MaxRetryDelayMs { get; init; }
+
+    [JsonIgnore]
+    public IReadOnlyDictionary<string, string>? Metadata { get; init; }
 }
 
 public sealed class ChatMessage

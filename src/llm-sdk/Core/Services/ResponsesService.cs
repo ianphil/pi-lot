@@ -58,7 +58,8 @@ public sealed class ResponsesService : IResponsesService
                     return ResponseHttpResult.FromStream(
                         NormalizeNativeStreamChunks(upstream.Chunks ?? EmptyChunks()),
                         upstream.StatusCode,
-                        upstream.ContentType);
+                        upstream.ContentType,
+                        upstream.Headers);
                 }
 
                 if (model.SupportsChatCompletions)
@@ -73,7 +74,8 @@ public sealed class ResponsesService : IResponsesService
                     return ResponseHttpResult.FromStream(
                         _streamTranslator.TranslateStream(upstream.Chunks ?? EmptyChunks(), request, cancellationToken),
                         200,
-                        "text/event-stream");
+                        "text/event-stream",
+                        upstream.Headers);
                 }
 
                 throw new ResponseApiException(400, new ResponseError
@@ -86,6 +88,7 @@ public sealed class ResponsesService : IResponsesService
             }
 
             Response response;
+            IReadOnlyDictionary<string, string[]> headers;
             if (model.SupportsResponses)
             {
                 var upstream = await _provider.SendResponsesAsync(CloneWithoutStreaming(request), cancellationToken);
@@ -95,6 +98,7 @@ public sealed class ResponsesService : IResponsesService
                 }
 
                 response = _translator.NormalizeNativeResponse(upstream.Body, request);
+                headers = upstream.Headers;
             }
             else if (model.SupportsChatCompletions)
             {
@@ -106,6 +110,7 @@ public sealed class ResponsesService : IResponsesService
                 }
 
                 response = _translator.ToResponse(upstream.Body, request);
+                headers = upstream.Headers;
             }
             else
             {
@@ -121,7 +126,8 @@ public sealed class ResponsesService : IResponsesService
             return ResponseHttpResult.FromBody(
                 JsonSerializer.Serialize(response, JsonDefaults.Web),
                 200,
-                "application/json");
+                "application/json",
+                headers);
         }
         catch (ResponseApiException ex)
         {
@@ -181,6 +187,12 @@ public sealed class ResponsesService : IResponsesService
         Metadata = request.Metadata,
         MaxToolCalls = request.MaxToolCalls,
         Reasoning = request.Reasoning,
+        Headers = request.Headers,
+        RequestId = request.RequestId,
+        CorrelationId = request.CorrelationId,
+        TimeoutMs = request.TimeoutMs,
+        MaxRetries = request.MaxRetries,
+        MaxRetryDelayMs = request.MaxRetryDelayMs,
     };
 
     private static CreateResponseRequest CloneForStreaming(CreateResponseRequest request) => new()
@@ -207,6 +219,12 @@ public sealed class ResponsesService : IResponsesService
         Metadata = request.Metadata,
         MaxToolCalls = request.MaxToolCalls,
         Reasoning = request.Reasoning,
+        Headers = request.Headers,
+        RequestId = request.RequestId,
+        CorrelationId = request.CorrelationId,
+        TimeoutMs = request.TimeoutMs,
+        MaxRetries = request.MaxRetries,
+        MaxRetryDelayMs = request.MaxRetryDelayMs,
     };
 
     private static ResponseHttpResult NormalizeError(ProxyHttpResult upstream)
@@ -215,7 +233,8 @@ public sealed class ResponsesService : IResponsesService
         return ResponseHttpResult.FromBody(
             JsonSerializer.Serialize(new ResponseErrorEnvelope { Error = error }, JsonDefaults.Web),
             upstream.StatusCode,
-            "application/json");
+            "application/json",
+            upstream.Headers);
     }
 
     private static ResponseHttpResult NormalizeStreamError(ProxyStreamResult upstream)
@@ -224,7 +243,8 @@ public sealed class ResponsesService : IResponsesService
         return ResponseHttpResult.FromBody(
             JsonSerializer.Serialize(new ResponseErrorEnvelope { Error = error }, JsonDefaults.Web),
             upstream.StatusCode,
-            "application/json");
+            "application/json",
+            upstream.Headers);
     }
 
     private static ResponseError ParseError(string body, int statusCode)

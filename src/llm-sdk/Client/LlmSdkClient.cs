@@ -236,6 +236,12 @@ public sealed class LlmSdkClient : ILlmSdkClient
             Metadata = request.Metadata,
             MaxToolCalls = request.MaxToolCalls,
             Reasoning = request.Reasoning,
+            Headers = request.Headers,
+            RequestId = request.RequestId,
+            CorrelationId = request.CorrelationId,
+            TimeoutMs = request.TimeoutMs,
+            MaxRetries = request.MaxRetries,
+            MaxRetryDelayMs = request.MaxRetryDelayMs,
         };
     }
 
@@ -252,6 +258,13 @@ public sealed class LlmSdkClient : ILlmSdkClient
             TopP = request.TopP,
             Tools = request.Tools,
             ToolChoice = request.ToolChoice,
+            Headers = request.Headers,
+            RequestId = request.RequestId,
+            CorrelationId = request.CorrelationId,
+            TimeoutMs = request.TimeoutMs,
+            MaxRetries = request.MaxRetries,
+            MaxRetryDelayMs = request.MaxRetryDelayMs,
+            Metadata = request.Metadata,
         };
     }
 

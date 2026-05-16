@@ -302,6 +302,192 @@ public sealed class CopilotClientTests
     }
 
     [Fact]
+    public async Task SendResponsesAsync_WithPerCallHeaders_AddsHeadersWithoutOverwritingAuthorization()
+    {
+        HttpRequestMessage? captured = null;
+        var client = CreateClient(request =>
+        {
+            captured = CloneRequest(request);
+            return Task.FromResult(JsonResponse(CompletedResponseJson));
+        }, envToken: "env-token");
+
+        await client.SendResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+            Headers = new Dictionary<string, string>
+            {
+                ["X-Debug"] = "enabled",
+                ["Authorization"] = "Bearer malicious-token",
+            },
+        });
+
+        Assert.NotNull(captured);
+        Assert.Equal("enabled", Assert.Single(captured.Headers.GetValues("X-Debug")));
+        Assert.Equal("Bearer", captured.Headers.Authorization?.Scheme);
+        Assert.Equal("env-token", captured.Headers.Authorization?.Parameter);
+    }
+
+    [Fact]
+    public async Task SendResponsesAsync_WhenUpstreamEchoesPerCallHeader_CapturesResponseHeaders()
+    {
+        var client = CreateClient(request =>
+        {
+            var response = JsonResponse(CompletedResponseJson);
+            response.Headers.TryAddWithoutValidation("X-Request-Id", request.Headers.GetValues("X-Request-Id"));
+            response.Headers.TryAddWithoutValidation("X-Upstream-Request-Id", "upstream-123");
+            return Task.FromResult(response);
+        });
+
+        var result = await client.SendResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+            RequestId = "request-123",
+        });
+
+        Assert.Equal("request-123", Assert.Single(result.Headers["X-Request-Id"]));
+        Assert.Equal("upstream-123", Assert.Single(result.Headers["X-Upstream-Request-Id"]));
+        Assert.StartsWith("application/json", Assert.Single(result.Headers["Content-Type"]), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task StreamResponsesAsync_WhenUpstreamReturnsHeaders_CapturesHeadersBeforeEnumeration()
+    {
+        var client = CreateClient(request =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "event: response.completed\ndata: {}\n\n",
+                    Encoding.UTF8,
+                    "text/event-stream"),
+            };
+            response.Headers.TryAddWithoutValidation("X-Request-Id", request.Headers.GetValues("X-Request-Id"));
+            return Task.FromResult(response);
+        });
+
+        var result = await client.StreamResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+            RequestId = "stream-request-123",
+        });
+
+        Assert.Equal("stream-request-123", Assert.Single(result.Headers["X-Request-Id"]));
+        Assert.StartsWith("text/event-stream", Assert.Single(result.Headers["Content-Type"]), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SendResponsesAsync_WithMetadata_DoesNotSerializeMetadata()
+    {
+        string? body = null;
+        var client = CreateClient(request =>
+        {
+            body = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+            return Task.FromResult(JsonResponse(CompletedResponseJson));
+        });
+
+        await client.SendResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+            Metadata = new Dictionary<string, string> { ["traceId"] = "abc123" },
+        });
+
+        Assert.NotNull(body);
+        using var document = JsonDocument.Parse(body);
+        Assert.False(document.RootElement.TryGetProperty("metadata", out _));
+    }
+
+    [Fact]
+    public async Task SendChatCompletionsAsync_WithMetadata_DoesNotSerializeMetadata()
+    {
+        string? body = null;
+        var client = CreateClient(request =>
+        {
+            body = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+            return Task.FromResult(JsonResponse("""{"choices":[]}"""));
+        });
+
+        await client.SendChatCompletionsAsync(new ChatCompletionRequest
+        {
+            Model = "gpt-5.4-mini",
+            Messages = [new ChatMessage { Role = "user", Content = "Hi" }],
+            Metadata = new Dictionary<string, string> { ["traceId"] = "abc123" },
+        });
+
+        Assert.NotNull(body);
+        using var document = JsonDocument.Parse(body);
+        Assert.False(document.RootElement.TryGetProperty("metadata", out _));
+    }
+
+    [Fact]
+    public async Task SendResponsesAsync_WithMaxRetries_RetriesServerErrors()
+    {
+        var callCount = 0;
+        var client = CreateClient(_ =>
+        {
+            callCount++;
+            return Task.FromResult(callCount < 3
+                ? new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                {
+                    Content = new StringContent("""{"error":"server"}""", Encoding.UTF8, "application/json"),
+                }
+                : JsonResponse(CompletedResponseJson));
+        });
+
+        var result = await client.SendResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+            MaxRetries = 2,
+            MaxRetryDelayMs = 1,
+        });
+
+        Assert.Equal(200, result.StatusCode);
+        Assert.Equal(3, callCount);
+    }
+
+    [Fact]
+    public async Task SendResponsesAsync_WithTimeout_CancelsRequest()
+    {
+        var client = CreateClient(async (_, cancellationToken) =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+            return JsonResponse(CompletedResponseJson);
+        });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            client.SendResponsesAsync(new CreateResponseRequest
+            {
+                Model = "gpt-5.4-mini",
+                Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+                TimeoutMs = 1,
+            }));
+    }
+
+    [Fact]
+    public async Task StreamResponsesAsync_WithTimeout_CancelsBodyEnumeration()
+    {
+        var client = CreateClient(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new BlockingStreamContent(),
+        }));
+
+        var result = await client.StreamResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+            TimeoutMs = 1,
+        });
+
+        Assert.NotNull(result.Chunks);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await ReadChunksAsync(result.Chunks!));
+    }
+
+    [Fact]
     public async Task StreamResponsesAsync_WhenUpstreamReturnsUnauthorized_RetriesWithFreshCredential()
     {
         var bearerTokens = new List<string>();
@@ -739,6 +925,16 @@ public sealed class CopilotClientTests
         bool loadCredential = true,
         TimeProvider? timeProvider = null)
     {
+        return CreateClient((request, _) => responder(request), envToken, credentialStore, loadCredential, timeProvider);
+    }
+
+    private static CopilotClient CreateClient(
+        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responder,
+        string? envToken = "test-token",
+        ICopilotCredentialStore? credentialStore = null,
+        bool loadCredential = true,
+        TimeProvider? timeProvider = null)
+    {
         var originalToken = Environment.GetEnvironmentVariable("COPILOT_TOKEN");
         Environment.SetEnvironmentVariable("COPILOT_TOKEN", envToken);
 
@@ -936,10 +1132,56 @@ public sealed class CopilotClientTests
         }
     }
 
-    private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> responder) : HttpMessageHandler
+    private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responder) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            responder(request);
+            responder(request, cancellationToken);
+    }
+
+    private sealed class BlockingStreamContent : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) => Task.CompletedTask;
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = -1;
+            return false;
+        }
+
+        protected override Task<Stream> CreateContentReadStreamAsync() =>
+            Task.FromResult<Stream>(new BlockingStream());
+    }
+
+    private sealed class BlockingStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) =>
+            ReadAsync(buffer, offset, count, CancellationToken.None).GetAwaiter().GetResult();
+
+        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return 0;
+        }
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return 0;
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     private sealed class ManualTimeProvider(DateTimeOffset utcNow) : TimeProvider

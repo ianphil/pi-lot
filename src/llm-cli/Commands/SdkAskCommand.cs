@@ -15,21 +15,35 @@ public static class SdkAskCommand
         var system = CommandOptions.System();
         var noStream = CommandOptions.NoStream();
         var tools = CommandOptions.Tools();
+        var requestId = CommandOptions.RequestId();
+        var correlationId = CommandOptions.CorrelationId();
+        var metadata = CommandOptions.Metadata();
+        var timeoutMs = CommandOptions.TimeoutMs();
+        var maxRetries = CommandOptions.MaxRetries();
+        var maxRetryDelayMs = CommandOptions.MaxRetryDelayMs();
 
         var command = new Command("sdk-ask",
             "Send a prompt directly through the LlmSdk Responses client (streams by default)")
         {
             prompt, model, system, noStream, tools,
+            requestId, correlationId, metadata, timeoutMs, maxRetries, maxRetryDelayMs,
         };
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             var modelValue = parseResult.GetValue(model)!;
-            var request = new AskRequest(
-                parseResult.GetValue(prompt)!,
-                modelValue,
-                parseResult.GetValue(system),
-                parseResult.GetValue(tools));
+            var request = CommandOptions.CreateAskRequest(
+                parseResult,
+                prompt,
+                model,
+                system,
+                tools,
+                requestId,
+                correlationId,
+                metadata,
+                timeoutMs,
+                maxRetries,
+                maxRetryDelayMs);
 
             return await RunSdkCommandAsync(modelValue, async client =>
             {

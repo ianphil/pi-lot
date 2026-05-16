@@ -91,6 +91,12 @@ public static class SdkChatAgent
             Model = request.Model,
             Messages = [.. messages],
             Stream = stream,
+            RequestId = request.RequestId,
+            CorrelationId = request.CorrelationId,
+            Metadata = request.Metadata,
+            TimeoutMs = request.TimeoutMs,
+            MaxRetries = request.MaxRetries,
+            MaxRetryDelayMs = request.MaxRetryDelayMs,
         };
     }
 }

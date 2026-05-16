@@ -32,7 +32,7 @@ public sealed class ModelTokenLimits
     public int? MaxPromptTokens { get; init; }
 }
 
-public sealed class CreateResponseRequest
+public sealed record class CreateResponseRequest
 {
     [JsonPropertyName("model")]
     public string? Model { get; init; }
@@ -91,7 +91,7 @@ public sealed class CreateResponseRequest
     [JsonPropertyName("service_tier")]
     public string? ServiceTier { get; init; }
 
-    [JsonPropertyName("metadata")]
+    [JsonIgnore]
     public object? Metadata { get; init; }
 
     [JsonPropertyName("max_tool_calls")]
@@ -99,6 +99,24 @@ public sealed class CreateResponseRequest
 
     [JsonPropertyName("reasoning")]
     public ResponseReasoning? Reasoning { get; init; }
+
+    [JsonIgnore]
+    public IReadOnlyDictionary<string, string>? Headers { get; init; }
+
+    [JsonIgnore]
+    public string? RequestId { get; init; }
+
+    [JsonIgnore]
+    public string? CorrelationId { get; init; }
+
+    [JsonIgnore]
+    public int? TimeoutMs { get; init; }
+
+    [JsonIgnore]
+    public int? MaxRetries { get; init; }
+
+    [JsonIgnore]
+    public int? MaxRetryDelayMs { get; init; }
 }
 
 public sealed class Response

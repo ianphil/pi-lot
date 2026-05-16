@@ -4,12 +4,18 @@ namespace LlmSdk.Proxy;
 
 public sealed class ResponseHttpResult
 {
-    private ResponseHttpResult(string? body, IAsyncEnumerable<string>? chunks, int statusCode, string contentType)
+    private ResponseHttpResult(
+        string? body,
+        IAsyncEnumerable<string>? chunks,
+        int statusCode,
+        string contentType,
+        IReadOnlyDictionary<string, string[]>? headers)
     {
         Body = body;
         Chunks = chunks;
         StatusCode = statusCode;
         ContentType = contentType;
+        Headers = headers ?? new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
     }
 
     public string? Body { get; }
@@ -20,11 +26,21 @@ public sealed class ResponseHttpResult
 
     public string ContentType { get; }
 
-    public static ResponseHttpResult FromBody(string body, int statusCode, string contentType) =>
-        new(body, null, statusCode, contentType);
+    public IReadOnlyDictionary<string, string[]> Headers { get; }
 
-    public static ResponseHttpResult FromStream(IAsyncEnumerable<string> chunks, int statusCode = 200, string contentType = "text/event-stream") =>
-        new(null, chunks, statusCode, contentType);
+    public static ResponseHttpResult FromBody(
+        string body,
+        int statusCode,
+        string contentType,
+        IReadOnlyDictionary<string, string[]>? headers = null) =>
+        new(body, null, statusCode, contentType, headers);
+
+    public static ResponseHttpResult FromStream(
+        IAsyncEnumerable<string> chunks,
+        int statusCode = 200,
+        string contentType = "text/event-stream",
+        IReadOnlyDictionary<string, string[]>? headers = null) =>
+        new(null, chunks, statusCode, contentType, headers);
 
     public async Task<string> ReadBodyAsync(CancellationToken cancellationToken = default)
     {

@@ -92,6 +92,12 @@ public static class SdkAskAgent
         {
             Model = request.Model,
             Instructions = request.SystemInstructions,
+            RequestId = request.RequestId,
+            CorrelationId = request.CorrelationId,
+            Metadata = request.Metadata,
+            TimeoutMs = request.TimeoutMs,
+            MaxRetries = request.MaxRetries,
+            MaxRetryDelayMs = request.MaxRetryDelayMs,
             MaxTurns = MaxToolTurns,
             Tools = request.ToolsEnabled
                 ? CreateAgentTools(toolRegistry)

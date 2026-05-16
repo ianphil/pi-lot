@@ -132,10 +132,16 @@ missing.
 | Flag | Short | Commands | Default | Description |
 |---|---|---|---|---|
 | `<prompt>` | | all except `models`, `health` | *(required)* | The prompt to send (positional) |
-| `--model` | `-m` | `ask`, `chat`, `sdk-ask`, `sdk-chat` | varies | Model ID |
-| `--system` | `-s` | `ask`, `chat`, `sdk-ask`, `sdk-chat` | none | System instructions |
-| `--no-stream` | | `ask`, `chat`, `sdk-ask`, `sdk-chat` | `false` | Disable streaming |
+| `--model` | `-m` | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | varies | Model ID |
+| `--system` | `-s` | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | none | System instructions |
+| `--no-stream` | | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | `false` | Disable streaming |
 | `--tools` | | `ask`, `chat`, `sdk-ask` | `false` | Enable local tools |
+| `--request-id` | | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | generated | Request ID sent upstream as `X-Request-Id` |
+| `--correlation-id` | | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | none | Local SDK/proxy correlation ID |
+| `--metadata` | | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | none | Local metadata as repeatable `key=value` |
+| `--timeout-ms` | | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | SDK default | Per-call upstream timeout |
+| `--max-retries` | | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | SDK default | Per-call retry count |
+| `--max-retry-delay-ms` | | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | SDK default | Per-call retry delay cap |
 
 ### Shared proxy-command flags
 
