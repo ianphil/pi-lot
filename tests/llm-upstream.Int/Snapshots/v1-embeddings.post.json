@@ -1,0 +1,51 @@
+{
+  "name": "POST /v1/embeddings",
+  "base_url": "https://api.enterprise.githubcopilot.com",
+  "request": {
+    "method": "POST",
+    "path": "/v1/embeddings",
+    "headers": {
+      "Authorization": [
+        "\u003CREDACTED\u003E"
+      ],
+      "Content-Type": [
+        "application/json; charset=utf-8"
+      ],
+      "Copilot-Integration-Id": [
+        "copilot-developer-cli"
+      ],
+      "User-Agent": [
+        "copilot/1.0.11 (win32) term/service"
+      ]
+    },
+    "body": {
+      "model": "text-embedding-3-small",
+      "input": "hello"
+    }
+  },
+  "response": {
+    "status_code": 404,
+    "reason_phrase": "Not Found",
+    "headers": {
+      "Content-Length": [
+        "19"
+      ],
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ],
+      "Date": [
+        "Sat, 16 May 2026 17:05:47 GMT"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "x-github-backend": [
+        "Kubernetes"
+      ],
+      "X-GitHub-Request-Id": [
+        "E7E5:3991B6:304C6A:39D280:6A08A3EB"
+      ]
+    },
+    "body": "404 page not found\n"
+  }
+}

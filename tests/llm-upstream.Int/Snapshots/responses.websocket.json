@@ -1,0 +1,371 @@
+{
+  "name": "WEBSOCKET /responses",
+  "base_url": "wss://api.enterprise.githubcopilot.com",
+  "request": {
+    "method": "WEBSOCKET",
+    "path": "/responses",
+    "headers": {
+      "Authorization": [
+        "\u003CREDACTED\u003E"
+      ],
+      "Copilot-Integration-Id": [
+        "copilot-developer-cli"
+      ],
+      "User-Agent": [
+        "copilot/1.0.11 (win32) term/service"
+      ]
+    },
+    "body": {
+      "type": "response.create",
+      "model": "gpt-5.4-mini",
+      "input": "Reply with exactly: hello"
+    }
+  },
+  "response": {
+    "status_code": 101,
+    "reason_phrase": "Switching Protocols",
+    "headers": {},
+    "websocket_messages": [
+      {
+        "index": 0,
+        "message_type": "Text",
+        "data": {
+          "headers": {
+            "X-Copilot-API-Exp-Assignment-Context": "e4hcf520:1109203;t_33b5c122:1165002;"
+          },
+          "response": {
+            "background": false,
+            "completed_at": null,
+            "created_at": 1778951194,
+            "error": null,
+            "frequency_penalty": 0,
+            "id": "zJM5gIpjEWPIhsZ61XASYjy/HmDAB1/8aE57uCsTmYnTNi6IVJKsbafO/F1dbgXaETN5znwWbDBVkh9TZV9qna2wOo3eYGXOFHmvkgPcBNmAe5chXPW8G200otHF/9bta6yOQc0EzOusK1Ao7gaWooV9hT5e/9JDvoWEhoernt/Q2PAJPRO3KwWtX/3HgI7FZhSGh2vWbOJsmKpRCiqn\u002B8/XKFjUjbhvVRqRuZHKysYKqHWIp4oPyr5KPNd6am8pgcXI8epLss9sFIvVFkL8OqwksfqXHRApGeuPddjbgWjA8hRqjDZ0P3Jb\u002Bd\u002BJdaAmDxcsIt5oBR/Nn9kM7IMlWP/wL1/5J9d5x9wq/ZtnxErdwOYGsECr0y2NESebmohus/qu4YazliEsJ7MBBmLayTrmFu6RcxndHxhU98hsWg8s6zX0x3QdbZpv\u002B6PfKzvh2aHj6lthpZw6arqXTJ1r3EDD11Pio1TRzFpi",
+            "incomplete_details": null,
+            "instructions": null,
+            "max_output_tokens": null,
+            "max_tool_calls": null,
+            "metadata": {},
+            "model": "gpt-5.4-mini-2026-03-17",
+            "moderation": null,
+            "object": "response",
+            "output": [],
+            "parallel_tool_calls": true,
+            "presence_penalty": 0,
+            "previous_response_id": null,
+            "prompt_cache_retention": "24h",
+            "reasoning": {
+              "effort": "none",
+              "summary": null
+            },
+            "safety_identifier": "15187f54cd037c581e5a5c811a34cff893398fe32255af01dcdb2030883923cb",
+            "service_tier": "default",
+            "status": "in_progress",
+            "store": false,
+            "temperature": 1,
+            "text": {
+              "format": {
+                "type": "text"
+              },
+              "verbosity": "medium"
+            },
+            "tool_choice": "auto",
+            "tools": [],
+            "top_logprobs": 0,
+            "top_p": 0.98,
+            "truncation": "disabled",
+            "usage": null,
+            "user": null
+          },
+          "sequence_number": 0,
+          "type": "response.created"
+        },
+        "raw": "{\u0022headers\u0022:{\u0022X-Copilot-API-Exp-Assignment-Context\u0022:\u0022e4hcf520:1109203;t_33b5c122:1165002;\u0022},\u0022response\u0022:{\u0022background\u0022:false,\u0022completed_at\u0022:null,\u0022created_at\u0022:1778951194,\u0022error\u0022:null,\u0022frequency_penalty\u0022:0,\u0022id\u0022:\u0022zJM5gIpjEWPIhsZ61XASYjy/HmDAB1/8aE57uCsTmYnTNi6IVJKsbafO/F1dbgXaETN5znwWbDBVkh9TZV9qna2wOo3eYGXOFHmvkgPcBNmAe5chXPW8G200otHF/9bta6yOQc0EzOusK1Ao7gaWooV9hT5e/9JDvoWEhoernt/Q2PAJPRO3KwWtX/3HgI7FZhSGh2vWbOJsmKpRCiqn\u002B8/XKFjUjbhvVRqRuZHKysYKqHWIp4oPyr5KPNd6am8pgcXI8epLss9sFIvVFkL8OqwksfqXHRApGeuPddjbgWjA8hRqjDZ0P3Jb\u002Bd\u002BJdaAmDxcsIt5oBR/Nn9kM7IMlWP/wL1/5J9d5x9wq/ZtnxErdwOYGsECr0y2NESebmohus/qu4YazliEsJ7MBBmLayTrmFu6RcxndHxhU98hsWg8s6zX0x3QdbZpv\u002B6PfKzvh2aHj6lthpZw6arqXTJ1r3EDD11Pio1TRzFpi\u0022,\u0022incomplete_details\u0022:null,\u0022instructions\u0022:null,\u0022max_output_tokens\u0022:null,\u0022max_tool_calls\u0022:null,\u0022metadata\u0022:{},\u0022model\u0022:\u0022gpt-5.4-mini-2026-03-17\u0022,\u0022moderation\u0022:null,\u0022object\u0022:\u0022response\u0022,\u0022output\u0022:[],\u0022parallel_tool_calls\u0022:true,\u0022presence_penalty\u0022:0,\u0022previous_response_id\u0022:null,\u0022prompt_cache_retention\u0022:\u002224h\u0022,\u0022reasoning\u0022:{\u0022effort\u0022:\u0022none\u0022,\u0022summary\u0022:null},\u0022safety_identifier\u0022:\u002215187f54cd037c581e5a5c811a34cff893398fe32255af01dcdb2030883923cb\u0022,\u0022service_tier\u0022:\u0022default\u0022,\u0022status\u0022:\u0022in_progress\u0022,\u0022store\u0022:false,\u0022temperature\u0022:1,\u0022text\u0022:{\u0022format\u0022:{\u0022type\u0022:\u0022text\u0022},\u0022verbosity\u0022:\u0022medium\u0022},\u0022tool_choice\u0022:\u0022auto\u0022,\u0022tools\u0022:[],\u0022top_logprobs\u0022:0,\u0022top_p\u0022:0.98,\u0022truncation\u0022:\u0022disabled\u0022,\u0022usage\u0022:null,\u0022user\u0022:null},\u0022sequence_number\u0022:0,\u0022type\u0022:\u0022response.created\u0022}"
+      },
+      {
+        "index": 1,
+        "message_type": "Text",
+        "data": {
+          "headers": {
+            "X-Copilot-API-Exp-Assignment-Context": "e4hcf520:1109203;t_33b5c122:1165002;"
+          },
+          "response": {
+            "background": false,
+            "completed_at": null,
+            "created_at": 1778951194,
+            "error": null,
+            "frequency_penalty": 0,
+            "id": "NHxGxZsRXJJtQ9OzfIqoaqRaSZluWWmaBe8cmtfhJLGNAXdqbmb2TUQzyuv93hQ1KjXsZsb1T44Rmo8hWNCr/jtQOuCJGzggO\u002BPE/6pzljhD/gumveICs1CrJK2qeSwTB19Q1ePgBm/fdXk7LB4O6HKWuW80rB4ywdSCnrfaQfidQ57SgGchEKZh3SGPzWmD1dVctwLdUhXryEhfpEdEALhPGfoAnDD\u002Bta8zzCQoC4wMSOLCgupDqSgmqpolWnTmIpqKM3KL29CmXUmpvLMpwPYKrA8cTfqWL3o9euIE35PJu\u002BoJiXSREm/t5GvmhOpPR9ITC45r/5JnPwM8M/h8Bc9QGgIIrJSIXqsbdbPTaGgz8pq0\u002BWPFohR7gkjOKu3QMVhKrmi5yqDwWa7h6SlG21Gb/6QT0BPjXrxsApKpmLB2ybZ31NP\u002B/R2JfKIsiLJRdkBjM5FkSh54HnFym5394ZKbX49R0kQNQ\u002BX4",
+            "incomplete_details": null,
+            "instructions": null,
+            "max_output_tokens": null,
+            "max_tool_calls": null,
+            "metadata": {},
+            "model": "gpt-5.4-mini-2026-03-17",
+            "moderation": null,
+            "object": "response",
+            "output": [],
+            "parallel_tool_calls": true,
+            "presence_penalty": 0,
+            "previous_response_id": null,
+            "prompt_cache_retention": "24h",
+            "reasoning": {
+              "effort": "none",
+              "summary": null
+            },
+            "safety_identifier": "15187f54cd037c581e5a5c811a34cff893398fe32255af01dcdb2030883923cb",
+            "service_tier": "default",
+            "status": "in_progress",
+            "store": false,
+            "temperature": 1,
+            "text": {
+              "format": {
+                "type": "text"
+              },
+              "verbosity": "medium"
+            },
+            "tool_choice": "auto",
+            "tools": [],
+            "top_logprobs": 0,
+            "top_p": 0.98,
+            "truncation": "disabled",
+            "usage": null,
+            "user": null
+          },
+          "sequence_number": 1,
+          "type": "response.in_progress"
+        },
+        "raw": "{\u0022headers\u0022:{\u0022X-Copilot-API-Exp-Assignment-Context\u0022:\u0022e4hcf520:1109203;t_33b5c122:1165002;\u0022},\u0022response\u0022:{\u0022background\u0022:false,\u0022completed_at\u0022:null,\u0022created_at\u0022:1778951194,\u0022error\u0022:null,\u0022frequency_penalty\u0022:0,\u0022id\u0022:\u0022NHxGxZsRXJJtQ9OzfIqoaqRaSZluWWmaBe8cmtfhJLGNAXdqbmb2TUQzyuv93hQ1KjXsZsb1T44Rmo8hWNCr/jtQOuCJGzggO\u002BPE/6pzljhD/gumveICs1CrJK2qeSwTB19Q1ePgBm/fdXk7LB4O6HKWuW80rB4ywdSCnrfaQfidQ57SgGchEKZh3SGPzWmD1dVctwLdUhXryEhfpEdEALhPGfoAnDD\u002Bta8zzCQoC4wMSOLCgupDqSgmqpolWnTmIpqKM3KL29CmXUmpvLMpwPYKrA8cTfqWL3o9euIE35PJu\u002BoJiXSREm/t5GvmhOpPR9ITC45r/5JnPwM8M/h8Bc9QGgIIrJSIXqsbdbPTaGgz8pq0\u002BWPFohR7gkjOKu3QMVhKrmi5yqDwWa7h6SlG21Gb/6QT0BPjXrxsApKpmLB2ybZ31NP\u002B/R2JfKIsiLJRdkBjM5FkSh54HnFym5394ZKbX49R0kQNQ\u002BX4\u0022,\u0022incomplete_details\u0022:null,\u0022instructions\u0022:null,\u0022max_output_tokens\u0022:null,\u0022max_tool_calls\u0022:null,\u0022metadata\u0022:{},\u0022model\u0022:\u0022gpt-5.4-mini-2026-03-17\u0022,\u0022moderation\u0022:null,\u0022object\u0022:\u0022response\u0022,\u0022output\u0022:[],\u0022parallel_tool_calls\u0022:true,\u0022presence_penalty\u0022:0,\u0022previous_response_id\u0022:null,\u0022prompt_cache_retention\u0022:\u002224h\u0022,\u0022reasoning\u0022:{\u0022effort\u0022:\u0022none\u0022,\u0022summary\u0022:null},\u0022safety_identifier\u0022:\u002215187f54cd037c581e5a5c811a34cff893398fe32255af01dcdb2030883923cb\u0022,\u0022service_tier\u0022:\u0022default\u0022,\u0022status\u0022:\u0022in_progress\u0022,\u0022store\u0022:false,\u0022temperature\u0022:1,\u0022text\u0022:{\u0022format\u0022:{\u0022type\u0022:\u0022text\u0022},\u0022verbosity\u0022:\u0022medium\u0022},\u0022tool_choice\u0022:\u0022auto\u0022,\u0022tools\u0022:[],\u0022top_logprobs\u0022:0,\u0022top_p\u0022:0.98,\u0022truncation\u0022:\u0022disabled\u0022,\u0022usage\u0022:null,\u0022user\u0022:null},\u0022sequence_number\u0022:1,\u0022type\u0022:\u0022response.in_progress\u0022}"
+      },
+      {
+        "index": 2,
+        "message_type": "Text",
+        "data": {
+          "headers": {
+            "X-Copilot-API-Exp-Assignment-Context": "e4hcf520:1109203;t_33b5c122:1165002;"
+          },
+          "item": {
+            "content": [],
+            "id": "M3TfypHRhFsGeAd5MgDPDY6rg7gjy08ZRn\u002BM9CUWj/prro9yXbiCCDszA3PlgzcqgcsL9trVbdKS/a/Z\u002Bi1EWiIE7FlwNZ8KkCArAzW0HAxUpEaFdorVTJ8mKMsfwx2IFWqExG73k95r3jIf4nGjcTNJdxERfN8Xmj77B7B3hqvAlSPL2mvNC4mvm3G0MAs4nTb6mR2v2EO2iKkdKjzSMZCCQ9CsYG2A0p9Nv0HquK2W9/ZTXw9MDwXF9NA7YyuuD5bYFs0p7cbDIZb99/ydcMEqhjQLZ32NMcV9rPoJeHGOx5znQ\u002BdZihFmnfLtKD\u002B/duqN6DFYYNfPwdafR7fO6pASnmxwMt91YCGLL4EGlVHBoJktQjiCPTvJbOnAaOVt2V2qlYbZSjxvgSqeGAlG9pjrnfbjITnJEIcQFF3L9XmsokjEZtMeTATp8X8f7f8bqKFb/48fB6zfP\u002BUH1p78THO5S1sIs8DJecA=",
+            "phase": "final_answer",
+            "role": "assistant",
+            "status": "in_progress",
+            "type": "message"
+          },
+          "output_index": 0,
+          "sequence_number": 2,
+          "type": "response.output_item.added"
+        },
+        "raw": "{\u0022headers\u0022:{\u0022X-Copilot-API-Exp-Assignment-Context\u0022:\u0022e4hcf520:1109203;t_33b5c122:1165002;\u0022},\u0022item\u0022:{\u0022content\u0022:[],\u0022id\u0022:\u0022M3TfypHRhFsGeAd5MgDPDY6rg7gjy08ZRn\u002BM9CUWj/prro9yXbiCCDszA3PlgzcqgcsL9trVbdKS/a/Z\u002Bi1EWiIE7FlwNZ8KkCArAzW0HAxUpEaFdorVTJ8mKMsfwx2IFWqExG73k95r3jIf4nGjcTNJdxERfN8Xmj77B7B3hqvAlSPL2mvNC4mvm3G0MAs4nTb6mR2v2EO2iKkdKjzSMZCCQ9CsYG2A0p9Nv0HquK2W9/ZTXw9MDwXF9NA7YyuuD5bYFs0p7cbDIZb99/ydcMEqhjQLZ32NMcV9rPoJeHGOx5znQ\u002BdZihFmnfLtKD\u002B/duqN6DFYYNfPwdafR7fO6pASnmxwMt91YCGLL4EGlVHBoJktQjiCPTvJbOnAaOVt2V2qlYbZSjxvgSqeGAlG9pjrnfbjITnJEIcQFF3L9XmsokjEZtMeTATp8X8f7f8bqKFb/48fB6zfP\u002BUH1p78THO5S1sIs8DJecA=\u0022,\u0022phase\u0022:\u0022final_answer\u0022,\u0022role\u0022:\u0022assistant\u0022,\u0022status\u0022:\u0022in_progress\u0022,\u0022type\u0022:\u0022message\u0022},\u0022output_index\u0022:0,\u0022sequence_number\u0022:2,\u0022type\u0022:\u0022response.output_item.added\u0022}"
+      },
+      {
+        "index": 3,
+        "message_type": "Text",
+        "data": {
+          "content_index": 0,
+          "headers": {
+            "X-Copilot-API-Exp-Assignment-Context": "e4hcf520:1109203;t_33b5c122:1165002;"
+          },
+          "item_id": "ncX6BI4qVwvDk30BcvTNRkeGitmcxofy\u002BL4Nt3Y6108an19NeNgrNKa0aVuufMPfI\u002B8w5bu0ZZIzdrr/ml/kyxz3XrRB03AzJHw38hRL\u002BpsV84csyi/K9jbSe8h694UoSFsahuQILxoi2MDo\u002BXOcslFLGHdKzLLiZswPdUKEpUksKut9ODrumcdQA749NpPbL21N/9vUGZteBnrwAIyc9fr48\u002B9ciJUvrY0hrcbdP3mWwGbwC3YBj83AyRHoJiTwJMEZUKqK4qIhCetBuPBtnG/NqwQOvNkLX74DDfx2jh10KznDard6i/G/7ipdDJ9R4v0PBmXgnr6M3nHyJLra81SY0NaHq2UWByNfNoSAGQCPmXD5L7bkroxn9NQTdTQSyGCY1PRECenJuXIhmJFebQQn44lmFaeFqgRZiSxgu4tQHdm6mjCnehjnCCYgFCwO/aKGxw9mhN3n/JC4r5Mx9LMrAGe6d6qrow4=",
+          "output_index": 0,
+          "part": {
+            "annotations": [],
+            "logprobs": [],
+            "text": "",
+            "type": "output_text"
+          },
+          "sequence_number": 3,
+          "type": "response.content_part.added"
+        },
+        "raw": "{\u0022content_index\u0022:0,\u0022headers\u0022:{\u0022X-Copilot-API-Exp-Assignment-Context\u0022:\u0022e4hcf520:1109203;t_33b5c122:1165002;\u0022},\u0022item_id\u0022:\u0022ncX6BI4qVwvDk30BcvTNRkeGitmcxofy\u002BL4Nt3Y6108an19NeNgrNKa0aVuufMPfI\u002B8w5bu0ZZIzdrr/ml/kyxz3XrRB03AzJHw38hRL\u002BpsV84csyi/K9jbSe8h694UoSFsahuQILxoi2MDo\u002BXOcslFLGHdKzLLiZswPdUKEpUksKut9ODrumcdQA749NpPbL21N/9vUGZteBnrwAIyc9fr48\u002B9ciJUvrY0hrcbdP3mWwGbwC3YBj83AyRHoJiTwJMEZUKqK4qIhCetBuPBtnG/NqwQOvNkLX74DDfx2jh10KznDard6i/G/7ipdDJ9R4v0PBmXgnr6M3nHyJLra81SY0NaHq2UWByNfNoSAGQCPmXD5L7bkroxn9NQTdTQSyGCY1PRECenJuXIhmJFebQQn44lmFaeFqgRZiSxgu4tQHdm6mjCnehjnCCYgFCwO/aKGxw9mhN3n/JC4r5Mx9LMrAGe6d6qrow4=\u0022,\u0022output_index\u0022:0,\u0022part\u0022:{\u0022annotations\u0022:[],\u0022logprobs\u0022:[],\u0022text\u0022:\u0022\u0022,\u0022type\u0022:\u0022output_text\u0022},\u0022sequence_number\u0022:3,\u0022type\u0022:\u0022response.content_part.added\u0022}"
+      },
+      {
+        "index": 4,
+        "message_type": "Text",
+        "data": {
+          "content_index": 0,
+          "delta": "hello",
+          "headers": {
+            "X-Copilot-API-Exp-Assignment-Context": "e4hcf520:1109203;t_33b5c122:1165002;"
+          },
+          "item_id": "JtJ7MVacfbo1PmrZ2iUyK4dVqaKks3nP0zGR8X1vS/mc44wpZsU56/Ub69p4fA8pr7t282h05aTwcwmL2pLzpJPTP5utLnNNhl1JmtWr4ogH\u002BIorIB4\u002BqUEIssPi9oJ8chVh4ZX2YOD3sMw4xc1dTcbcTDRSOAGj0qrzS1dYI1B6TLV\u002BQTY4\u002Bcki2AaU1miAr0T49Hhh4E/6/PQYHZ\u002BlV2Xabpv5JbWUnvNdE6WjmIIok\u002B8v9B5kg9WqCg7mq018KGWy6sbhYZ1zAAuqjdewoRPxeDtOHJ6kx\u002BMLTGquIdaFLrW3NmuW18EcTd2aJPKsN5B4ZQanP/bgBEXecAHIrdr6P014NWDUx1hzaXBNSsB/HHp4gkaUPCZIosZPWTypwHOq7slFZiXDLpTMorNrJddsntvYP0TAVWM8S\u002BOYg4bnp1ZJueQ00URaaWMgc5oKM82xNbwY4rqJzgAww9H1g/9pXoxWxJKuWMk=",
+          "logprobs": [],
+          "obfuscation": "QOvlAS8xR5i",
+          "output_index": 0,
+          "sequence_number": 4,
+          "type": "response.output_text.delta"
+        },
+        "raw": "{\u0022content_index\u0022:0,\u0022delta\u0022:\u0022hello\u0022,\u0022headers\u0022:{\u0022X-Copilot-API-Exp-Assignment-Context\u0022:\u0022e4hcf520:1109203;t_33b5c122:1165002;\u0022},\u0022item_id\u0022:\u0022JtJ7MVacfbo1PmrZ2iUyK4dVqaKks3nP0zGR8X1vS/mc44wpZsU56/Ub69p4fA8pr7t282h05aTwcwmL2pLzpJPTP5utLnNNhl1JmtWr4ogH\u002BIorIB4\u002BqUEIssPi9oJ8chVh4ZX2YOD3sMw4xc1dTcbcTDRSOAGj0qrzS1dYI1B6TLV\u002BQTY4\u002Bcki2AaU1miAr0T49Hhh4E/6/PQYHZ\u002BlV2Xabpv5JbWUnvNdE6WjmIIok\u002B8v9B5kg9WqCg7mq018KGWy6sbhYZ1zAAuqjdewoRPxeDtOHJ6kx\u002BMLTGquIdaFLrW3NmuW18EcTd2aJPKsN5B4ZQanP/bgBEXecAHIrdr6P014NWDUx1hzaXBNSsB/HHp4gkaUPCZIosZPWTypwHOq7slFZiXDLpTMorNrJddsntvYP0TAVWM8S\u002BOYg4bnp1ZJueQ00URaaWMgc5oKM82xNbwY4rqJzgAww9H1g/9pXoxWxJKuWMk=\u0022,\u0022logprobs\u0022:[],\u0022obfuscation\u0022:\u0022QOvlAS8xR5i\u0022,\u0022output_index\u0022:0,\u0022sequence_number\u0022:4,\u0022type\u0022:\u0022response.output_text.delta\u0022}"
+      },
+      {
+        "index": 5,
+        "message_type": "Text",
+        "data": {
+          "content_index": 0,
+          "headers": {
+            "X-Copilot-API-Exp-Assignment-Context": "e4hcf520:1109203;t_33b5c122:1165002;"
+          },
+          "item_id": "GUKtarZN1P0Flp8i9XK5p4o6FvexMrMFjBZSDuG3/LiYIEYwXqwr0frGKFO3kfCY\u002BYXfX7Kjx7pghgX3azThPU8xAg/g2doFo\u002BmhgUKSGLpZgKqnYv30fucBfDCZw7749VDYozgnjFs7nWKilwge/e/zTVBC31\u002BrtyCWRTVfPjIBgaDl9Z\u002BMBXhjYUq3zxHMbA9/\u002BzsbrpobKlbc7vHOX7ujGsZ60dvnQDJty/7qeN0R\u002B02AEVOIam2bvbRq1OFc8qySOEgXXZ2QPG3YxNc9csFI5V2T//X8s8/OZZSv7jxBzw7rMu2KD53\u002BbvRdxAA1LfsVV54rHa\u002BPOt6FoFE22Bthv9oc5fVn3Q4LVaTQq62UeTCDBCjAHt6JmlqH0B9GyCNljChGzys3wWbkKVDPxWb3HV77nMYSIKIS3xoULx20laEC1IxD6SXqFW42F2U2TW8PjplRXIUMyRemnUkw/neaO4qzhMepp6U=",
+          "logprobs": [],
+          "output_index": 0,
+          "sequence_number": 5,
+          "text": "hello",
+          "type": "response.output_text.done"
+        },
+        "raw": "{\u0022content_index\u0022:0,\u0022headers\u0022:{\u0022X-Copilot-API-Exp-Assignment-Context\u0022:\u0022e4hcf520:1109203;t_33b5c122:1165002;\u0022},\u0022item_id\u0022:\u0022GUKtarZN1P0Flp8i9XK5p4o6FvexMrMFjBZSDuG3/LiYIEYwXqwr0frGKFO3kfCY\u002BYXfX7Kjx7pghgX3azThPU8xAg/g2doFo\u002BmhgUKSGLpZgKqnYv30fucBfDCZw7749VDYozgnjFs7nWKilwge/e/zTVBC31\u002BrtyCWRTVfPjIBgaDl9Z\u002BMBXhjYUq3zxHMbA9/\u002BzsbrpobKlbc7vHOX7ujGsZ60dvnQDJty/7qeN0R\u002B02AEVOIam2bvbRq1OFc8qySOEgXXZ2QPG3YxNc9csFI5V2T//X8s8/OZZSv7jxBzw7rMu2KD53\u002BbvRdxAA1LfsVV54rHa\u002BPOt6FoFE22Bthv9oc5fVn3Q4LVaTQq62UeTCDBCjAHt6JmlqH0B9GyCNljChGzys3wWbkKVDPxWb3HV77nMYSIKIS3xoULx20laEC1IxD6SXqFW42F2U2TW8PjplRXIUMyRemnUkw/neaO4qzhMepp6U=\u0022,\u0022logprobs\u0022:[],\u0022output_index\u0022:0,\u0022sequence_number\u0022:5,\u0022text\u0022:\u0022hello\u0022,\u0022type\u0022:\u0022response.output_text.done\u0022}"
+      },
+      {
+        "index": 6,
+        "message_type": "Text",
+        "data": {
+          "content_index": 0,
+          "headers": {
+            "X-Copilot-API-Exp-Assignment-Context": "e4hcf520:1109203;t_33b5c122:1165002;"
+          },
+          "item_id": "irEi7ldoMqjWUaGrnyMgUlewI7HqPjsA1Q34IAxz7X8yFOEdsnkn1IGx5zkcAFc32/jrq67BDkoDISaSCBiRMwjqEByBygBb2xdqBIMXSu99xWXr/BV4nbgXvaw4h8qtTGpHE9irkyNs3nWx\u002BbGsb8TGIe5LBbd79NzI2tywE85xI6FkEwkt92hwW1/LBL43WSiEWrbI3ETMUksPeO8n/ppQCr/FlLd2s1UnXmj2Exn7j/XZcXHXAqIBTOOKkud\u002BkEjE7JolHtzYCg2etcBfuimB1fpwAbhGzE8HYTsfuduBzPqZX3ayRMoaN/LCKlwNkLNOo/DEPcM5n8mLhB\u002Bzkl/3/bf1hH0502kKMjJaErEFOpin3SPHMfy5Km9CQrJXqMZdV/JKtKe/TSdouKw1Xa/\u002Bfl/B\u002B8C0CSeDaTBBLVhZppbj/rMtW5wLMygzw89yCltaA4HvOuV48KzthfDqVUM1jI/cLUYxPXM=",
+          "output_index": 0,
+          "part": {
+            "annotations": [],
+            "logprobs": [],
+            "text": "hello",
+            "type": "output_text"
+          },
+          "sequence_number": 6,
+          "type": "response.content_part.done"
+        },
+        "raw": "{\u0022content_index\u0022:0,\u0022headers\u0022:{\u0022X-Copilot-API-Exp-Assignment-Context\u0022:\u0022e4hcf520:1109203;t_33b5c122:1165002;\u0022},\u0022item_id\u0022:\u0022irEi7ldoMqjWUaGrnyMgUlewI7HqPjsA1Q34IAxz7X8yFOEdsnkn1IGx5zkcAFc32/jrq67BDkoDISaSCBiRMwjqEByBygBb2xdqBIMXSu99xWXr/BV4nbgXvaw4h8qtTGpHE9irkyNs3nWx\u002BbGsb8TGIe5LBbd79NzI2tywE85xI6FkEwkt92hwW1/LBL43WSiEWrbI3ETMUksPeO8n/ppQCr/FlLd2s1UnXmj2Exn7j/XZcXHXAqIBTOOKkud\u002BkEjE7JolHtzYCg2etcBfuimB1fpwAbhGzE8HYTsfuduBzPqZX3ayRMoaN/LCKlwNkLNOo/DEPcM5n8mLhB\u002Bzkl/3/bf1hH0502kKMjJaErEFOpin3SPHMfy5Km9CQrJXqMZdV/JKtKe/TSdouKw1Xa/\u002Bfl/B\u002B8C0CSeDaTBBLVhZppbj/rMtW5wLMygzw89yCltaA4HvOuV48KzthfDqVUM1jI/cLUYxPXM=\u0022,\u0022output_index\u0022:0,\u0022part\u0022:{\u0022annotations\u0022:[],\u0022logprobs\u0022:[],\u0022text\u0022:\u0022hello\u0022,\u0022type\u0022:\u0022output_text\u0022},\u0022sequence_number\u0022:6,\u0022type\u0022:\u0022response.content_part.done\u0022}"
+      },
+      {
+        "index": 7,
+        "message_type": "Text",
+        "data": {
+          "headers": {
+            "X-Copilot-API-Exp-Assignment-Context": "e4hcf520:1109203;t_33b5c122:1165002;"
+          },
+          "item": {
+            "content": [
+              {
+                "annotations": [],
+                "logprobs": [],
+                "text": "hello",
+                "type": "output_text"
+              }
+            ],
+            "id": "9S5MIuWP/y/kMXAunXBnbx9qnq3qkufebN5amPzuBR9oKz/B0stl64clE\u002BgGD9euHkB3jQy7m1SxH3IHWQVv330qw7dtyeVjBgo7MkrPXgdB9P3Z\u002BCNIDRku2/S8CrFRPE5r8NkF6AH9R09iYPFwRR7/CjNNuowCfy51td0NAiuWOvAQQO9LScwdqmcp3wohrofmilMBP25a09RUymieclFGhl7DHbtIMjtgi4j1ZRL0SMWbuNSMOf0CsMeOT2BSPDVg\u002BTZ99WSaYXZDq/OF2YlyKgkGTxHmewqpzJpN1wy6dQg20pw6KJIN6jEFIieW/D3bSg6ns3ZqxNO72HH\u002BnkwgcCbS/zfxWmd1os7M10ynd\u002Bp0uaW36qpBSY3WINYgKeZcaD89ezWfz2Vp3CyQhWKZj46VCbGIEv8qGDLhT0pnhefd1J5y\u002BsKt8eT7NDfdzPb/vAFDlJg\u002BRLHRytyOK7RkefkFLL8KLOY=",
+            "phase": "final_answer",
+            "role": "assistant",
+            "status": "completed",
+            "type": "message"
+          },
+          "output_index": 0,
+          "sequence_number": 7,
+          "type": "response.output_item.done"
+        },
+        "raw": "{\u0022headers\u0022:{\u0022X-Copilot-API-Exp-Assignment-Context\u0022:\u0022e4hcf520:1109203;t_33b5c122:1165002;\u0022},\u0022item\u0022:{\u0022content\u0022:[{\u0022annotations\u0022:[],\u0022logprobs\u0022:[],\u0022text\u0022:\u0022hello\u0022,\u0022type\u0022:\u0022output_text\u0022}],\u0022id\u0022:\u00229S5MIuWP/y/kMXAunXBnbx9qnq3qkufebN5amPzuBR9oKz/B0stl64clE\u002BgGD9euHkB3jQy7m1SxH3IHWQVv330qw7dtyeVjBgo7MkrPXgdB9P3Z\u002BCNIDRku2/S8CrFRPE5r8NkF6AH9R09iYPFwRR7/CjNNuowCfy51td0NAiuWOvAQQO9LScwdqmcp3wohrofmilMBP25a09RUymieclFGhl7DHbtIMjtgi4j1ZRL0SMWbuNSMOf0CsMeOT2BSPDVg\u002BTZ99WSaYXZDq/OF2YlyKgkGTxHmewqpzJpN1wy6dQg20pw6KJIN6jEFIieW/D3bSg6ns3ZqxNO72HH\u002BnkwgcCbS/zfxWmd1os7M10ynd\u002Bp0uaW36qpBSY3WINYgKeZcaD89ezWfz2Vp3CyQhWKZj46VCbGIEv8qGDLhT0pnhefd1J5y\u002BsKt8eT7NDfdzPb/vAFDlJg\u002BRLHRytyOK7RkefkFLL8KLOY=\u0022,\u0022phase\u0022:\u0022final_answer\u0022,\u0022role\u0022:\u0022assistant\u0022,\u0022status\u0022:\u0022completed\u0022,\u0022type\u0022:\u0022message\u0022},\u0022output_index\u0022:0,\u0022sequence_number\u0022:7,\u0022type\u0022:\u0022response.output_item.done\u0022}"
+      },
+      {
+        "index": 8,
+        "message_type": "Text",
+        "data": {
+          "copilot_usage": {
+            "token_details": [
+              {
+                "batch_size": 1000000,
+                "cost_per_batch": 75000000000,
+                "token_count": 11,
+                "token_type": "input"
+              },
+              {
+                "batch_size": 1000000,
+                "cost_per_batch": 7500000000,
+                "token_count": 0,
+                "token_type": "cache_read"
+              },
+              {
+                "batch_size": 1000000,
+                "cost_per_batch": 450000000000,
+                "token_count": 5,
+                "token_type": "output"
+              }
+            ],
+            "total_nano_aiu": 3075000
+          },
+          "headers": {
+            "X-Copilot-API-Exp-Assignment-Context": "e4hcf520:1109203;t_33b5c122:1165002;"
+          },
+          "response": {
+            "background": false,
+            "completed_at": 1778951194,
+            "created_at": 1778951194,
+            "error": null,
+            "frequency_penalty": 0,
+            "id": "xY3YnByPbS1q3zNIpGby4AgUbUJUkOYw9rs70cKO9O6ehf60REiGpIw1IoUk6PklymGKeqJ6sg3jWDpVQ0DE8lAW1F8bybI7EoDCZtBQxy8eBF0iQDBXXEHAclF15T3ieU5Jx679255Kzj90JgjlVOIJcRHEBMVQ1wr3D1j85Refx0NUa1wxYeWahTWdCCxKbJxt5F6TDTM6n8Y2uQEYLahKXfWQrWD6kW5mFqRbu1VdkwmOFYhWC2w3wo77jjA/fUmiyMIRS5VF6gfbNKLlkbdppA/8tfc6VTHLi42viu\u002B9sXkhc4UjnSyJCxkHidQ4z3UMVVX9Y/vHqfL5em\u002BmG\u002BhuUPzITxXyfokniCtY7A4BnR7Rhc98b1h7JG4cLYZwzHzagyHotZbzBXZ7YofbC\u002BVBt2TyWIURKEAug4sp0pGY0gEWNf4XpI53SfueV/RubYzhAs2WbYE9OocWb7U9W/HQKVWPBVbY4ynA",
+            "incomplete_details": null,
+            "instructions": null,
+            "max_output_tokens": null,
+            "max_tool_calls": null,
+            "metadata": {},
+            "model": "gpt-5.4-mini-2026-03-17",
+            "moderation": null,
+            "object": "response",
+            "output": [
+              {
+                "content": [
+                  {
+                    "annotations": [],
+                    "logprobs": [],
+                    "text": "hello",
+                    "type": "output_text"
+                  }
+                ],
+                "id": "NA7fNHplUm6P96c2GudLXb3ZbW84Cv4VYpX48V\u002B00S/5\u002BCA3cr4aholIlOOhD6xrtGfIjx9Vh482/buCHTeyYUclyDVIz3vvgl5AXMHoO92ImYFVB1cw2Nv\u002B0Bkq8X46meWraLczrKHnpcByARNhQso/cZaUvWuvuhjYCHP7CyP/gZN3RFyAFE/uzG3uww\u002BlmfTgP3L5cZo0WFCKvlHr1X0SXNxa/Cd3PqQhRew4u9wkO4APxRpnwfhTFklvg9PzYtVIyJUxL2QZaIqbLOgN1Adpco6oFlX8lTI/u0Y3K0ZRnJaRQyBPCpYzpNfjrk29kjIyZM\u002BAeqsZftQ2e3JxAE5CaCHAdHYssdA9qWw6uEVLiUCqPwKqK6ALxo3g\u002BRY53lLakTX8S5bSi11vwsXSWq7oqI2ez48uaXFPFxa31GrYlIo1DOBt/jHE1qgedxvqlnUsrWzqHLDiyo2\u002Bx7KK4XlYoKTM/s8ZNAs=",
+                "phase": "final_answer",
+                "role": "assistant",
+                "status": "completed",
+                "type": "message"
+              }
+            ],
+            "parallel_tool_calls": true,
+            "presence_penalty": 0,
+            "previous_response_id": null,
+            "prompt_cache_retention": "24h",
+            "reasoning": {
+              "effort": "none",
+              "summary": null
+            },
+            "safety_identifier": "15187f54cd037c581e5a5c811a34cff893398fe32255af01dcdb2030883923cb",
+            "service_tier": "default",
+            "status": "completed",
+            "store": false,
+            "temperature": 1,
+            "text": {
+              "format": {
+                "type": "text"
+              },
+              "verbosity": "medium"
+            },
+            "tool_choice": "auto",
+            "tools": [],
+            "top_logprobs": 0,
+            "top_p": 0.98,
+            "truncation": "disabled",
+            "usage": {
+              "input_tokens": 11,
+              "input_tokens_details": {
+                "cached_tokens": 0
+              },
+              "output_tokens": 5,
+              "output_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 16
+            },
+            "user": null
+          },
+          "sequence_number": 8,
+          "type": "response.completed"
+        },
+        "raw": "{\u0022copilot_usage\u0022:{\u0022token_details\u0022:[{\u0022batch_size\u0022:1000000,\u0022cost_per_batch\u0022:75000000000,\u0022token_count\u0022:11,\u0022token_type\u0022:\u0022input\u0022},{\u0022batch_size\u0022:1000000,\u0022cost_per_batch\u0022:7500000000,\u0022token_count\u0022:0,\u0022token_type\u0022:\u0022cache_read\u0022},{\u0022batch_size\u0022:1000000,\u0022cost_per_batch\u0022:450000000000,\u0022token_count\u0022:5,\u0022token_type\u0022:\u0022output\u0022}],\u0022total_nano_aiu\u0022:3075000},\u0022headers\u0022:{\u0022X-Copilot-API-Exp-Assignment-Context\u0022:\u0022e4hcf520:1109203;t_33b5c122:1165002;\u0022},\u0022response\u0022:{\u0022background\u0022:false,\u0022completed_at\u0022:1778951194,\u0022created_at\u0022:1778951194,\u0022error\u0022:null,\u0022frequency_penalty\u0022:0,\u0022id\u0022:\u0022xY3YnByPbS1q3zNIpGby4AgUbUJUkOYw9rs70cKO9O6ehf60REiGpIw1IoUk6PklymGKeqJ6sg3jWDpVQ0DE8lAW1F8bybI7EoDCZtBQxy8eBF0iQDBXXEHAclF15T3ieU5Jx679255Kzj90JgjlVOIJcRHEBMVQ1wr3D1j85Refx0NUa1wxYeWahTWdCCxKbJxt5F6TDTM6n8Y2uQEYLahKXfWQrWD6kW5mFqRbu1VdkwmOFYhWC2w3wo77jjA/fUmiyMIRS5VF6gfbNKLlkbdppA/8tfc6VTHLi42viu\u002B9sXkhc4UjnSyJCxkHidQ4z3UMVVX9Y/vHqfL5em\u002BmG\u002BhuUPzITxXyfokniCtY7A4BnR7Rhc98b1h7JG4cLYZwzHzagyHotZbzBXZ7YofbC\u002BVBt2TyWIURKEAug4sp0pGY0gEWNf4XpI53SfueV/RubYzhAs2WbYE9OocWb7U9W/HQKVWPBVbY4ynA\u0022,\u0022incomplete_details\u0022:null,\u0022instructions\u0022:null,\u0022max_output_tokens\u0022:null,\u0022max_tool_calls\u0022:null,\u0022metadata\u0022:{},\u0022model\u0022:\u0022gpt-5.4-mini-2026-03-17\u0022,\u0022moderation\u0022:null,\u0022object\u0022:\u0022response\u0022,\u0022output\u0022:[{\u0022content\u0022:[{\u0022annotations\u0022:[],\u0022logprobs\u0022:[],\u0022text\u0022:\u0022hello\u0022,\u0022type\u0022:\u0022output_text\u0022}],\u0022id\u0022:\u0022NA7fNHplUm6P96c2GudLXb3ZbW84Cv4VYpX48V\u002B00S/5\u002BCA3cr4aholIlOOhD6xrtGfIjx9Vh482/buCHTeyYUclyDVIz3vvgl5AXMHoO92ImYFVB1cw2Nv\u002B0Bkq8X46meWraLczrKHnpcByARNhQso/cZaUvWuvuhjYCHP7CyP/gZN3RFyAFE/uzG3uww\u002BlmfTgP3L5cZo0WFCKvlHr1X0SXNxa/Cd3PqQhRew4u9wkO4APxRpnwfhTFklvg9PzYtVIyJUxL2QZaIqbLOgN1Adpco6oFlX8lTI/u0Y3K0ZRnJaRQyBPCpYzpNfjrk29kjIyZM\u002BAeqsZftQ2e3JxAE5CaCHAdHYssdA9qWw6uEVLiUCqPwKqK6ALxo3g\u002BRY53lLakTX8S5bSi11vwsXSWq7oqI2ez48uaXFPFxa31GrYlIo1DOBt/jHE1qgedxvqlnUsrWzqHLDiyo2\u002Bx7KK4XlYoKTM/s8ZNAs=\u0022,\u0022phase\u0022:\u0022final_answer\u0022,\u0022role\u0022:\u0022assistant\u0022,\u0022status\u0022:\u0022completed\u0022,\u0022type\u0022:\u0022message\u0022}],\u0022parallel_tool_calls\u0022:true,\u0022presence_penalty\u0022:0,\u0022previous_response_id\u0022:null,\u0022prompt_cache_retention\u0022:\u002224h\u0022,\u0022reasoning\u0022:{\u0022effort\u0022:\u0022none\u0022,\u0022summary\u0022:null},\u0022safety_identifier\u0022:\u002215187f54cd037c581e5a5c811a34cff893398fe32255af01dcdb2030883923cb\u0022,\u0022service_tier\u0022:\u0022default\u0022,\u0022status\u0022:\u0022completed\u0022,\u0022store\u0022:false,\u0022temperature\u0022:1,\u0022text\u0022:{\u0022format\u0022:{\u0022type\u0022:\u0022text\u0022},\u0022verbosity\u0022:\u0022medium\u0022},\u0022tool_choice\u0022:\u0022auto\u0022,\u0022tools\u0022:[],\u0022top_logprobs\u0022:0,\u0022top_p\u0022:0.98,\u0022truncation\u0022:\u0022disabled\u0022,\u0022usage\u0022:{\u0022input_tokens\u0022:11,\u0022input_tokens_details\u0022:{\u0022cached_tokens\u0022:0},\u0022output_tokens\u0022:5,\u0022output_tokens_details\u0022:{\u0022reasoning_tokens\u0022:0},\u0022total_tokens\u0022:16},\u0022user\u0022:null},\u0022sequence_number\u0022:8,\u0022type\u0022:\u0022response.completed\u0022}"
+      }
+    ]
+  }
+}

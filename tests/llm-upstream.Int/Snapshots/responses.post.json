@@ -1,0 +1,142 @@
+{
+  "name": "POST /responses",
+  "base_url": "https://api.enterprise.githubcopilot.com",
+  "request": {
+    "method": "POST",
+    "path": "/responses",
+    "headers": {
+      "Authorization": [
+        "\u003CREDACTED\u003E"
+      ],
+      "Content-Type": [
+        "application/json; charset=utf-8"
+      ],
+      "Copilot-Integration-Id": [
+        "copilot-developer-cli"
+      ],
+      "User-Agent": [
+        "copilot/1.0.11 (win32) term/service"
+      ]
+    },
+    "body": {
+      "model": "gpt-5.4-mini",
+      "input": "Reply with exactly: hello",
+      "stream": false
+    }
+  },
+  "response": {
+    "status_code": 200,
+    "reason_phrase": "OK",
+    "headers": {
+      "Content-Security-Policy": [
+        "default-src \u0027none\u0027; sandbox"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Date": [
+        "Sat, 16 May 2026 16:56:23 GMT"
+      ],
+      "Strict-Transport-Security": [
+        "max-age=31536000"
+      ],
+      "Transfer-Encoding": [
+        "chunked"
+      ],
+      "x-copilot-api-exp-assignment-context": [
+        "e4hcf520:1109203;t_33b5c122:1165002;"
+      ],
+      "x-github-backend": [
+        "Kubernetes"
+      ],
+      "X-GitHub-Request-Id": [
+        "E6E8:10011E:2BFB46:344DE2:6A08A1B6"
+      ],
+      "X-Request-ID": [
+        "00000-1413f37c-dc55-42c6-8c38-299f13cada0d"
+      ]
+    },
+    "body": {
+      "copilot_usage": {
+        "token_details": [
+          {
+            "batch_size": 1000000,
+            "cost_per_batch": 75000000000,
+            "token_count": 11,
+            "token_type": "input"
+          },
+          {
+            "batch_size": 1000000,
+            "cost_per_batch": 7500000000,
+            "token_count": 0,
+            "token_type": "cache_read"
+          },
+          {
+            "batch_size": 1000000,
+            "cost_per_batch": 450000000000,
+            "token_count": 5,
+            "token_type": "output"
+          }
+        ],
+        "total_nano_aiu": 3075000
+      },
+      "created_at": 1778950500,
+      "id": "y07yyOEQ9EUn5\u002BrH\u002BTQO\u002BH8RbQxfqysdAV4tHv5nwuEMr8IPKTs09\u002ByPdZMl4C\u002B9DQTQgFVDyZ\u002BH181Xihd10a6JX4je3Qg/R2YcSFk5//MyHIrq9bD\u002B/XTI6MWBeRlHZBYzfwYJrW\u002B\u002BuDzb7dzpI7j13jG9NTp9q8s22VrxxHN40iAuZSLi4g87MVbUN31BsvAqLpbDjiBW8T3UzxTyVLBWTgWPwHFDOpq\u002B4XIDXtioL\u002Be8kkAVHHSJybtUtCQIe29tSd\u002B8IzDWkIiBWbKmhDtii7STxXko0X0nzXe6vmRjrVa7ba8qeV2P4yfnhcPF19IxM4HKcO1SsoQhdB\u002BUk8S\u002B/Ci6mrop\u002BqF3TDUrbqBNekykSabC5M68U4PL/BvyIup0zVfr9tuTK35rouZiTfOFmC4pdTk=",
+      "incomplete_details": null,
+      "instructions": null,
+      "max_output_tokens": null,
+      "model": "gpt-5.4-mini-2026-03-17",
+      "object": "response",
+      "output": [
+        {
+          "content": [
+            {
+              "annotations": [],
+              "logprobs": [],
+              "text": "hello",
+              "type": "output_text"
+            }
+          ],
+          "id": "mCd910PnU0m8a6OlmtGfwugaJ8Bl6eDIkirkOgncIa9ezi5VaYTmn2LXOkm6yjfVFZTSq7NeG/v7q/WaLo5qY/uHVTwqQWiEzWkqhpOmhCd/8PQ7McFap0XEz7xe/6cvne3Diwd5X4ByA\u002BnmXtECC2OOgma78T/MaPD\u002BLODVXfBAj5y7byQo/s\u002BgdECuhTRGM7n\u002BmrOB9lE2i9ILOfdmt\u002Bll4USJnEb5hnDYPIr5FCrK1lNTz9O32E9GGIUytaefKh\u002BUQMp6IQi3WqRwKrpds6WXZgCNsT\u002Bh7d/JknGBqJwBRMWhm\u002BA7utw9V3AUNAzP9BF58nFH1wlnR3EYakrxCvYfcRWHbbBtQkHBcGJ6AKSGz9qlypfSGNsSGbcVPtyS1rfyrLXg9\u002BxmSqrVESRLgC4INT9Q\u002BQ==",
+          "phase": "final_answer",
+          "role": "assistant",
+          "status": "completed",
+          "type": "message"
+        }
+      ],
+      "output_text": null,
+      "parallel_tool_calls": true,
+      "previous_response_id": null,
+      "prompt_cache_retention": "24h",
+      "reasoning": {
+        "effort": "none",
+        "summary": null
+      },
+      "safety_identifier": "15187f54cd037c581e5a5c811a34cff893398fe32255af01dcdb2030883923cb",
+      "service_tier": "default",
+      "status": "completed",
+      "temperature": 1,
+      "text": {
+        "format": {
+          "type": "text"
+        },
+        "verbosity": "medium"
+      },
+      "tool_choice": "auto",
+      "tools": [],
+      "top_p": 0.98,
+      "truncation": "disabled",
+      "usage": {
+        "input_tokens": 11,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 16
+      }
+    }
+  }
+}

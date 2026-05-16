@@ -1,0 +1,60 @@
+{
+  "name": "POST /embeddings",
+  "base_url": "https://api.enterprise.githubcopilot.com",
+  "request": {
+    "method": "POST",
+    "path": "/embeddings",
+    "headers": {
+      "Authorization": [
+        "\u003CREDACTED\u003E"
+      ],
+      "Content-Type": [
+        "application/json; charset=utf-8"
+      ],
+      "Copilot-Integration-Id": [
+        "copilot-developer-cli"
+      ],
+      "User-Agent": [
+        "copilot/1.0.11 (win32) term/service"
+      ]
+    },
+    "body": {
+      "model": "text-embedding-3-small",
+      "input": "hello"
+    }
+  },
+  "response": {
+    "status_code": 400,
+    "reason_phrase": "Bad Request",
+    "headers": {
+      "Content-Length": [
+        "12"
+      ],
+      "Content-Security-Policy": [
+        "default-src \u0027none\u0027; sandbox"
+      ],
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ],
+      "Date": [
+        "Sat, 16 May 2026 17:05:47 GMT"
+      ],
+      "Strict-Transport-Security": [
+        "max-age=31536000"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "x-copilot-api-exp-assignment-context": [
+        "e4hcf520:1109203;t_33b5c122:1165002;"
+      ],
+      "x-github-backend": [
+        "Kubernetes"
+      ],
+      "X-GitHub-Request-Id": [
+        "E7E6:2A035B:320709:3B8B71:6A08A3EB"
+      ]
+    },
+    "body": "Bad Request\n"
+  }
+}
