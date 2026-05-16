@@ -1,19 +1,15 @@
 <#
 .SYNOPSIS
-    Runs llm CLI commands matching every scenario in the test matrix.
+    Runs llm CLI smoke commands against llm-svc.
 .DESCRIPTION
-    Each test-matrix row maps to an llm ask, llm chat, llm sdk-ask,
-    llm sdk-context-ask, or llm sdk-chat invocation that exercises the same
-    surface or SDK path.
+    Each test-matrix row maps to a user-visible llm command against a live
+    proxy. Service routing and translation correctness belongs in llm-svc.Int.
     Starts llm-svc automatically if the selected endpoint is not already
     healthy; reuses an already-running proxy otherwise.
 .NOTES
     Models used:
-      gpt-5.4-mini     -> /responses only
-      gpt-5.4          -> /responses only
-      claude-haiku-4.5 -> /chat/completions only
-      gpt-5-mini       -> both /chat/completions and /responses (dual)
-      sdk-* commands   -> direct ILlmSdkClient path
+      gpt-5.4-mini -> responses smoke
+      gpt-5-mini   -> chat smoke
     Run:  pwsh scripts\test-matrix.ps1 [-Port 5110] [-NoStream]
     Options:
       -Port <port>       Port to use when -Endpoint is not supplied.
@@ -143,12 +139,10 @@ function Invoke-Llm {
         [string]$Model,
         [switch]$Stream,
         [switch]$Tools,
-        [bool]$UseEndpoint = $true,
         [string[]]$ExtraArgs = @()
     )
 
-    $cliArgs = @($Verb, $Prompt, "-m", $Model)
-    if ($UseEndpoint) { $cliArgs += @("-e", $Endpoint) }
+    $cliArgs = @($Verb, $Prompt, "-m", $Model, "-e", $Endpoint)
     if (-not $Stream) { $cliArgs += "--no-stream" }
     if ($Tools)       { $cliArgs += "--tools" }
     if ($ExtraArgs.Count -gt 0) { $cliArgs += $ExtraArgs }
@@ -175,33 +169,24 @@ function Invoke-Llm {
     }
 }
 
-function Invoke-ProxyKnobs {
+function Invoke-LlmCommand {
     param(
         [string]$Label,
-        [string]$Model
+        [string[]]$CliArgs
     )
 
     Write-Host ""
     Write-Host "─── $Label ───" -ForegroundColor Cyan
-    Write-Host "  curl $Endpoint/v1/responses with proxy knob headers" -ForegroundColor DarkGray
-
-    $headers = @{
-        "X-LLM-Request-Id" = "test-matrix-proxy-knobs"
-        "X-LLM-Correlation-Id" = "test-matrix-proxy-correlation"
-        "X-LLM-Metadata-test" = "proxy-knobs"
-        "X-LLM-Timeout-Ms" = "60000"
-        "X-LLM-Max-Retries" = "1"
-        "X-LLM-Max-Retry-Delay-Ms" = "1000"
-    }
-    $body = @{
-        model = $Model
-        input = $prompt
-        stream = $false
-    } | ConvertTo-Json -Compress
+    Write-Host "  llm $($CliArgs -join ' ')" -ForegroundColor DarkGray
 
     try {
-        $response = Invoke-WebRequest -Uri "$Endpoint/v1/responses" -Method Post -Headers $headers -ContentType "application/json" -Body $body -UseBasicParsing
-        $text = $response.Content.Trim()
+        $output = & $Dotnet run --project $llmCli --no-build -- @CliArgs 2>&1
+        $text = ($output | Out-String).Trim()
+        if ($text -match "Unhandled exception|FAIL|error") {
+            if ($text.Length -gt 200) { $text = $text.Substring(0, 200) + "..." }
+            Write-Host "  FAIL: $text" -ForegroundColor Red
+            return $false
+        }
         if ($text.Length -gt 200) { $text = $text.Substring(0, 200) + "..." }
         Write-Host "  OK: $text" -ForegroundColor Green
         return $true
@@ -226,136 +211,18 @@ $fail = 0
 $prompt      = "Reply with exactly: hello"
 $toolPrompt  = "Use the fetch_url tool to fetch https://raw.githubusercontent.com/github/gitignore/main/README.md and summarize it in one sentence"
 
-# ══════════════════════════════════════════════════════════════════════════════
-# /responses surface (llm ask)
-# ══════════════════════════════════════════════════════════════════════════════
+if (Invoke-LlmCommand "1. health → CLI can reach proxy" @("health", "-e", $Endpoint)) { $pass++ } else { $fail++ }
 
-# 1. /responses → /responses only model, plain text
-if (Invoke-Llm "1. ask → responses-only model, plain" ask $prompt gpt-5.4-mini -Stream:$false) { $pass++ } else { $fail++ }
+if (Invoke-Llm "2. ask → responses smoke" ask $prompt gpt-5.4-mini -Stream:$false) { $pass++ } else { $fail++ }
 
-# 2. /responses → /responses only model, streaming
-if (Invoke-Llm "2. ask → responses-only model, streaming" ask $prompt gpt-5.4-mini -Stream:$useStream) { $pass++ } else { $fail++ }
+if (Invoke-Llm "3. chat → chat smoke" chat $prompt gpt-5-mini -Stream:$useStream) { $pass++ } else { $fail++ }
 
-# 3. /responses → chat-only model, plain text translation
-if (Invoke-Llm "3. ask → chat-only model, plain translation" ask $prompt claude-haiku-4.5 -Stream:$false) { $pass++ } else { $fail++ }
+if (Invoke-Llm "4. ask → local tools smoke" ask $toolPrompt gpt-5-mini -Stream:$false -Tools) { $pass++ } else { $fail++ }
 
-# 4. /responses → chat-only model, streaming translation
-if (Invoke-Llm "4. ask → chat-only model, streaming translation" ask $prompt claude-haiku-4.5 -Stream:$useStream) { $pass++ } else { $fail++ }
-
-# 5. /responses → chat-only model, tool definition forwarding
-if (Invoke-Llm "5. ask → chat-only model, tools" ask $toolPrompt claude-haiku-4.5 -Stream:$false -Tools) { $pass++ } else { $fail++ }
-
-# 6. /responses → chat-only model, streaming tool round-trip
-if (Invoke-Llm "6. ask → chat-only model, streaming + tools" ask $toolPrompt claude-haiku-4.5 -Stream:$useStream -Tools) { $pass++ } else { $fail++ }
-
-# 7. /responses → dual-endpoint model, should prefer native /responses
-if (Invoke-Llm "7. ask → dual-endpoint model, prefers responses" ask $prompt gpt-5-mini -Stream:$false) { $pass++ } else { $fail++ }
-
-if (Invoke-Llm "7b. ask → proxy CLI per-call knobs" ask $prompt gpt-5.4-mini -Stream:$false -ExtraArgs @(
+if (Invoke-Llm "5. ask → CLI per-call knobs smoke" ask $prompt gpt-5.4-mini -Stream:$false -ExtraArgs @(
     "--request-id", "test-matrix-cli-ask",
     "--correlation-id", "test-matrix-cli-correlation",
     "--metadata", "surface=ask",
-    "--timeout-ms", "60000",
-    "--max-retries", "1",
-    "--max-retry-delay-ms", "1000"
-)) { $pass++ } else { $fail++ }
-
-if (Invoke-ProxyKnobs "7c. responses → raw proxy per-call knobs" gpt-5.4-mini) { $pass++ } else { $fail++ }
-
-# ══════════════════════════════════════════════════════════════════════════════
-# /chat/completions surface (llm chat)
-# ══════════════════════════════════════════════════════════════════════════════
-
-# 8. /chat/completions → chat-capable model, plain text
-if (Invoke-Llm "8. chat → chat-capable model, plain" chat $prompt claude-haiku-4.5 -Stream:$false) { $pass++ } else { $fail++ }
-
-# 9. /chat/completions → chat-capable model, SSE streaming
-if (Invoke-Llm "9. chat → chat-capable model, streaming" chat $prompt claude-haiku-4.5 -Stream:$useStream) { $pass++ } else { $fail++ }
-
-# 10. /chat/completions → chat-capable model, SSE streaming + tools
-if (Invoke-Llm "10. chat → chat-capable model, streaming + tools" chat $toolPrompt claude-haiku-4.5 -Stream:$useStream -Tools) { $pass++ } else { $fail++ }
-
-# 11. /chat/completions → responses-only model, plain text translation
-if (Invoke-Llm "11. chat → responses-only model, plain translation" chat $prompt gpt-5.4-mini -Stream:$false) { $pass++ } else { $fail++ }
-
-# 12. /chat/completions → responses-only model, SSE streaming translation
-if (Invoke-Llm "12. chat → responses-only model, streaming translation" chat $prompt gpt-5.4-mini -Stream:$useStream) { $pass++ } else { $fail++ }
-
-# 13. /chat/completions → responses-only model, SSE streaming tool round-trip
-if (Invoke-Llm "13. chat → responses-only model, streaming + tools" chat $toolPrompt gpt-5.4-mini -Stream:$useStream -Tools) { $pass++ } else { $fail++ }
-
-# 14. /chat/completions → dual-endpoint model, should prefer native /chat
-if (Invoke-Llm "14. chat → dual-endpoint model, prefers chat" chat $prompt gpt-5-mini -Stream:$false) { $pass++ } else { $fail++ }
-
-# 15. /chat/completions → dual-endpoint model, SSE streaming prefers native
-if (Invoke-Llm "15. chat → dual-endpoint model, streaming prefers chat" chat $prompt gpt-5-mini -Stream:$useStream) { $pass++ } else { $fail++ }
-
-if (Invoke-Llm "15b. chat → proxy CLI per-call knobs" chat $prompt gpt-5-mini -Stream:$false -ExtraArgs @(
-    "--request-id", "test-matrix-cli-chat",
-    "--correlation-id", "test-matrix-cli-correlation",
-    "--metadata", "surface=chat",
-    "--timeout-ms", "60000",
-    "--max-retries", "1",
-    "--max-retry-delay-ms", "1000"
-)) { $pass++ } else { $fail++ }
-
-# ══════════════════════════════════════════════════════════════════════════════
-# SDK surface (llm sdk-ask / llm sdk-chat)
-# ══════════════════════════════════════════════════════════════════════════════
-
-# 16. sdk-ask → direct sdk path, plain text
-if (Invoke-Llm "16. sdk-ask → direct sdk path, plain" sdk-ask $prompt gpt-5.4-mini -Stream:$false -UseEndpoint:$false) { $pass++ } else { $fail++ }
-
-# 17. sdk-ask → direct sdk path, streaming
-if (Invoke-Llm "17. sdk-ask → direct sdk path, streaming" sdk-ask $prompt gpt-5.4-mini -Stream:$useStream -UseEndpoint:$false) { $pass++ } else { $fail++ }
-
-# 18. sdk-ask → direct sdk path, tools
-if (Invoke-Llm "18. sdk-ask → direct sdk path, tools" sdk-ask $toolPrompt gpt-5.4-mini -Stream:$false -Tools -UseEndpoint:$false) { $pass++ } else { $fail++ }
-
-# 19. sdk-ask → direct sdk path, streaming + tools
-if (Invoke-Llm "19. sdk-ask → direct sdk path, streaming + tools" sdk-ask $toolPrompt gpt-5.4-mini -Stream:$useStream -Tools -UseEndpoint:$false) { $pass++ } else { $fail++ }
-
-if (Invoke-Llm "19b. sdk-ask → direct sdk per-call knobs" sdk-ask $prompt gpt-5.4-mini -Stream:$false -UseEndpoint:$false -ExtraArgs @(
-    "--request-id", "test-matrix-sdk-ask",
-    "--correlation-id", "test-matrix-sdk-correlation",
-    "--metadata", "surface=sdk-ask",
-    "--timeout-ms", "60000",
-    "--max-retries", "1",
-    "--max-retry-delay-ms", "1000"
-)) { $pass++ } else { $fail++ }
-
-# 20. sdk-context-ask → direct SDK Context path, Responses API, plain text
-if (Invoke-Llm "20. sdk-context-ask → context API, responses plain" sdk-context-ask $prompt gpt-5.4-mini -Stream:$false -UseEndpoint:$false -ExtraArgs @("--api", "responses")) { $pass++ } else { $fail++ }
-
-# 21. sdk-context-ask → direct SDK Context path, Responses API, streaming
-if (Invoke-Llm "21. sdk-context-ask → context API, responses streaming" sdk-context-ask $prompt gpt-5.4-mini -Stream:$useStream -UseEndpoint:$false -ExtraArgs @("--api", "responses")) { $pass++ } else { $fail++ }
-
-# 22. sdk-context-ask → direct SDK Context path, Chat Completions API, plain text
-if (Invoke-Llm "22. sdk-context-ask → context API, chat plain" sdk-context-ask $prompt claude-haiku-4.5 -Stream:$false -UseEndpoint:$false -ExtraArgs @("--api", "chat")) { $pass++ } else { $fail++ }
-
-# 23. sdk-context-ask → direct SDK Context path, Chat Completions API, streaming
-if (Invoke-Llm "23. sdk-context-ask → context API, chat streaming" sdk-context-ask $prompt claude-haiku-4.5 -Stream:$useStream -UseEndpoint:$false -ExtraArgs @("--api", "chat")) { $pass++ } else { $fail++ }
-
-if (Invoke-Llm "23b. sdk-context-ask → context per-call knobs" sdk-context-ask $prompt gpt-5.4-mini -Stream:$false -UseEndpoint:$false -ExtraArgs @(
-    "--api", "responses",
-    "--request-id", "test-matrix-sdk-context",
-    "--correlation-id", "test-matrix-sdk-correlation",
-    "--metadata", "surface=sdk-context",
-    "--timeout-ms", "60000",
-    "--max-retries", "1",
-    "--max-retry-delay-ms", "1000"
-)) { $pass++ } else { $fail++ }
-
-# 24. sdk-chat → direct sdk path, plain text
-if (Invoke-Llm "24. sdk-chat → direct sdk path, plain" sdk-chat $prompt gpt-5-mini -Stream:$false -UseEndpoint:$false) { $pass++ } else { $fail++ }
-
-# 25. sdk-chat → direct sdk path, streaming
-if (Invoke-Llm "25. sdk-chat → direct sdk path, streaming" sdk-chat $prompt gpt-5-mini -Stream:$useStream -UseEndpoint:$false) { $pass++ } else { $fail++ }
-
-if (Invoke-Llm "25b. sdk-chat → direct sdk per-call knobs" sdk-chat $prompt gpt-5-mini -Stream:$false -UseEndpoint:$false -ExtraArgs @(
-    "--request-id", "test-matrix-sdk-chat",
-    "--correlation-id", "test-matrix-sdk-correlation",
-    "--metadata", "surface=sdk-chat",
     "--timeout-ms", "60000",
     "--max-retries", "1",
     "--max-retry-delay-ms", "1000"

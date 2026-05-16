@@ -8,10 +8,9 @@ Rules are explicit and unambiguous — follow them literally.
 **llm-svc** is the primary deployable host — a local proxy that translates OpenAI
 Responses API requests to upstream providers. **LlmSdk** is the reusable class
 library that contains the translation engine, auth, model discovery, and upstream HTTP
-adapter. **llm-cli** is a reference implementation client that demonstrates both how
-to consume the proxy over HTTP and how to call the SDK directly in-process. Changes to
-the host or library are the main concern; CLI changes support or demonstrate proxy and
-SDK capabilities.
+adapter. **llm-cli** is a thin smoke/reference client for the proxy. Changes to
+the host or library are the main concern; CLI changes should stay limited to the
+live matrix-backed command surface.
 
 ```
 llm-svc/
@@ -30,7 +29,7 @@ llm-svc/
 │   ├── llm-svc/                           Host proxy
 │   │   ├── Program.cs                     Composition root and endpoint wiring
 │   │   └── Worker.cs                      Background auth lifecycle
-│   └── llm-cli/                           Reference CLI client
+│   └── llm-cli/                           Proxy smoke/reference CLI client
 │       ├── Program.cs                     Entry point (System.CommandLine)
 │       ├── AskAgent.cs                    Agent loop with tool-calling support
 │       ├── FetchUrlTool.cs                Built-in fetch_url tool
@@ -71,8 +70,9 @@ endpoints, and registers `Worker`. Keep hosting concerns there; keep reusable
 logic in `src/llm-sdk/`.
 
 The CLI is self-contained in `src/llm-cli/`. Its `ask` / `chat` commands use the
-OpenAI .NET SDK to talk to the proxy over HTTP, while `sdk-ask` / `sdk-chat` reference
-`src/llm-sdk/` directly to exercise the SDK surface in-process.
+OpenAI .NET SDK to talk to the proxy over HTTP. It intentionally does not expose
+direct SDK commands; validate SDK behavior in `llm-sdk.Int` and service/proxy
+behavior in `llm-svc.Int`.
 
 ## Build and Test
 
@@ -106,18 +106,21 @@ Start-ScheduledTask -TaskName LlmProxy
 |---|---|---|---|
 | Unit | Pure logic, fakes | No | Yes |
 | Integration | WebApplicationFactory | No | Yes |
-| Smoke | Live HTTP to `localhost:5100` | **Yes** | No |
+| Smoke | Live upstream/API or proxy checks | Varies by test | No |
 | Compliance | OpenResponses spec suite | **Yes** | No |
 
 Run CI-safe tests (unit + integration):
 
 ```powershell
 dotnet test tests\llm-sdk.Tests --no-restore
+dotnet test tests\llm-agent.Int --filter "Category!=Smoke" --no-restore
 dotnet test tests\llm-svc.Tests --filter "Category!=Smoke" --no-restore
+dotnet test tests\llm-svc.Int --filter "Category!=Smoke" --no-restore
 dotnet test tests\llm-cli.Tests --filter "Category!=Smoke" --no-restore
 ```
 
-Run smoke tests (proxy must be running):
+Run smoke tests (may require Copilot credentials, internet access, and sometimes
+a running proxy depending on the test):
 
 ```powershell
 dotnet test --filter "Category=Smoke" --no-restore
@@ -132,8 +135,10 @@ surface:
 |---|---|
 | `src/llm-sdk/` SDK client, Core models/services, Infrastructure adapters | `tests/llm-sdk.Tests/` |
 | `src/llm-svc/` host, HTTP endpoints, service wiring | `tests/llm-svc.Tests/` |
+| `src/llm-svc/` fake/live proxy behavior against real host wiring | `tests/llm-svc.Int/` |
 | `src/llm-cli/` commands, CLI agents, local tools | `tests/llm-cli.Tests/` |
 | `src/llm-agent/` agent loop, agent events, context budget | `tests/llm-agent.Tests/` |
+| `src/llm-agent/` fake/live agent loop behavior against SDK client surface | `tests/llm-agent.Int/` |
 | `src/llm-ui/` browser UI behavior | `tests/llm-ui.Tests/` |
 
 Do not put tests in `llm-agent.Tests` just because a feature touches prompts,
@@ -148,16 +153,61 @@ and return scripted `AssistantMessage` or `AssistantStreamEvent` sequences.
 Keep those helpers internal to the test project that owns the consumer; do not
 create separate test-support projects unless the repo explicitly adopts one.
 
+### SDK Integration Test Pattern
+
+Use `tests/llm-sdk.Int` for SDK reference-consumer scenarios. Important SDK
+capabilities should prefer paired tests:
+
+- a deterministic fake-provider test that exercises the real SDK API surface
+  without live upstream calls
+- a live smoke test that exercises the same SDK API surface against the real
+  Copilot API
+
+The fake-provider test is the CI-friendly correctness check. The live test is
+the upstream compatibility check and should be marked `Category=Smoke`.
+
+### Agent Integration Test Pattern
+
+Use `tests/llm-agent.Int` for agent-loop behavior that benefits from fake/live
+pairing:
+
+- a deterministic fake-SDK-client test for multi-turn event flow, tool
+  execution, context updates, and option forwarding
+- a live smoke test that runs the same public `AgentLoop` surface through the
+  real SDK client and Copilot upstream
+
+Keep pure event-shape and edge-case coverage in `llm-agent.Tests`. Use
+`llm-agent.Int` when the test should prove the public agent API remains a
+working reference consumer of `ILlmSdkClient`.
+
+### Service Integration Test Pattern
+
+Use `tests/llm-svc.Int` for service/proxy behavior that benefits from the same
+fake/live pairing:
+
+- a deterministic `WebApplicationFactory` test with fake SDK proxy ports for
+  endpoint routing, option forwarding, and translation behavior
+- a live smoke test against the same HTTP endpoint shape and real Copilot
+  upstream
+
+Keep service/proxy correctness here instead of expanding the CLI matrix. The CLI
+matrix should stay a small user-facing smoke suite for command parsing, process
+execution, local tools, and endpoint connectivity.
+
 ### E2E Test Matrix
 
-The `scripts/test-matrix.*` scripts are end-to-end validation, not unit or
-integration tests. Every row must run a real CLI command against the real proxy
-or direct SDK path, use real Copilot auth, and call an actual LLM model.
+The `scripts/test-matrix.*` scripts are CLI smoke validation, not unit or
+integration tests. Every row must run a real CLI command against the real proxy,
+use real Copilot auth, and call an actual LLM model.
 
 Fakes, mocks, stubs, `WebApplicationFactory`, test servers, and `dotnet test`
 are fine in `Unit` and `Integration` tests, but they do not belong in the test
-matrix execution path. If a feature needs matrix coverage, expose a real CLI or
-service path that exercises the production code and live upstream behavior.
+matrix execution path. If SDK behavior needs fake/live coverage, prefer paired
+`llm-sdk.Int` tests instead of adding CLI matrix rows. If agent behavior needs
+fake/live coverage, prefer paired `llm-agent.Int` tests. If service/proxy
+behavior needs fake/live coverage, prefer paired `llm-svc.Int` tests. If CLI
+behavior needs matrix coverage, expose a real CLI path that exercises the
+production code and live upstream behavior.
 
 ### What to Test Before Submitting
 

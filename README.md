@@ -118,36 +118,28 @@ The `llm` CLI talks to the proxy from your terminal:
 
 ```bash
 # Ask a question via Responses API (streams by default)
-dotnet run --project llm-cli -- ask "What is the capital of France?"
+dotnet run --project src/llm-cli -- ask "What is the capital of France?"
 
 # Chat via Chat Completions API (streams by default)
-dotnet run --project llm-cli -- chat "What is the capital of France?"
+dotnet run --project src/llm-cli -- chat "What is the capital of France?"
 
 # Choose a model
-dotnet run --project llm-cli -- ask "Write a haiku" -m claude-haiku-4.5
-dotnet run --project llm-cli -- chat "Write a haiku" -m gpt-5-mini
+dotnet run --project src/llm-cli -- ask "Write a haiku" -m claude-haiku-4.5
+dotnet run --project src/llm-cli -- chat "Write a haiku" -m gpt-5-mini
 
 # System prompt
-dotnet run --project llm-cli -- ask "Review this code" -s "Be direct and concise"
+dotnet run --project src/llm-cli -- ask "Review this code" -s "Be direct and concise"
 
 # Use tools (fetch_url)
-dotnet run --project llm-cli -- chat "Summarize https://example.com" --tools
+dotnet run --project src/llm-cli -- chat "Summarize https://example.com" --tools
 
-# Use the SDK directly — no proxy required
-dotnet run --project llm-cli -- sdk-ask "Summarize this change" -m gpt-5.4-mini
-dotnet run --project llm-cli -- sdk-ask "Summarize https://example.com" --tools
-dotnet run --project llm-cli -- sdk-chat "What is 2+2?" -m gpt-5-mini
-
-# List models and check health
-dotnet run --project llm-cli -- models
-dotnet run --project llm-cli -- health
+# Check health
+dotnet run --project src/llm-cli -- health
 ```
 
 `llm ask` uses `/v1/responses`. `llm chat` uses `/v1/chat/completions`. Both stream by default and support `--no-stream`, `--model`, `--system`, `--tools`, and per-call request/timeout/retry knobs.
 
-`llm sdk-ask` and `llm sdk-chat` bypass the proxy entirely, calling `ILlmSdkClient` in-process with the same per-call knobs. `sdk-ask` also supports `--tools` via the `llm-agent` loop. SDK commands do not accept `--endpoint`.
-
-Run `llm --help` for full usage, examples, and model guidance.
+Run `llm --help` for full usage and examples. Direct SDK and service/proxy correctness are covered by `llm-sdk.Int` and `llm-svc.Int`; the CLI stays focused on the live smoke surface.
 
 ## llm-ui experiment
 
@@ -326,9 +318,10 @@ llm-svc/
 │   ├── llm-svc/                   Host proxy
 │   │   ├── Program.cs             Composition root (calls AddLlmSdk)
 │   │   └── Worker.cs              Background auth lifecycle
-│   └── llm-cli/                   CLI client (System.CommandLine + OpenAI SDK + LlmSdk)
+│   └── llm-cli/                   CLI smoke client (System.CommandLine + OpenAI SDK)
 ├── tests/
 │   ├── llm-sdk.Tests/         Library unit tests
+│   ├── llm-agent.Int/         Agent fake/live integration tests
 │   ├── llm-svc.Tests/            Host integration + smoke tests
 │   └── llm-cli.Tests/            CLI tests
 ├── Directory.Build.props          Shared build properties

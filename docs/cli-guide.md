@@ -1,15 +1,18 @@
 # llm CLI Guide
 
-`llm` is a terminal client for querying language models through the local
-Copilot LLM proxy or directly through the LlmSdk. It supports streaming,
-system prompts, model selection, and local tool calling.
+`llm` is a small terminal smoke/reference client for querying language models
+through the local Copilot LLM proxy. It supports the command surface exercised by
+the live CLI matrix: `ask`, `chat`, `health`, proxy endpoint selection, per-call
+proxy knobs, streaming, and the built-in `fetch_url` tool.
+
+SDK correctness belongs in `tests/llm-sdk.Int`; service/proxy correctness
+belongs in `tests/llm-svc.Int`. The CLI intentionally does not expose direct SDK
+commands or model-discovery helpers.
 
 ## Prerequisites
 
 - .NET 10 SDK
-- For `ask`, `chat`, `models`, `health`: the proxy (`llm-svc`) must be running
-- For `sdk-ask`, `sdk-chat`: no proxy required — calls Copilot directly, but
-  still requires Copilot credentials (`COPILOT_TOKEN` or a supported credential store)
+- The proxy (`llm-svc`) running and authenticated
 
 ## Running
 
@@ -31,8 +34,6 @@ After installation, use `llm` directly:
 llm ask "What is the capital of France?"
 ```
 
----
-
 ## Commands
 
 ### ask
@@ -49,10 +50,6 @@ llm ask "summarize https://example.com" --tools
 
 Default model: `gpt-5.4-mini`
 
-The proxy routes the request based on model capability. Native `/responses`
-models pass through directly; chat-only models (e.g., Claude) are translated
-automatically.
-
 ### chat
 
 Send a prompt via the Chat Completions API. Streams by default.
@@ -67,50 +64,6 @@ llm chat "summarize https://example.com" --tools
 
 Default model: `gpt-5-mini`
 
-Same behavior as `ask` but uses `/v1/chat/completions`. Models that only
-support `/responses` upstream are translated back internally.
-
-### sdk-ask
-
-Send a prompt directly through `ILlmSdkClient` in-process. By default it streams
-Responses API output directly; with `--tools` it runs the `llm-agent` loop for
-local tool execution. No proxy required. See `docs/agent-guide.md` for the
-underlying agent-loop library.
-
-```bash
-llm sdk-ask "your prompt"
-llm sdk-ask "your prompt" --no-stream
-llm sdk-ask "your prompt" -m gpt-5.4
-llm sdk-ask "your prompt" -s "Be concise"
-llm sdk-ask "Summarize https://example.com" --tools
-```
-
-Default model: `gpt-5.4-mini`
-
-### sdk-chat
-
-Send a prompt directly through `ILlmSdkClient.CreateChatCompletionAsync` /
-`CreateChatCompletionStreamAsync`. No proxy required.
-
-```bash
-llm sdk-chat "your prompt"
-llm sdk-chat "your prompt" --no-stream
-llm sdk-chat "your prompt" -m gpt-5-mini
-llm sdk-chat "your prompt" -s "Be concise"
-```
-
-Default model: `gpt-5-mini`
-
-### models
-
-List available models with their supported endpoints.
-
-```bash
-llm models
-```
-
-Output shows model ID, display name, and supported endpoint list.
-
 ### health
 
 Check if the proxy is running and authenticated.
@@ -119,66 +72,40 @@ Check if the proxy is running and authenticated.
 llm health
 ```
 
-Returns status (`healthy` / `degraded`), authentication state, and endpoint
-URL. A `degraded` status means the proxy is running but credentials are
-missing.
-
----
+Returns status (`healthy` / `degraded`), authentication state, and endpoint URL.
+A `degraded` status means the proxy is running but credentials are missing.
 
 ## Flags reference
 
-### Per-command flags
-
 | Flag | Short | Commands | Default | Description |
 |---|---|---|---|---|
-| `<prompt>` | | all except `models`, `health` | *(required)* | The prompt to send (positional) |
-| `--model` | `-m` | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | varies | Model ID |
-| `--system` | `-s` | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | none | System instructions |
-| `--no-stream` | | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | `false` | Disable streaming |
-| `--tools` | | `ask`, `chat`, `sdk-ask` | `false` | Enable local tools |
-| `--request-id` | | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | generated | Request ID sent upstream as `X-Request-Id` |
-| `--correlation-id` | | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | none | Local SDK/proxy correlation ID |
-| `--metadata` | | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | none | Local metadata as repeatable `key=value` |
-| `--timeout-ms` | | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | SDK default | Per-call upstream timeout |
-| `--max-retries` | | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | SDK default | Per-call retry count |
-| `--max-retry-delay-ms` | | `ask`, `chat`, `sdk-ask`, `sdk-chat`, `sdk-context-ask` | SDK default | Per-call retry delay cap |
+| `<prompt>` | | `ask`, `chat` | *(required)* | The prompt to send |
+| `--model` | `-m` | `ask`, `chat` | varies | Model ID |
+| `--system` | `-s` | `ask`, `chat` | none | System instructions |
+| `--no-stream` | | `ask`, `chat` | `false` | Disable streaming |
+| `--tools` | | `ask`, `chat` | `false` | Enable local tools |
+| `--request-id` | | `ask`, `chat` | generated | Request ID sent upstream as `X-Request-Id` |
+| `--correlation-id` | | `ask`, `chat` | none | Local proxy correlation ID |
+| `--metadata` | | `ask`, `chat` | none | Local metadata as repeatable `key=value` |
+| `--timeout-ms` | | `ask`, `chat` | SDK default | Per-call upstream timeout |
+| `--max-retries` | | `ask`, `chat` | SDK default | Per-call retry count |
+| `--max-retry-delay-ms` | | `ask`, `chat` | SDK default | Per-call retry delay cap |
+| `--endpoint` | `-e` | `ask`, `chat`, `health` | `http://localhost:5100` | Base URL of the proxy |
 
-### Shared proxy-command flags
-
-| Flag | Short | Default | Description |
-|---|---|---|---|
-| `--endpoint` | `-e` | `http://localhost:5100` | Base URL of the proxy |
-
-The `--endpoint` flag is available on `ask`, `chat`, `models`, and `health`.
-It is a per-command flag, not a root flag — place it after the subcommand:
+The `--endpoint` flag is a per-command flag, not a root flag:
 
 ```bash
 llm health -e http://localhost:5200
 llm ask "Hello" -e http://localhost:5200
 ```
 
-SDK commands (`sdk-ask`, `sdk-chat`) bypass the proxy entirely and do not
-accept `--endpoint`. `sdk-ask` still supports `--tools` because tool execution
-happens locally in the CLI process.
-
-### Default models
-
-| Command | Default model |
-|---|---|
-| `ask`, `sdk-ask` | `gpt-5.4-mini` |
-| `chat`, `sdk-chat` | `gpt-5-mini` |
-
----
-
 ## Tool calling
 
-The `--tools` flag enables local tool execution during agent loops. The model
-can request tool calls, and the CLI executes them locally before sending results
-back. Available on `ask` and `chat` commands only.
+The `--tools` flag enables local tool execution during agent loops. The model can
+request tool calls, and the CLI executes them locally before sending results
+back. Available on `ask` and `chat`.
 
-### Built-in tools
-
-#### fetch_url
+### fetch_url
 
 Fetches the contents of an HTTP or HTTPS URL and returns readable text.
 
@@ -192,28 +119,20 @@ llm ask "Summarize this page: https://openresponses.org/specification" --tools
 llm chat "What does this API do? https://api.example.com/docs" --tools
 ```
 
-The model decides when to call `fetch_url` based on the prompt. You don't
-invoke it directly — the `--tools` flag simply makes it available to the model.
-
----
-
 ## Examples
 
 ```bash
 # Quick question
 llm ask "What is the capital of France?"
 
-# Use a powerful model
+# Use a specific model
 llm ask "Explain monads in simple terms" -m gpt-5.4
 
 # System prompt for persona
 llm ask "Review this code" -s "You are a senior .NET engineer. Be direct."
 
-# Pipe-friendly output (no streaming, clean text)
+# Pipe-friendly output
 llm ask "Generate a UUID" --no-stream | clip
-
-# Use Claude via the translation layer
-llm ask "Write a haiku about shipping code" -m claude-haiku-4.5
 
 # Fetch and summarize a web page
 llm ask "Summarize https://openresponses.org/specification" --tools
@@ -221,56 +140,28 @@ llm ask "Summarize https://openresponses.org/specification" --tools
 # Chat Completions API
 llm chat "What is 2+2?" -m gpt-5-mini
 
-# Chat with tools
-llm chat "Summarize https://example.com" --tools
-
-# SDK direct — no proxy needed
-llm sdk-ask "Summarize this change" -m gpt-5.4-mini
-llm sdk-chat "What is 2+2?" -m gpt-5-mini
-
-# Check available models
-llm models
-
 # Verify proxy is up, then ask
 llm health && llm ask "Ready to go"
 ```
 
----
-
 ## How it works
-
-### Proxy commands (ask, chat)
 
 `ask` and `chat` use the [OpenAI .NET SDK](https://github.com/openai/openai-dotnet)
 to talk to the proxy over HTTP:
 
 - `ask` creates a `ResponsesClient` pointing at the proxy endpoint
 - `chat` creates a `ChatClient` pointing at the proxy endpoint
-- Both pass `"unused"` as the API key — the proxy handles auth
+- Both pass `"unused"` as the API key because the proxy handles auth
 
 The agent loop supports multi-turn tool calling: the model requests a tool call,
 the CLI executes it locally, sends the result back, and the model continues.
 
-### SDK commands (sdk-ask, sdk-chat)
+## Routing
 
-`sdk-ask` and `sdk-chat` build an in-process `ServiceProvider` with
-`AddLogging()` and `AddLlmSdk()`, then resolve `ILlmSdkClient` directly. No
-proxy needed — they call the Copilot API through the SDK's HTTP adapter.
-`sdk-ask --tools` layers `llm-agent` on top of that client so local tool calls
-run in-process too. Credentials are still required via `COPILOT_TOKEN` or a
-platform credential store.
-
-### Routing
-
+```text
+llm ask  -> proxy /v1/responses        -> upstream (native or translated)
+llm chat -> proxy /v1/chat/completions -> upstream (native or translated)
 ```
-llm ask  → proxy /v1/responses       → upstream (native or translated)
-llm chat → proxy /v1/chat/completions → upstream (native or translated)
-
-llm sdk-ask  → ILlmSdkClient → IResponsesService       → upstream
-llm sdk-chat → ILlmSdkClient → IChatCompletionsService  → upstream
-```
-
----
 
 ## Exit codes
 
