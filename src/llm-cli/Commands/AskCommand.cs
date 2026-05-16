@@ -1,6 +1,7 @@
 #pragma warning disable OPENAI001
 
 using System.ClientModel;
+using System.ClientModel.Primitives;
 using System.CommandLine;
 using llm_cli.Agents;
 using OpenAI;
@@ -17,25 +18,41 @@ public static class AskCommand
         var system = CommandOptions.System();
         var noStream = CommandOptions.NoStream();
         var tools = CommandOptions.Tools();
+        var requestId = CommandOptions.RequestId();
+        var correlationId = CommandOptions.CorrelationId();
+        var metadata = CommandOptions.Metadata();
+        var timeoutMs = CommandOptions.TimeoutMs();
+        var maxRetries = CommandOptions.MaxRetries();
+        var maxRetryDelayMs = CommandOptions.MaxRetryDelayMs();
 
         var command = new Command("ask",
             "Send a prompt to a language model and print the response (streams by default)")
         {
             prompt, model, system, noStream, tools, endpointOption,
+            requestId, correlationId, metadata, timeoutMs, maxRetries, maxRetryDelayMs,
         };
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
-            var request = new AskRequest(
-                parseResult.GetValue(prompt)!,
-                parseResult.GetValue(model)!,
-                parseResult.GetValue(system),
-                parseResult.GetValue(tools));
+            var request = CommandOptions.CreateAskRequest(
+                parseResult,
+                prompt,
+                model,
+                system,
+                tools,
+                requestId,
+                correlationId,
+                metadata,
+                timeoutMs,
+                maxRetries,
+                maxRetryDelayMs);
 
             var endpoint = parseResult.GetValue(endpointOption)!;
+            var options = new OpenAIClientOptions { Endpoint = new Uri(endpoint) };
+            options.AddPolicy(new LlmProxyRequestOptionsPolicy(request), PipelinePosition.PerCall);
             var client = new ResponsesClient(
                 new ApiKeyCredential("unused"),
-                new OpenAIClientOptions { Endpoint = new Uri(endpoint) });
+                options);
 
             using var toolHttpClient = new HttpClient();
             var toolRegistry = LocalToolRegistry.CreateDefault(toolHttpClient);

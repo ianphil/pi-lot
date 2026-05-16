@@ -143,9 +143,9 @@ dotnet run --project llm-cli -- models
 dotnet run --project llm-cli -- health
 ```
 
-`llm ask` uses `/v1/responses`. `llm chat` uses `/v1/chat/completions`. Both stream by default and support `--no-stream`, `--model`, `--system`, and `--tools`.
+`llm ask` uses `/v1/responses`. `llm chat` uses `/v1/chat/completions`. Both stream by default and support `--no-stream`, `--model`, `--system`, `--tools`, and per-call request/timeout/retry knobs.
 
-`llm sdk-ask` and `llm sdk-chat` bypass the proxy entirely, calling `ILlmSdkClient` in-process. `sdk-ask` also supports `--tools` via the `llm-agent` loop. SDK commands do not accept `--endpoint`.
+`llm sdk-ask` and `llm sdk-chat` bypass the proxy entirely, calling `ILlmSdkClient` in-process with the same per-call knobs. `sdk-ask` also supports `--tools` via the `llm-agent` loop. SDK commands do not accept `--endpoint`.
 
 Run `llm --help` for full usage, examples, and model guidance.
 

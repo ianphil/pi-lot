@@ -94,6 +94,35 @@ public sealed class LlmSdkClientTests
     }
 
     [Fact]
+    public async Task CreateResponseAsync_WithPerCallOptions_PreservesOptions()
+    {
+        var service = new StubResponsesService(ResponseHttpResult.FromBody(
+            JsonSerializer.Serialize(CreateResponse("resp_options", "Options"), JsonDefaults.Web),
+            200,
+            "application/json"));
+        var client = CreateClient(responsesService: service);
+
+        await client.CreateResponseAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonSerializer.SerializeToElement("Hello!", JsonDefaults.Web),
+            RequestId = "request-123",
+            CorrelationId = "correlation-123",
+            Metadata = new Dictionary<string, string> { ["traceId"] = "trace-123" },
+            TimeoutMs = 10000,
+            MaxRetries = 1,
+            MaxRetryDelayMs = 500,
+        });
+
+        Assert.Equal("request-123", service.LastRequest?.RequestId);
+        Assert.Equal("correlation-123", service.LastRequest?.CorrelationId);
+        Assert.Equal("trace-123", Assert.IsType<Dictionary<string, string>>(service.LastRequest?.Metadata)["traceId"]);
+        Assert.Equal(10000, service.LastRequest?.TimeoutMs);
+        Assert.Equal(1, service.LastRequest?.MaxRetries);
+        Assert.Equal(500, service.LastRequest?.MaxRetryDelayMs);
+    }
+
+    [Fact]
     public async Task CreateChatCompletionAsync_WithRequest_ReturnsDeserializedResponseOnSuccess()
     {
         var expected = new ChatCompletionResponse

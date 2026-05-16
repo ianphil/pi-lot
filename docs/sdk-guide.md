@@ -81,6 +81,29 @@ services.AddLlmSdk(options =>
 
 ---
 
+## Per-call HTTP options
+
+The portable `CompletionOptions` surface and raw request DTOs support per-call
+HTTP controls:
+
+```csharp
+var message = await client.CompleteAsync(context, new CompletionOptions
+{
+    Model = "gpt-5.4-mini",
+    Headers = new Dictionary<string, string> { ["X-Debug"] = "enabled" },
+    TimeoutMs = 30_000,
+    MaxRetries = 2,
+    MaxRetryDelayMs = 1_000,
+    Metadata = new Dictionary<string, string> { ["traceId"] = "abc123" },
+});
+```
+
+Per-call headers are added to upstream requests, but `Authorization` cannot be
+overwritten. `Metadata` is serialized for Responses API requests and omitted for
+Chat Completions requests.
+
+---
+
 ## Responses API
 
 ### Non-streaming

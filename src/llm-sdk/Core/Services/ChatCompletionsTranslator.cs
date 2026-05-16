@@ -33,6 +33,13 @@ public sealed class ChatCompletionsTranslator
             TopP = request.TopP,
             Tools = tools,
             ToolChoice = toolChoice,
+            Headers = request.Headers,
+            RequestId = request.RequestId,
+            CorrelationId = request.CorrelationId,
+            TimeoutMs = request.TimeoutMs,
+            MaxRetries = request.MaxRetries,
+            MaxRetryDelayMs = request.MaxRetryDelayMs,
+            Metadata = request.Metadata as IReadOnlyDictionary<string, string>,
         };
     }
 
