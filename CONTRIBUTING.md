@@ -71,8 +71,8 @@ endpoints, and registers `Worker`. Keep hosting concerns there; keep reusable
 logic in `src/llm-sdk/`.
 
 The CLI is self-contained in `src/llm-cli/`. Its `ask` / `chat` commands use the
-OpenAI .NET SDK to talk to the proxy over HTTP, while `sdk-ask` / `sdk-chat` reference
-`src/llm-sdk/` directly to exercise the SDK surface in-process.
+OpenAI .NET SDK to talk to the proxy over HTTP, while `sdk-ask` / `sdk-chat` are
+reference/debug commands that consume `src/llm-sdk/` directly in-process.
 
 ## Build and Test
 
@@ -106,7 +106,7 @@ Start-ScheduledTask -TaskName LlmProxy
 |---|---|---|---|
 | Unit | Pure logic, fakes | No | Yes |
 | Integration | WebApplicationFactory | No | Yes |
-| Smoke | Live HTTP to `localhost:5100` | **Yes** | No |
+| Smoke | Live upstream/API or proxy checks | Varies by test | No |
 | Compliance | OpenResponses spec suite | **Yes** | No |
 
 Run CI-safe tests (unit + integration):
@@ -117,7 +117,8 @@ dotnet test tests\llm-svc.Tests --filter "Category!=Smoke" --no-restore
 dotnet test tests\llm-cli.Tests --filter "Category!=Smoke" --no-restore
 ```
 
-Run smoke tests (proxy must be running):
+Run smoke tests (may require Copilot credentials, internet access, and sometimes
+a running proxy depending on the test):
 
 ```powershell
 dotnet test --filter "Category=Smoke" --no-restore
@@ -148,16 +149,32 @@ and return scripted `AssistantMessage` or `AssistantStreamEvent` sequences.
 Keep those helpers internal to the test project that owns the consumer; do not
 create separate test-support projects unless the repo explicitly adopts one.
 
+### SDK Integration Test Pattern
+
+Use `tests/llm-sdk.Int` for SDK reference-consumer scenarios. Important SDK
+capabilities should prefer paired tests:
+
+- a deterministic fake-provider test that exercises the real SDK API surface
+  without live upstream calls
+- a live smoke test that exercises the same SDK API surface against the real
+  Copilot API
+
+The fake-provider test is the CI-friendly correctness check. The live test is
+the upstream compatibility check and should be marked `Category=Smoke`.
+
 ### E2E Test Matrix
 
-The `scripts/test-matrix.*` scripts are end-to-end validation, not unit or
-integration tests. Every row must run a real CLI command against the real proxy
-or direct SDK path, use real Copilot auth, and call an actual LLM model.
+The `scripts/test-matrix.*` scripts are CLI/proxy end-to-end validation, not
+unit or integration tests. Every row must run a real CLI command against the
+real proxy or call the real proxy directly, use real Copilot auth, and call an
+actual LLM model.
 
 Fakes, mocks, stubs, `WebApplicationFactory`, test servers, and `dotnet test`
 are fine in `Unit` and `Integration` tests, but they do not belong in the test
-matrix execution path. If a feature needs matrix coverage, expose a real CLI or
-service path that exercises the production code and live upstream behavior.
+matrix execution path. If SDK behavior needs fake/live coverage, prefer paired
+`llm-sdk.Int` tests instead of adding CLI matrix rows. If CLI behavior needs
+matrix coverage, expose a real CLI or service path that exercises the production
+code and live upstream behavior.
 
 ### What to Test Before Submitting
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# Runs real CLI/proxy/SDK scenarios matching the test matrix.
+# Runs real CLI/proxy scenarios matching the test matrix.
 #
-# Each row exercises a different surface + upstream routing path.
+# Each row exercises a different CLI/proxy surface + upstream routing path.
 # Starts llm-svc automatically if the port is free; reuses an
 # already-running proxy otherwise.
 #
@@ -11,7 +11,6 @@
 #   gpt-5.4          -> /responses only
 #   claude-haiku-4.5 -> /chat/completions only
 #   gpt-5-mini       -> both /chat/completions and /responses (dual)
-#   sdk-* commands   -> direct ILlmSdkClient path (no proxy endpoint flag)
 #
 # Usage:  bash scripts/test-matrix.sh [--port 5110] [--no-stream]
 
@@ -130,17 +129,14 @@ invoke_llm() {
   local model="$4"
   local stream="$5"
   local tools="${6:-0}"
-  local use_endpoint="${7:-1}"
   local -a extra_args=()
-  if [[ "$#" -gt 7 ]]; then
-    shift 7
+  if [[ "$#" -gt 6 ]]; then
+    shift 6
     extra_args=("$@")
   fi
 
   local -a cli_args=("$verb" "$prompt_text" "-m" "$model")
-  if [[ "$use_endpoint" == "1" ]]; then
-    cli_args+=("-e" "$endpoint")
-  fi
+  cli_args+=("-e" "$endpoint")
   if [[ "$stream" == "0" ]]; then
     cli_args+=("--no-stream")
   fi
@@ -239,7 +235,7 @@ invoke_llm "4. ask → chat-only model, streaming translation"     ask "$prompt"
 invoke_llm "5. ask → chat-only model, tools"                     ask "$tool_prompt" claude-haiku-4.5 0 1
 invoke_llm "6. ask → chat-only model, streaming + tools"         ask "$tool_prompt" claude-haiku-4.5 "$use_stream" 1
 invoke_llm "7. ask → dual-endpoint model, prefers responses"     ask "$prompt"      gpt-5-mini       0
-invoke_llm "7b. ask → proxy CLI per-call knobs"                  ask "$prompt"      gpt-5.4-mini     0 0 1 \
+invoke_llm "7b. ask → proxy CLI per-call knobs"                  ask "$prompt"      gpt-5.4-mini     0 0 \
   --request-id test-matrix-cli-ask \
   --correlation-id test-matrix-cli-correlation \
   --metadata surface=ask \
@@ -260,47 +256,10 @@ invoke_llm "12. chat → responses-only model, streaming translation"  chat "$pr
 invoke_llm "13. chat → responses-only model, streaming + tools"      chat "$tool_prompt" gpt-5.4-mini     "$use_stream" 1
 invoke_llm "14. chat → dual-endpoint model, prefers chat"            chat "$prompt"      gpt-5-mini       0
 invoke_llm "15. chat → dual-endpoint model, streaming prefers chat"  chat "$prompt"      gpt-5-mini       "$use_stream"
-invoke_llm "15b. chat → proxy CLI per-call knobs"                    chat "$prompt"      gpt-5-mini       0 0 1 \
+invoke_llm "15b. chat → proxy CLI per-call knobs"                    chat "$prompt"      gpt-5-mini       0 0 \
   --request-id test-matrix-cli-chat \
   --correlation-id test-matrix-cli-correlation \
   --metadata surface=chat \
-  --timeout-ms 60000 \
-  --max-retries 1 \
-  --max-retry-delay-ms 1000
-
-# ══════════════════════════════════════════════════════════════════════════════
-# SDK surface (llm sdk-ask / llm sdk-chat)
-# ══════════════════════════════════════════════════════════════════════════════
-
-invoke_llm "16. sdk-ask → direct sdk path, plain"                    sdk-ask  "$prompt" gpt-5.4-mini 0 0 0
-invoke_llm "17. sdk-ask → direct sdk path, streaming"                sdk-ask  "$prompt" gpt-5.4-mini "$use_stream" 0 0
-invoke_llm "18. sdk-ask → direct sdk path, tools"                    sdk-ask  "$tool_prompt" gpt-5.4-mini 0 1 0
-invoke_llm "19. sdk-ask → direct sdk path, streaming + tools"        sdk-ask  "$tool_prompt" gpt-5.4-mini "$use_stream" 1 0
-invoke_llm "19b. sdk-ask → direct sdk per-call knobs"                sdk-ask  "$prompt" gpt-5.4-mini 0 0 0 \
-  --request-id test-matrix-sdk-ask \
-  --correlation-id test-matrix-sdk-correlation \
-  --metadata surface=sdk-ask \
-  --timeout-ms 60000 \
-  --max-retries 1 \
-  --max-retry-delay-ms 1000
-invoke_llm "20. sdk-context-ask → context API, responses plain"      sdk-context-ask "$prompt" gpt-5.4-mini     0 0 0 --api responses
-invoke_llm "21. sdk-context-ask → context API, responses streaming"  sdk-context-ask "$prompt" gpt-5.4-mini     "$use_stream" 0 0 --api responses
-invoke_llm "22. sdk-context-ask → context API, chat plain"           sdk-context-ask "$prompt" claude-haiku-4.5 0 0 0 --api chat
-invoke_llm "23. sdk-context-ask → context API, chat streaming"       sdk-context-ask "$prompt" claude-haiku-4.5 "$use_stream" 0 0 --api chat
-invoke_llm "23b. sdk-context-ask → context per-call knobs"           sdk-context-ask "$prompt" gpt-5.4-mini     0 0 0 \
-  --api responses \
-  --request-id test-matrix-sdk-context \
-  --correlation-id test-matrix-sdk-correlation \
-  --metadata surface=sdk-context \
-  --timeout-ms 60000 \
-  --max-retries 1 \
-  --max-retry-delay-ms 1000
-invoke_llm "24. sdk-chat → direct sdk path, plain"                   sdk-chat "$prompt" gpt-5-mini   0 0 0
-invoke_llm "25. sdk-chat → direct sdk path, streaming"               sdk-chat "$prompt" gpt-5-mini   "$use_stream" 0 0
-invoke_llm "25b. sdk-chat → direct sdk per-call knobs"               sdk-chat "$prompt" gpt-5-mini   0 0 0 \
-  --request-id test-matrix-sdk-chat \
-  --correlation-id test-matrix-sdk-correlation \
-  --metadata surface=sdk-chat \
   --timeout-ms 60000 \
   --max-retries 1 \
   --max-retry-delay-ms 1000

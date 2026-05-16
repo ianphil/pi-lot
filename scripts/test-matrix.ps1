@@ -1,10 +1,9 @@
 <#
 .SYNOPSIS
-    Runs llm CLI commands matching every scenario in the test matrix.
+    Runs llm CLI/proxy commands matching every scenario in the test matrix.
 .DESCRIPTION
-    Each test-matrix row maps to an llm ask, llm chat, llm sdk-ask,
-    llm sdk-context-ask, or llm sdk-chat invocation that exercises the same
-    surface or SDK path.
+    Each test-matrix row maps to an llm ask, llm chat, or raw proxy invocation
+    that exercises the same CLI/proxy surface.
     Starts llm-svc automatically if the selected endpoint is not already
     healthy; reuses an already-running proxy otherwise.
 .NOTES
@@ -13,7 +12,6 @@
       gpt-5.4          -> /responses only
       claude-haiku-4.5 -> /chat/completions only
       gpt-5-mini       -> both /chat/completions and /responses (dual)
-      sdk-* commands   -> direct ILlmSdkClient path
     Run:  pwsh scripts\test-matrix.ps1 [-Port 5110] [-NoStream]
     Options:
       -Port <port>       Port to use when -Endpoint is not supplied.
@@ -143,12 +141,10 @@ function Invoke-Llm {
         [string]$Model,
         [switch]$Stream,
         [switch]$Tools,
-        [bool]$UseEndpoint = $true,
         [string[]]$ExtraArgs = @()
     )
 
-    $cliArgs = @($Verb, $Prompt, "-m", $Model)
-    if ($UseEndpoint) { $cliArgs += @("-e", $Endpoint) }
+    $cliArgs = @($Verb, $Prompt, "-m", $Model, "-e", $Endpoint)
     if (-not $Stream) { $cliArgs += "--no-stream" }
     if ($Tools)       { $cliArgs += "--tools" }
     if ($ExtraArgs.Count -gt 0) { $cliArgs += $ExtraArgs }
@@ -294,68 +290,6 @@ if (Invoke-Llm "15b. chat → proxy CLI per-call knobs" chat $prompt gpt-5-mini 
     "--request-id", "test-matrix-cli-chat",
     "--correlation-id", "test-matrix-cli-correlation",
     "--metadata", "surface=chat",
-    "--timeout-ms", "60000",
-    "--max-retries", "1",
-    "--max-retry-delay-ms", "1000"
-)) { $pass++ } else { $fail++ }
-
-# ══════════════════════════════════════════════════════════════════════════════
-# SDK surface (llm sdk-ask / llm sdk-chat)
-# ══════════════════════════════════════════════════════════════════════════════
-
-# 16. sdk-ask → direct sdk path, plain text
-if (Invoke-Llm "16. sdk-ask → direct sdk path, plain" sdk-ask $prompt gpt-5.4-mini -Stream:$false -UseEndpoint:$false) { $pass++ } else { $fail++ }
-
-# 17. sdk-ask → direct sdk path, streaming
-if (Invoke-Llm "17. sdk-ask → direct sdk path, streaming" sdk-ask $prompt gpt-5.4-mini -Stream:$useStream -UseEndpoint:$false) { $pass++ } else { $fail++ }
-
-# 18. sdk-ask → direct sdk path, tools
-if (Invoke-Llm "18. sdk-ask → direct sdk path, tools" sdk-ask $toolPrompt gpt-5.4-mini -Stream:$false -Tools -UseEndpoint:$false) { $pass++ } else { $fail++ }
-
-# 19. sdk-ask → direct sdk path, streaming + tools
-if (Invoke-Llm "19. sdk-ask → direct sdk path, streaming + tools" sdk-ask $toolPrompt gpt-5.4-mini -Stream:$useStream -Tools -UseEndpoint:$false) { $pass++ } else { $fail++ }
-
-if (Invoke-Llm "19b. sdk-ask → direct sdk per-call knobs" sdk-ask $prompt gpt-5.4-mini -Stream:$false -UseEndpoint:$false -ExtraArgs @(
-    "--request-id", "test-matrix-sdk-ask",
-    "--correlation-id", "test-matrix-sdk-correlation",
-    "--metadata", "surface=sdk-ask",
-    "--timeout-ms", "60000",
-    "--max-retries", "1",
-    "--max-retry-delay-ms", "1000"
-)) { $pass++ } else { $fail++ }
-
-# 20. sdk-context-ask → direct SDK Context path, Responses API, plain text
-if (Invoke-Llm "20. sdk-context-ask → context API, responses plain" sdk-context-ask $prompt gpt-5.4-mini -Stream:$false -UseEndpoint:$false -ExtraArgs @("--api", "responses")) { $pass++ } else { $fail++ }
-
-# 21. sdk-context-ask → direct SDK Context path, Responses API, streaming
-if (Invoke-Llm "21. sdk-context-ask → context API, responses streaming" sdk-context-ask $prompt gpt-5.4-mini -Stream:$useStream -UseEndpoint:$false -ExtraArgs @("--api", "responses")) { $pass++ } else { $fail++ }
-
-# 22. sdk-context-ask → direct SDK Context path, Chat Completions API, plain text
-if (Invoke-Llm "22. sdk-context-ask → context API, chat plain" sdk-context-ask $prompt claude-haiku-4.5 -Stream:$false -UseEndpoint:$false -ExtraArgs @("--api", "chat")) { $pass++ } else { $fail++ }
-
-# 23. sdk-context-ask → direct SDK Context path, Chat Completions API, streaming
-if (Invoke-Llm "23. sdk-context-ask → context API, chat streaming" sdk-context-ask $prompt claude-haiku-4.5 -Stream:$useStream -UseEndpoint:$false -ExtraArgs @("--api", "chat")) { $pass++ } else { $fail++ }
-
-if (Invoke-Llm "23b. sdk-context-ask → context per-call knobs" sdk-context-ask $prompt gpt-5.4-mini -Stream:$false -UseEndpoint:$false -ExtraArgs @(
-    "--api", "responses",
-    "--request-id", "test-matrix-sdk-context",
-    "--correlation-id", "test-matrix-sdk-correlation",
-    "--metadata", "surface=sdk-context",
-    "--timeout-ms", "60000",
-    "--max-retries", "1",
-    "--max-retry-delay-ms", "1000"
-)) { $pass++ } else { $fail++ }
-
-# 24. sdk-chat → direct sdk path, plain text
-if (Invoke-Llm "24. sdk-chat → direct sdk path, plain" sdk-chat $prompt gpt-5-mini -Stream:$false -UseEndpoint:$false) { $pass++ } else { $fail++ }
-
-# 25. sdk-chat → direct sdk path, streaming
-if (Invoke-Llm "25. sdk-chat → direct sdk path, streaming" sdk-chat $prompt gpt-5-mini -Stream:$useStream -UseEndpoint:$false) { $pass++ } else { $fail++ }
-
-if (Invoke-Llm "25b. sdk-chat → direct sdk per-call knobs" sdk-chat $prompt gpt-5-mini -Stream:$false -UseEndpoint:$false -ExtraArgs @(
-    "--request-id", "test-matrix-sdk-chat",
-    "--correlation-id", "test-matrix-sdk-correlation",
-    "--metadata", "surface=sdk-chat",
     "--timeout-ms", "60000",
     "--max-retries", "1",
     "--max-retry-delay-ms", "1000"

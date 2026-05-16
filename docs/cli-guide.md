@@ -4,6 +4,9 @@
 Copilot LLM proxy or directly through the LlmSdk. It supports streaming,
 system prompts, model selection, and local tool calling.
 
+The CLI is a reference consumer and user-facing tool. SDK correctness should be
+covered by SDK unit/integration tests rather than by expanding CLI scenarios.
+
 ## Prerequisites
 
 - .NET 10 SDK
@@ -75,7 +78,9 @@ support `/responses` upstream are translated back internally.
 Send a prompt directly through `ILlmSdkClient` in-process. By default it streams
 Responses API output directly; with `--tools` it runs the `llm-agent` loop for
 local tool execution. No proxy required. See `docs/agent-guide.md` for the
-underlying agent-loop library.
+underlying agent-loop library. This command is primarily a reference/debug path;
+new SDK behavior should be validated in `tests/llm-sdk.Int` instead of adding
+CLI matrix coverage.
 
 ```bash
 llm sdk-ask "your prompt"
@@ -90,7 +95,9 @@ Default model: `gpt-5.4-mini`
 ### sdk-chat
 
 Send a prompt directly through `ILlmSdkClient.CreateChatCompletionAsync` /
-`CreateChatCompletionStreamAsync`. No proxy required.
+`CreateChatCompletionStreamAsync`. No proxy required. This command is primarily
+a reference/debug path; new SDK behavior should be validated in
+`tests/llm-sdk.Int` instead of adding CLI matrix coverage.
 
 ```bash
 llm sdk-chat "your prompt"
@@ -224,7 +231,7 @@ llm chat "What is 2+2?" -m gpt-5-mini
 # Chat with tools
 llm chat "Summarize https://example.com" --tools
 
-# SDK direct — no proxy needed
+# SDK reference/debug path — no proxy needed
 llm sdk-ask "Summarize this change" -m gpt-5.4-mini
 llm sdk-chat "What is 2+2?" -m gpt-5-mini
 
@@ -258,7 +265,8 @@ the CLI executes it locally, sends the result back, and the model continues.
 proxy needed — they call the Copilot API through the SDK's HTTP adapter.
 `sdk-ask --tools` layers `llm-agent` on top of that client so local tool calls
 run in-process too. Credentials are still required via `COPILOT_TOKEN` or a
-platform credential store.
+platform credential store. These commands are not the primary SDK correctness
+harness; prefer paired fake/live tests in `tests/llm-sdk.Int` for SDK behavior.
 
 ### Routing
 
