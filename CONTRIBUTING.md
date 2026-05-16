@@ -113,6 +113,7 @@ Run CI-safe tests (unit + integration):
 
 ```powershell
 dotnet test tests\llm-sdk.Tests --no-restore
+dotnet test tests\llm-sdk.Int --filter "Category!=Smoke" --no-restore
 dotnet test tests\llm-agent.Int --filter "Category!=Smoke" --no-restore
 dotnet test tests\llm-svc.Tests --filter "Category!=Smoke" --no-restore
 dotnet test tests\llm-svc.Int --filter "Category!=Smoke" --no-restore
@@ -129,11 +130,14 @@ dotnet test --filter "Category=Smoke" --no-restore
 ### Unit and Integration Test Location
 
 Place unit and integration tests under the test project that owns the changed
-surface:
+surface. Test the package that owns the behavior, not the first consumer where
+the behavior was noticed. For example, SDK validation belongs in SDK tests even
+when an agent scenario revealed the gap.
 
 | Changed surface | Test project |
 |---|---|
 | `src/llm-sdk/` SDK client, Core models/services, Infrastructure adapters | `tests/llm-sdk.Tests/` |
+| SDK fake/live reference-consumer behavior | `tests/llm-sdk.Int/` |
 | `src/llm-svc/` host, HTTP endpoints, service wiring | `tests/llm-svc.Tests/` |
 | `src/llm-svc/` fake/live proxy behavior against real host wiring | `tests/llm-svc.Int/` |
 | `src/llm-cli/` commands, CLI agents, local tools | `tests/llm-cli.Tests/` |
@@ -153,6 +157,53 @@ SDK consumer tests that use the portable `Context` API, prefer scripted
 and return scripted `AssistantMessage` or `AssistantStreamEvent` sequences.
 Keep those helpers internal to the test project that owns the consumer; do not
 create separate test-support projects unless the repo explicitly adopts one.
+
+### Fake/Live Integration Suite Pattern
+
+The `.Int` projects are reference-consumer integration suites. They replace the
+old pattern of expanding `llm-cli` or `scripts/test-matrix.*` whenever we need
+coverage for SDK, service, or agent behavior.
+
+Each important integration scenario should usually have two tests in the owning
+`.Int` project:
+
+| Test type | Category | Purpose | CI |
+|---|---|---|---|
+| Fake integration | no `Smoke` trait | Deterministic correctness through the public consumer surface with scripted fakes | PR-safe |
+| Live integration | `[Trait("Category", "Smoke")]` | Compatibility with real Copilot credentials, network, and upstream behavior | manual/live only |
+
+Fake tests should use the same public surface as the live test and assert the
+shape of forwarded requests, options, events, and responses. They are the right
+place for deterministic negative, edge-case, and error-path coverage because
+they can force malformed upstream data or failure responses without depending on
+model behavior.
+
+Live tests should be small happy-path smoke/reference checks. They prove the
+same public surface works with real credentials, network, model behavior, and
+upstream wire shape. Do not rely on live tests to trigger validation failures,
+rare errors, or other behavior the model may not reproduce reliably.
+
+When a feature only has unit tests or helper-level coverage, ask whether the
+owning package actually uses the new code in its public flow. A paired fake/live
+integration test should catch "the helper works, but the product never calls it"
+before the PR is ready.
+
+Run all PR-safe fake integration tests with:
+
+```powershell
+dotnet test tests\llm-sdk.Int --filter "Category!=Smoke" --no-restore
+dotnet test tests\llm-agent.Int --filter "Category!=Smoke" --no-restore
+dotnet test tests\llm-svc.Int --filter "Category!=Smoke" --no-restore
+```
+
+Run live integration smoke tests only when credentials and network access are
+available:
+
+```powershell
+dotnet test tests\llm-sdk.Int --filter "Category=Smoke" --no-restore
+dotnet test tests\llm-agent.Int --filter "Category=Smoke" --no-restore
+dotnet test tests\llm-svc.Int --filter "Category=Smoke" --no-restore
+```
 
 ### SDK Integration Test Pattern
 
@@ -234,6 +285,9 @@ production code and live upstream behavior.
 ### What to Test Before Submitting
 
 - If you changed **src/llm-sdk/**: run `llm-sdk.Tests`.
+- If you changed SDK consumer behavior: run `llm-sdk.Int --filter "Category!=Smoke"`.
+- If you changed agent-loop integration behavior: run `llm-agent.Int --filter "Category!=Smoke"`.
+- If you changed service/proxy integration behavior: run `llm-svc.Int --filter "Category!=Smoke"`.
 - If you changed **src/llm-svc/Program.cs** or **Worker.cs**: run `llm-svc.Tests` (stop task first).
 - If you changed **src/llm-cli/**: run `llm-cli.Tests`.
 - If you changed response serialization or translation: run smoke tests against both

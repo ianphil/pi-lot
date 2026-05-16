@@ -21,13 +21,13 @@ internal static class LlmSdkClientContextAdapter
             var chatResponse = await client.CreateChatCompletionAsync(
                 ContextTranslator.ToChatCompletionRequest(context, options),
                 cancellationToken);
-            return ContextTranslator.ToAssistantMessage(chatResponse);
+            return ContextTranslator.ToAssistantMessage(chatResponse, context.Tools);
         }
 
         var response = await client.CreateResponseAsync(
             ContextTranslator.ToCreateResponseRequest(context, options),
             cancellationToken);
-        return ContextTranslator.ToAssistantMessage(response);
+        return ContextTranslator.ToAssistantMessage(response, context.Tools);
     }
 
     public static async IAsyncEnumerable<AssistantStreamEvent> StreamAsync(
@@ -63,7 +63,7 @@ internal static class LlmSdkClientContextAdapter
         CompletionOptions? options,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var state = new ResponseStreamState(options?.Model);
+        var state = new ResponseStreamState(options?.Model, context.Tools);
         var request = ContextTranslator.ToCreateResponseRequest(context, options);
 
         await foreach (var rawEvent in client.CreateResponseStreamAsync(request, cancellationToken)
@@ -87,7 +87,7 @@ internal static class LlmSdkClientContextAdapter
         CompletionOptions? options,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var state = new ChatStreamState(options?.Model);
+        var state = new ChatStreamState(options?.Model, context.Tools);
         var request = ContextTranslator.ToChatCompletionRequest(context, options);
 
         await foreach (var chunk in client.CreateChatCompletionStreamAsync(request, cancellationToken)
@@ -105,7 +105,7 @@ internal static class LlmSdkClientContextAdapter
         }
     }
 
-    private sealed class ResponseStreamState(string? fallbackModel)
+    private sealed class ResponseStreamState(string? fallbackModel, IReadOnlyList<ToolDefinition> tools)
     {
         private readonly Dictionary<string, ResponseFunctionCallItem> _toolCallsByItemId = [];
         private readonly List<ContentBlock> _partialContent = [];
@@ -170,7 +170,8 @@ internal static class LlmSdkClientContextAdapter
             }
 
             _terminal = true;
-            return [new StreamDone(new AssistantMessage(_partialContent, StopReason.Stop))];
+            var message = ContextTranslator.ValidateToolCalls(new AssistantMessage(_partialContent, StopReason.Stop), tools);
+            return [new StreamDone(message)];
         }
 
         private void AddStartIfNeeded(List<AssistantStreamEvent> events, ResponseStreamEvent rawEvent)
@@ -208,7 +209,7 @@ internal static class LlmSdkClientContextAdapter
                 events.Add(new UsageEvent(usage));
             }
 
-            events.Add(new StreamDone(ContextTranslator.ToAssistantMessage(response)));
+            events.Add(new StreamDone(ContextTranslator.ToAssistantMessage(response, tools)));
         }
 
         private void AddError(List<AssistantStreamEvent> events, Response? response, string message)
@@ -216,12 +217,12 @@ internal static class LlmSdkClientContextAdapter
             _terminal = true;
             var partial = response is null
                 ? new AssistantMessage(_partialContent, StopReason.Error, ErrorMessage: message)
-                : ContextTranslator.ToAssistantMessage(response);
+                : ContextTranslator.ToAssistantMessage(response, tools);
             events.Add(new StreamError(partial, message));
         }
     }
 
-    private sealed class ChatStreamState(string? fallbackModel)
+    private sealed class ChatStreamState(string? fallbackModel, IReadOnlyList<ToolDefinition> tools)
     {
         private readonly StringBuilder _text = new();
         private readonly Dictionary<int, ToolCallAccumulator> _toolCalls = [];
@@ -279,10 +280,8 @@ internal static class LlmSdkClientContextAdapter
                 .OrderBy(static pair => pair.Key)
                 .Select(static pair => pair.Value.ToContent()));
 
-            return
-            [
-                new StreamDone(new AssistantMessage(content, _stopReason, _usage)),
-            ];
+            var message = new AssistantMessage(content, _stopReason, _usage);
+            return [new StreamDone(ContextTranslator.ValidateToolCalls(message, tools))];
         }
 
         private void AddStartIfNeeded(List<AssistantStreamEvent> events, string? model)

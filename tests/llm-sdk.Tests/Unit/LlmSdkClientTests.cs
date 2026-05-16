@@ -512,6 +512,52 @@ public sealed class LlmSdkClientTests
     }
 
     [Fact]
+    public async Task CompleteAsync_WithInvalidToolArguments_ReturnsErrorToolResult()
+    {
+        var service = new StubResponsesService(ResponseHttpResult.FromBody(
+            JsonSerializer.Serialize(CreateToolCallResponse("""{"city":123}"""), JsonDefaults.Web),
+            200,
+            "application/json"));
+        var client = CreateClient(responsesService: service);
+
+        var message = await client.CompleteAsync(
+            new Context
+            {
+                Messages = [new UserMessage([new TextContent("Weather in London?")])],
+                Tools = [CreateWeatherTool()],
+            },
+            new CompletionOptions { Model = "gpt-5.4-mini", PreferredApi = CompletionApi.Responses });
+
+        var result = Assert.IsType<ToolResultContent>(Assert.Single(message.Content));
+        Assert.Equal("call_1", result.ToolCallId);
+        Assert.True(result.IsError);
+        Assert.Contains("city must be string", result.Output);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WithValidToolArguments_ReturnsToolCall()
+    {
+        var service = new StubResponsesService(ResponseHttpResult.FromBody(
+            JsonSerializer.Serialize(CreateToolCallResponse("""{"city":"London"}"""), JsonDefaults.Web),
+            200,
+            "application/json"));
+        var client = CreateClient(responsesService: service);
+
+        var message = await client.CompleteAsync(
+            new Context
+            {
+                Messages = [new UserMessage([new TextContent("Weather in London?")])],
+                Tools = [CreateWeatherTool()],
+            },
+            new CompletionOptions { Model = "gpt-5.4-mini", PreferredApi = CompletionApi.Responses });
+
+        var toolCall = Assert.IsType<ToolCallContent>(Assert.Single(message.Content));
+        Assert.Equal("call_1", toolCall.Id);
+        Assert.Equal("get_weather", toolCall.Name);
+        Assert.Equal("""{"city":"London"}""", toolCall.ArgumentsJson);
+    }
+
+    [Fact]
     public async Task CompleteAsync_WithChatCompletionsPreference_TranslatesContextAndReturnsAssistantMessage()
     {
         var service = new StubChatCompletionsService(ResponseHttpResult.FromBody(
@@ -623,6 +669,41 @@ public sealed class LlmSdkClientTests
                 },
             ],
         };
+    }
+
+    private static Response CreateToolCallResponse(string argumentsJson)
+    {
+        return new Response
+        {
+            Id = "resp_tool_123",
+            Model = "gpt-5.4-mini",
+            Output =
+            [
+                new ResponseFunctionCallItem
+                {
+                    Id = "item_123",
+                    CallId = "call_1",
+                    Name = "get_weather",
+                    Arguments = argumentsJson,
+                },
+            ],
+        };
+    }
+
+    private static ToolDefinition CreateWeatherTool()
+    {
+        var schema = JsonSerializer.SerializeToElement(new
+        {
+            type = "object",
+            required = new[] { "city" },
+            additionalProperties = false,
+            properties = new
+            {
+                city = new { type = "string" },
+            },
+        }, JsonDefaults.Web);
+
+        return new ToolDefinition("get_weather", "Gets the weather.", schema, Strict: true);
     }
 
     private static async Task<List<T>> CollectAsync<T>(IAsyncEnumerable<T> values)

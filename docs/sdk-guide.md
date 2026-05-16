@@ -336,6 +336,28 @@ matching to handle specific event types:
 | `FunctionCallArgumentsDeltaEvent` | `Delta`, `OutputIndex` | Tool call argument chunk |
 | `FunctionCallArgumentsDoneEvent` | `Arguments`, `OutputIndex` | Tool call arguments finalized |
 
+The portable `CompleteAsync` and `StreamAsync` context APIs validate completed
+tool-call arguments against the matching `Context.Tools` schema before returning
+tool calls to the consumer. Invalid arguments are converted to an error
+`ToolResultContent` so local tool code does not execute with malformed input.
+
+For lower-level raw stream handling, use `ToolValidator` directly before
+invoking local code:
+
+```csharp
+var result = ToolValidator.Validate(tool, toolCall.ArgumentsJson);
+
+if (!result.IsValid)
+{
+    var errorContent = result.ToErrorResult(toolCall.Id);
+    // Append errorContent in a ToolMessage so the model can self-correct.
+}
+```
+
+The built-in validator supports the JSON Schema subset used by SDK tool
+definitions: `type`, `required`, `properties`, `additionalProperties`, and
+`enum`.
+
 ### Refusal
 
 | Event | Key properties | When |
