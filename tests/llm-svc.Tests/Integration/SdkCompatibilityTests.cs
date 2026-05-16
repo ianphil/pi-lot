@@ -17,7 +17,7 @@ public sealed class SdkCompatibilityTests
         using var factory = new ResponsesWebApplicationFactory();
         factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "claude-haiku-4.5",
                 SupportedEndpoints = ["/chat/completions"],

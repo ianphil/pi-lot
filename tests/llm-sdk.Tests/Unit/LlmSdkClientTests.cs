@@ -2,6 +2,7 @@ using System.Text.Json;
 using LlmSdk.Client;
 using LlmSdk.Core.Models;
 using LlmSdk.Core.Services;
+using LlmSdk.Infrastructure;
 using LlmSdk.Proxy;
 using LlmSdk.Tests.Fakes;
 using Microsoft.Extensions.Options;
@@ -348,7 +349,7 @@ public sealed class LlmSdkClientTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "gpt-5.4-mini",
                     Name = "GPT 5.4 Mini",
@@ -361,7 +362,7 @@ public sealed class LlmSdkClientTests
                         MaxOutputTokens = 16000,
                     },
                 },
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "embeddings-only",
                     SupportedEndpoints = ["/embeddings"],
@@ -380,6 +381,109 @@ public sealed class LlmSdkClientTests
         Assert.Equal(128000, model.TokenLimits.MaxContextWindowTokens);
         Assert.Equal(120000, model.TokenLimits.MaxPromptTokens);
         Assert.Equal(16000, model.TokenLimits.MaxOutputTokens);
+    }
+
+    [Fact]
+    public async Task ListModelsAsync_ReturnsMergedCatalogueModelInfo()
+    {
+        var modelProvider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelInfo
+                {
+                    Id = "gpt-4o",
+                    Name = "GPT-4o from upstream",
+                    SupportedEndpoints = ["/responses"],
+                },
+            ],
+        };
+        var client = CreateClient(modelProvider: modelProvider);
+
+        var models = await client.ListModelsAsync();
+
+        var model = Assert.Single(models);
+        Assert.Equal("gpt-4o", model.Id);
+        Assert.Equal("GPT-4o from upstream", model.DisplayName);
+        Assert.Equal(128000, model.ContextWindow);
+        Assert.True(model.SupportsVision);
+        Assert.NotNull(model.Pricing);
+    }
+
+    [Fact]
+    public async Task GetModelAsync_WithKnownModel_ReturnsMergedCatalogueModelInfo()
+    {
+        var modelProvider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelInfo
+                {
+                    Id = "gpt-4o",
+                    Name = "GPT-4o from upstream",
+                    SupportedEndpoints = ["/responses"],
+                },
+            ],
+        };
+        var client = CreateClient(modelProvider: modelProvider);
+
+        var model = await client.GetModelAsync("gpt-4o");
+
+        Assert.Equal("gpt-4o", model.Id);
+        Assert.Equal("GPT-4o from upstream", model.DisplayName);
+        Assert.Equal(128000, model.ContextWindow);
+        Assert.True(model.SupportsVision);
+        Assert.NotNull(model.Pricing);
+    }
+
+    [Fact]
+    public async Task GetModelAsync_IsCaseInsensitive()
+    {
+        var modelProvider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelInfo
+                {
+                    Id = "gpt-4o",
+                    SupportedEndpoints = ["/responses"],
+                },
+            ],
+        };
+        var client = CreateClient(modelProvider: modelProvider);
+
+        var model = await client.GetModelAsync("GPT-4O");
+
+        Assert.Equal("gpt-4o", model.Id);
+        Assert.Equal(128000, model.ContextWindow);
+    }
+
+    [Fact]
+    public async Task GetModelAsync_WithUnknownModel_ReturnsConservativeDefaults()
+    {
+        var client = CreateClient();
+
+        var model = await client.GetModelAsync("unknown-model");
+
+        Assert.Equal("unknown-model", model.Id);
+        Assert.Equal("unknown-model", model.DisplayName);
+        Assert.Null(model.ContextWindow);
+        Assert.Null(model.MaxOutputTokens);
+        Assert.False(model.SupportsVision);
+        Assert.False(model.SupportsReasoning);
+        Assert.Empty(model.SupportedThinkingLevels);
+        Assert.Null(model.Pricing);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("\t")]
+    public async Task GetModelAsync_WithBlankModel_ThrowsArgumentException(string id)
+    {
+        var client = CreateClient();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => client.GetModelAsync(id));
     }
 
     [Fact]
@@ -469,7 +573,7 @@ public sealed class LlmSdkClientTests
         return new LlmSdkClient(
             responsesService ?? new StubResponsesService(ResponseHttpResult.FromBody("{}", 200, "application/json")),
             chatService ?? new StubChatCompletionsService(ResponseHttpResult.FromBody("{}", 200, "application/json")),
-            new ModelListService(modelProvider ?? new FakeModelProvider()),
+            new ModelListService(modelProvider ?? new FakeModelProvider(), new EmbeddedModelCatalogue()),
             Options.Create(options ?? new LlmSdkOptions()));
     }
 

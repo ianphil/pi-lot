@@ -7,12 +7,14 @@ namespace LlmSdk.Tests.Fakes;
 internal sealed class FauxLlmSdkClient : ILlmSdkClient
 {
     private readonly List<Context> _recordedRequests = [];
+    private readonly IReadOnlyList<ModelInfo> _models;
     private int _callCount;
 
-    public FauxLlmSdkClient(IEnumerable<FauxResponse> scriptedResponses)
+    public FauxLlmSdkClient(IEnumerable<FauxResponse> scriptedResponses, IEnumerable<ModelInfo>? models = null)
     {
         ArgumentNullException.ThrowIfNull(scriptedResponses);
         Responses = new Queue<FauxResponse>(scriptedResponses);
+        _models = models?.ToArray() ?? [];
     }
 
     public Queue<FauxResponse> Responses { get; }
@@ -93,8 +95,21 @@ internal sealed class FauxLlmSdkClient : ILlmSdkClient
         CancellationToken cancellationToken = default) =>
         throw new NotSupportedException("FauxLlmSdkClient supports the portable Context API. Use CompleteAsync or StreamAsync.");
 
-    public Task<IReadOnlyList<OpenAIModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<OpenAIModelInfo>>([]);
+    public Task<IReadOnlyList<ModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(_models);
+    }
+
+    public Task<ModelInfo> GetModelAsync(string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return Task.FromResult(
+            _models.FirstOrDefault(model => string.Equals(model.Id, id, StringComparison.OrdinalIgnoreCase))
+            ?? ModelInfo.Unknown(id));
+    }
 
     private FauxResponse DequeueResponse()
     {

@@ -52,7 +52,7 @@ public sealed class ChatCompletionsService : IChatCompletionsService
     }
 
     private async Task<ResponseHttpResult> HandleStreamingAsync(
-        ChatCompletionRequest request, ModelDescriptor model, bool useResponses, CancellationToken cancellationToken)
+        ChatCompletionRequest request, ModelInfo model, bool useResponses, CancellationToken cancellationToken)
     {
         if (useResponses)
         {

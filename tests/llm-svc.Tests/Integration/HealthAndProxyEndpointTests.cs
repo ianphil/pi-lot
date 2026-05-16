@@ -53,7 +53,7 @@ public sealed class HealthAndProxyEndpointTests : IClassFixture<ResponsesWebAppl
     {
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5-mini",
                 Name = "GPT-5 Mini",
@@ -112,7 +112,7 @@ public sealed class HealthAndProxyEndpointTests : IClassFixture<ResponsesWebAppl
     {
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5-mini",
                 Name = "GPT-5 Mini",
@@ -141,7 +141,7 @@ public sealed class HealthAndProxyEndpointTests : IClassFixture<ResponsesWebAppl
     {
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "test-model",
                 Name = "Test",

@@ -18,8 +18,8 @@ public sealed class UiEndpointTests
         {
             Models =
             [
-                new OpenAIModelInfo { Id = "gpt-5.4", Name = "GPT 5.4" },
-                new OpenAIModelInfo { Id = "claude-haiku-4.5", Name = "Claude Haiku 4.5" },
+                new ModelInfo { Id = "gpt-5.4", Name = "GPT 5.4" },
+                new ModelInfo { Id = "claude-haiku-4.5", Name = "Claude Haiku 4.5" },
             ],
         };
         using var factory = CreateFactory(fakeClient);
@@ -40,7 +40,7 @@ public sealed class UiEndpointTests
         {
             Models =
             [
-                new OpenAIModelInfo
+                new ModelInfo
                 {
                     Id = "gpt-5.4",
                     Name = "GPT 5.4",
@@ -117,7 +117,7 @@ public sealed class UiEndpointTests
         {
             Models =
             [
-                new OpenAIModelInfo
+                new ModelInfo
                 {
                     Id = "gpt-5.4",
                     TokenLimits = new ModelTokenLimits { MaxPromptTokens = 1000 },
@@ -150,7 +150,7 @@ public sealed class UiEndpointTests
         {
             Models =
             [
-                new OpenAIModelInfo
+                new ModelInfo
                 {
                     Id = "gpt-5.4",
                     TokenLimits = new ModelTokenLimits { MaxPromptTokens = 1 },
@@ -203,7 +203,7 @@ public sealed class UiEndpointTests
 
     private sealed class FakeLlmSdkClient : ILlmSdkClient
     {
-        public IReadOnlyList<OpenAIModelInfo> Models { get; init; } = [];
+        public IReadOnlyList<ModelInfo> Models { get; init; } = [];
         public IReadOnlyList<ResponseStreamEvent> StreamEvents { get; init; } = [];
         public CreateResponseRequest? LastCreateResponseStreamRequest { get; private set; }
 
@@ -248,7 +248,10 @@ public sealed class UiEndpointTests
             CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public Task<IReadOnlyList<OpenAIModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<ModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(Models);
+
+        public Task<ModelInfo> GetModelAsync(string id, CancellationToken cancellationToken = default)
+            => Task.FromResult(Models.FirstOrDefault(model => string.Equals(model.Id, id, StringComparison.OrdinalIgnoreCase)) ?? ModelInfo.Unknown(id));
     }
 }

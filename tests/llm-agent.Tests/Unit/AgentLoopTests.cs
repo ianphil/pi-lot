@@ -807,7 +807,7 @@ public sealed class AgentLoopTests
         {
             Models =
             [
-                new OpenAIModelInfo
+                new ModelInfo
                 {
                     Id = "gpt-5.4",
                     TokenLimits = new ModelTokenLimits { MaxPromptTokens = 1000000 },
@@ -839,7 +839,7 @@ public sealed class AgentLoopTests
         {
             Models =
             [
-                new OpenAIModelInfo
+                new ModelInfo
                 {
                     Id = "gpt-5.4",
                     TokenLimits = new ModelTokenLimits { MaxPromptTokens = 1 },

@@ -1,0 +1,108 @@
+[
+  {
+    "id": "gpt-4o",
+    "displayName": "GPT-4o",
+    "aliases": ["gpt-4o-2024-08-06"],
+    "contextWindow": 128000,
+    "maxOutputTokens": 16384,
+    "supportsVision": true,
+    "supportsReasoning": false,
+    "supportedThinkingLevels": [],
+    "pricing": {
+      "input_per_million_tokens": 2.50,
+      "output_per_million_tokens": 10.00,
+      "cache_read_per_million_tokens": 1.25,
+      "cache_write_per_million_tokens": 0.00
+    }
+  },
+  {
+    "id": "gpt-4o-mini",
+    "displayName": "GPT-4o Mini",
+    "contextWindow": 128000,
+    "maxOutputTokens": 16384,
+    "supportsVision": true,
+    "supportsReasoning": false,
+    "supportedThinkingLevels": [],
+    "pricing": {
+      "input_per_million_tokens": 0.15,
+      "output_per_million_tokens": 0.60,
+      "cache_read_per_million_tokens": 0.075,
+      "cache_write_per_million_tokens": 0.00
+    }
+  },
+  {
+    "id": "gpt-4.1",
+    "displayName": "GPT-4.1",
+    "contextWindow": 1047576,
+    "maxOutputTokens": 32768,
+    "supportsVision": true,
+    "supportsReasoning": false,
+    "supportedThinkingLevels": [],
+    "pricing": {
+      "input_per_million_tokens": 2.00,
+      "output_per_million_tokens": 8.00,
+      "cache_read_per_million_tokens": 0.50,
+      "cache_write_per_million_tokens": 0.00
+    }
+  },
+  {
+    "id": "gpt-5.4-mini",
+    "displayName": "GPT-5.4 Mini",
+    "contextWindow": 400000,
+    "maxOutputTokens": 128000,
+    "supportsVision": true,
+    "supportsReasoning": true,
+    "supportedThinkingLevels": ["low", "medium", "high"],
+    "pricing": null
+  },
+  {
+    "id": "claude-sonnet-4",
+    "displayName": "Claude Sonnet 4",
+    "contextWindow": 200000,
+    "maxOutputTokens": 64000,
+    "supportsVision": true,
+    "supportsReasoning": true,
+    "supportedThinkingLevels": ["low", "medium", "high"],
+    "pricing": null
+  },
+  {
+    "id": "claude-opus-4",
+    "displayName": "Claude Opus 4",
+    "contextWindow": 200000,
+    "maxOutputTokens": 32000,
+    "supportsVision": true,
+    "supportsReasoning": true,
+    "supportedThinkingLevels": ["low", "medium", "high"],
+    "pricing": null
+  },
+  {
+    "id": "o1",
+    "displayName": "o1",
+    "contextWindow": 200000,
+    "maxOutputTokens": 100000,
+    "supportsVision": true,
+    "supportsReasoning": true,
+    "supportedThinkingLevels": ["low", "medium", "high"],
+    "pricing": null
+  },
+  {
+    "id": "o3-mini",
+    "displayName": "o3 Mini",
+    "contextWindow": 200000,
+    "maxOutputTokens": 100000,
+    "supportsVision": false,
+    "supportsReasoning": true,
+    "supportedThinkingLevels": ["low", "medium", "high"],
+    "pricing": null
+  },
+  {
+    "id": "o4-mini",
+    "displayName": "o4 Mini",
+    "contextWindow": 200000,
+    "maxOutputTokens": 100000,
+    "supportsVision": true,
+    "supportsReasoning": true,
+    "supportedThinkingLevels": ["low", "medium", "high"],
+    "pricing": null
+  }
+]

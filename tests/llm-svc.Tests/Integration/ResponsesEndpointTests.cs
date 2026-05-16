@@ -19,7 +19,7 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
     {
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "claude-haiku-4.5",
                 SupportedEndpoints = ["/chat/completions"],
@@ -76,7 +76,7 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
     {
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "claude-haiku-4.5",
                 SupportedEndpoints = ["/chat/completions"],
@@ -115,14 +115,14 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
     {
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "claude-haiku-4.5",
                 Name = "Claude Haiku 4.5",
                 OwnedBy = "github-copilot",
                 SupportedEndpoints = ["/chat/completions", "/v1/messages"],
             },
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5.4",
                 Name = "GPT-5.4",
@@ -159,7 +159,7 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
     {
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5.4",
                 SupportedEndpoints = ["/responses"],
@@ -236,7 +236,7 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
     {
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5.4",
                 SupportedEndpoints = ["/responses"],
@@ -275,7 +275,7 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
         _factory.Provider.ResetCapturedRequests();
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5.4",
                 SupportedEndpoints = ["/responses", "/chat/completions"],
@@ -347,7 +347,7 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
     {
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "claude-haiku-4.5",
                 SupportedEndpoints = ["/chat/completions"],
@@ -412,7 +412,7 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
     {
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "claude-haiku-4.5",
                 SupportedEndpoints = ["/chat/completions"],
@@ -517,7 +517,7 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
     {
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "claude-haiku-4.5",
                 SupportedEndpoints = ["/chat/completions"],
@@ -612,7 +612,7 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
         _factory.Provider.ResetCapturedRequests();
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5.4-mini",
                 SupportedEndpoints = ["/responses"],
@@ -653,7 +653,7 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
         _factory.Provider.ResetCapturedRequests();
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5.4-mini",
                 SupportedEndpoints = ["/responses"],
@@ -684,7 +684,7 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
         _factory.Provider.ResetCapturedRequests();
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5.4-mini",
                 SupportedEndpoints = ["/responses"],

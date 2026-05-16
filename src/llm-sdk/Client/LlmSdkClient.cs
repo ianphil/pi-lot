@@ -197,11 +197,17 @@ public sealed class LlmSdkClient : ILlmSdkClient
         }, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<OpenAIModelInfo>> ListModelsAsync(
+    public Task<IReadOnlyList<ModelInfo>> ListModelsAsync(
         CancellationToken cancellationToken = default)
     {
-        var response = await _modelListService.GetModelsAsync(cancellationToken);
-        return response.Data;
+        return _modelListService.ListModelsAsync(cancellationToken);
+    }
+
+    public Task<ModelInfo> GetModelAsync(
+        string id,
+        CancellationToken cancellationToken = default)
+    {
+        return _modelListService.GetModelAsync(id, cancellationToken);
     }
 
     private CreateResponseRequest Normalize(CreateResponseRequest request, bool stream = false)

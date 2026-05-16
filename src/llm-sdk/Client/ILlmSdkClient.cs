@@ -53,6 +53,10 @@ public interface ILlmSdkClient
         string message,
         [EnumeratorCancellation] CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<OpenAIModelInfo>> ListModelsAsync(
+    Task<IReadOnlyList<ModelInfo>> ListModelsAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<ModelInfo> GetModelAsync(
+        string id,
         CancellationToken cancellationToken = default);
 }

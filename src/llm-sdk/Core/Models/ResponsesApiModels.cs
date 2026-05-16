@@ -20,27 +20,6 @@ public static class ResponseStatuses
     public const string Incomplete = "incomplete";
 }
 
-public sealed class ModelDescriptor
-{
-    [JsonPropertyName("id")]
-    public required string Id { get; init; }
-
-    [JsonPropertyName("name")]
-    public string? Name { get; init; }
-
-    [JsonPropertyName("owned_by")]
-    public string? OwnedBy { get; init; }
-
-    [JsonPropertyName("supported_endpoints")]
-    public string[] SupportedEndpoints { get; init; } = [];
-
-    [JsonPropertyName("token_limits")]
-    public ModelTokenLimits? TokenLimits { get; init; }
-
-    public bool SupportsResponses => SupportedEndpoints.Contains("/responses", StringComparer.OrdinalIgnoreCase);
-    public bool SupportsChatCompletions => SupportedEndpoints.Contains("/chat/completions", StringComparer.OrdinalIgnoreCase);
-}
-
 public sealed class ModelTokenLimits
 {
     [JsonPropertyName("max_context_window_tokens")]
