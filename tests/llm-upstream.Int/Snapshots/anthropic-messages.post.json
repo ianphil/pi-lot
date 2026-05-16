@@ -1,0 +1,122 @@
+{
+  "name": "POST /v1/messages",
+  "base_url": "https://api.enterprise.githubcopilot.com",
+  "request": {
+    "method": "POST",
+    "path": "/v1/messages",
+    "headers": {
+      "anthropic-version": [
+        "2023-06-01"
+      ],
+      "Authorization": [
+        "\u003CREDACTED\u003E"
+      ],
+      "Content-Type": [
+        "application/json; charset=utf-8"
+      ],
+      "Copilot-Integration-Id": [
+        "copilot-developer-cli"
+      ],
+      "User-Agent": [
+        "copilot/1.0.11 (win32) term/service"
+      ]
+    },
+    "body": {
+      "model": "claude-sonnet-4.6",
+      "max_tokens": 16,
+      "messages": [
+        {
+          "role": "user",
+          "content": "Reply with exactly: hello"
+        }
+      ]
+    }
+  },
+  "response": {
+    "status_code": 200,
+    "reason_phrase": "OK",
+    "headers": {
+      "Content-Length": [
+        "834"
+      ],
+      "Content-Security-Policy": [
+        "default-src \u0027none\u0027; sandbox"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Date": [
+        "Sat, 16 May 2026 17:05:49 GMT"
+      ],
+      "Strict-Transport-Security": [
+        "max-age=31536000"
+      ],
+      "x-copilot-api-exp-assignment-context": [
+        "e4hcf520:1109203;t_33b5c122:1165002;"
+      ],
+      "x-github-backend": [
+        "Kubernetes"
+      ],
+      "X-GitHub-Request-Id": [
+        "E7E9:2A035B:3209D8:3B8EDC:6A08A3EC"
+      ],
+      "X-Request-ID": [
+        "00000-1a28f609-434b-42f0-9788-59b3b51fe7db"
+      ]
+    },
+    "body": {
+      "content": [
+        {
+          "text": "hello",
+          "type": "text"
+        }
+      ],
+      "copilot_usage": {
+        "token_details": [
+          {
+            "batch_size": 1000000,
+            "cost_per_batch": 300000000000,
+            "token_count": 12,
+            "token_type": "input"
+          },
+          {
+            "batch_size": 1000000,
+            "cost_per_batch": 30000000000,
+            "token_count": 0,
+            "token_type": "cache_read"
+          },
+          {
+            "batch_size": 1000000,
+            "cost_per_batch": 375000000000,
+            "token_count": 0,
+            "token_type": "cache_write"
+          },
+          {
+            "batch_size": 1000000,
+            "cost_per_batch": 1500000000000,
+            "token_count": 4,
+            "token_type": "output"
+          }
+        ],
+        "total_nano_aiu": 9600000
+      },
+      "id": "msg_bdrk_01MrXra3Eer7KZnmiu2AbrXm",
+      "model": "claude-sonnet-4-6",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "input_tokens": 12,
+        "output_tokens": 4
+      }
+    }
+  }
+}

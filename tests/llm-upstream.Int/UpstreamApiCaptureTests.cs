@@ -111,4 +111,138 @@ public sealed class UpstreamApiCaptureTests
         Assert.NotEmpty(capture.Response.SseEvents ?? []);
         await UpstreamSnapshotStore.AssertMatchesSnapshotAsync("chat-completions.stream.sse.json", capture, _output);
     }
+
+    [Fact]
+    public async Task AnthropicMessages_Post_MatchesCapture()
+    {
+        await using var client = UpstreamCaptureClient.CreateAuthenticated();
+
+        var capture = await client.CaptureJsonAsync(
+            "POST /v1/messages",
+            HttpMethod.Post,
+            "/v1/messages",
+            new
+            {
+                model = "claude-sonnet-4.6",
+                max_tokens = 16,
+                messages = new[]
+                {
+                    new { role = "user", content = "Reply with exactly: hello" },
+                },
+            },
+            AnthropicHeaders);
+
+        Assert.Equal(200, capture.Response.StatusCode);
+        await UpstreamSnapshotStore.AssertMatchesSnapshotAsync("anthropic-messages.post.json", capture, _output);
+    }
+
+    [Fact]
+    public async Task AnthropicMessages_Stream_MatchesCapture()
+    {
+        await using var client = UpstreamCaptureClient.CreateAuthenticated();
+
+        var capture = await client.CaptureSseAsync(
+            "POST /v1/messages stream",
+            "/v1/messages",
+            new
+            {
+                model = "claude-sonnet-4.6",
+                max_tokens = 16,
+                stream = true,
+                messages = new[]
+                {
+                    new { role = "user", content = "Reply with exactly: hello" },
+                },
+            },
+            AnthropicHeaders);
+
+        Assert.Equal(200, capture.Response.StatusCode);
+        Assert.NotEmpty(capture.Response.SseEvents ?? []);
+        await UpstreamSnapshotStore.AssertMatchesSnapshotAsync("anthropic-messages.stream.sse.json", capture, _output);
+    }
+
+    [Fact]
+    public async Task Responses_WebSocket_MatchesCapture()
+    {
+        await using var client = UpstreamCaptureClient.CreateAuthenticated();
+
+        var capture = await client.CaptureWebSocketAsync(
+            "WEBSOCKET /responses",
+            "/responses",
+            new
+            {
+                type = "response.create",
+                model = "gpt-5.4-mini",
+                input = "Reply with exactly: hello",
+            });
+
+        Assert.Equal(101, capture.Response.StatusCode);
+        Assert.NotEmpty(capture.Response.WebSocketMessages ?? []);
+        Assert.Contains(capture.Response.WebSocketMessages ?? [], message =>
+            string.Equals(message.Data?["type"]?.GetValue<string>(), "response.completed", StringComparison.Ordinal));
+        await UpstreamSnapshotStore.AssertMatchesSnapshotAsync("responses.websocket.json", capture, _output);
+    }
+
+    [Fact]
+    public async Task Embeddings_Post_MatchesCapture()
+    {
+        await using var client = UpstreamCaptureClient.CreateAuthenticated();
+
+        var capture = await client.CaptureJsonAsync(
+            "POST /embeddings",
+            HttpMethod.Post,
+            "/embeddings",
+            new
+            {
+                model = "text-embedding-3-small",
+                input = "hello",
+            });
+
+        Assert.Equal(400, capture.Response.StatusCode);
+        await UpstreamSnapshotStore.AssertMatchesSnapshotAsync("embeddings.post.json", capture, _output);
+    }
+
+    [Fact]
+    public async Task EmbeddingsInference_Post_MatchesCapture()
+    {
+        await using var client = UpstreamCaptureClient.CreateAuthenticated();
+
+        var capture = await client.CaptureJsonAsync(
+            "POST /embeddings inference",
+            HttpMethod.Post,
+            "/embeddings",
+            new
+            {
+                model = "text-embedding-3-small-inference",
+                input = "hello",
+            });
+
+        Assert.Equal(400, capture.Response.StatusCode);
+        await UpstreamSnapshotStore.AssertMatchesSnapshotAsync("embeddings-inference.post.json", capture, _output);
+    }
+
+    [Fact]
+    public async Task V1Embeddings_Post_MatchesCapture()
+    {
+        await using var client = UpstreamCaptureClient.CreateAuthenticated();
+
+        var capture = await client.CaptureJsonAsync(
+            "POST /v1/embeddings",
+            HttpMethod.Post,
+            "/v1/embeddings",
+            new
+            {
+                model = "text-embedding-3-small",
+                input = "hello",
+            });
+
+        Assert.Equal(404, capture.Response.StatusCode);
+        await UpstreamSnapshotStore.AssertMatchesSnapshotAsync("v1-embeddings.post.json", capture, _output);
+    }
+
+    private static readonly IReadOnlyDictionary<string, string> AnthropicHeaders =
+        new Dictionary<string, string>
+        {
+            ["anthropic-version"] = "2023-06-01",
+        };
 }

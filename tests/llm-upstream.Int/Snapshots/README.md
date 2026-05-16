@@ -9,8 +9,8 @@ obtain a bearer token, then record direct upstream requests and responses.
 
 Raw capture data is authoritative. The harness redacts credential-like values,
 but it does not normalize response IDs, timestamps, request IDs, token usage,
-dated model revisions, safety identifiers, SSE event payloads, or unknown
-fields.
+dated model revisions, safety identifiers, SSE event payloads, websocket
+messages, negative probe responses, or unknown fields.
 
 To intentionally refresh these snapshots:
 

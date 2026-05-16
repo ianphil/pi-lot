@@ -77,10 +77,7 @@ internal static class UpstreamCaptureRedactor
                     dataStart++;
                 }
 
-                builder
-                    .Append(line.AsSpan(0, dataStart))
-                    .Append(RedactJsonForRaw(line[dataStart..]))
-                    .Append('\n');
+                builder.Append(line.AsSpan(0, dataStart)).Append(RedactJsonText(line[dataStart..])).Append('\n');
             }
             else
             {
@@ -91,7 +88,7 @@ internal static class UpstreamCaptureRedactor
         return builder.ToString();
     }
 
-    private static string RedactJsonForRaw(string body)
+    public static string RedactJsonText(string body)
     {
         try
         {

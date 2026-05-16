@@ -52,6 +52,10 @@ internal sealed class UpstreamResponseCapture
     [JsonPropertyName("sse_events")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<UpstreamSseEventCapture>? SseEvents { get; init; }
+
+    [JsonPropertyName("websocket_messages")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<UpstreamWebSocketMessageCapture>? WebSocketMessages { get; init; }
 }
 
 internal sealed class UpstreamSseEventCapture
@@ -64,6 +68,21 @@ internal sealed class UpstreamSseEventCapture
 
     [JsonPropertyName("data")]
     public required JsonNode[] Data { get; init; }
+
+    [JsonPropertyName("raw")]
+    public required string Raw { get; init; }
+}
+
+internal sealed class UpstreamWebSocketMessageCapture
+{
+    [JsonPropertyName("index")]
+    public required int Index { get; init; }
+
+    [JsonPropertyName("message_type")]
+    public required string MessageType { get; init; }
+
+    [JsonPropertyName("data")]
+    public JsonNode? Data { get; init; }
 
     [JsonPropertyName("raw")]
     public required string Raw { get; init; }
