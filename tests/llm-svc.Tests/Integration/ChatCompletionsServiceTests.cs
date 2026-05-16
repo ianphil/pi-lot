@@ -20,7 +20,7 @@ public sealed class ChatCompletionsServiceTests : IClassFixture<ResponsesWebAppl
         _factory.Provider.ResetCapturedRequests();
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5-mini",
                 Name = "GPT-5 Mini",
@@ -64,7 +64,7 @@ public sealed class ChatCompletionsServiceTests : IClassFixture<ResponsesWebAppl
         _factory.Provider.ResetCapturedRequests();
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5.4",
                 Name = "GPT-5.4",
@@ -102,7 +102,7 @@ public sealed class ChatCompletionsServiceTests : IClassFixture<ResponsesWebAppl
         _factory.Provider.ResetCapturedRequests();
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "codex-mini",
                 Name = "Codex Mini",
@@ -151,7 +151,7 @@ public sealed class ChatCompletionsServiceTests : IClassFixture<ResponsesWebAppl
         _factory.Provider.ResetCapturedRequests();
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "codex-mini",
                 Name = "Codex Mini",
@@ -211,7 +211,7 @@ public sealed class ChatCompletionsServiceTests : IClassFixture<ResponsesWebAppl
         _factory.Provider.ResetCapturedRequests();
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5-mini",
                 Name = "GPT-5 Mini",

@@ -11,10 +11,28 @@ public sealed class ModelListServiceTests
     [Fact]
     public async Task GetModelsAsync_WithKnownModel_AddsCataloguePricing()
     {
-        var service = CreateService(new ModelDescriptor
+        var service = CreateService(new ModelInfo
         {
             Id = "gpt-4o",
             Name = "GPT-4o from upstream",
+            Vendor = "OpenAI",
+            Version = "gpt-4o-2024-08-06",
+            Preview = false,
+            ModelPickerCategory = "fast",
+            ModelPickerEnabled = true,
+            Policy = new ModelPolicy { State = "enabled", Terms = "terms" },
+            Capabilities = new ModelCapabilities
+            {
+                Object = "model_capabilities",
+                Family = "gpt-4o",
+                Type = "chat",
+                Tokenizer = "o200k_base",
+                Supports = new ModelSupports
+                {
+                    Streaming = true,
+                    Vision = true,
+                },
+            },
             SupportedEndpoints = ["/responses"],
         });
 
@@ -22,15 +40,23 @@ public sealed class ModelListServiceTests
 
         var model = Assert.Single(response.Data);
         Assert.Equal("gpt-4o", model.Id);
+        Assert.Equal("OpenAI", model.Vendor);
+        Assert.Equal("gpt-4o-2024-08-06", model.Version);
+        Assert.False(model.Preview);
+        Assert.Equal("fast", model.ModelPickerCategory);
+        Assert.True(model.ModelPickerEnabled);
+        Assert.Equal("enabled", model.Policy?.State);
+        Assert.Equal("gpt-4o", model.Capabilities?.Family);
+        Assert.True(model.Capabilities?.Supports?.Streaming);
         Assert.NotNull(model.Pricing);
         Assert.Equal(2.50m, model.Pricing.InputPerMillionTokens);
         Assert.Equal(10m, model.Pricing.OutputPerMillionTokens);
     }
 
     [Fact]
-    public async Task GetModelInfoAsync_WithKnownModel_PrefersUpstreamTokenLimits()
+    public async Task ListModelsAsync_WithKnownModel_PrefersUpstreamTokenLimits()
     {
-        var service = CreateService(new ModelDescriptor
+        var service = CreateService(new ModelInfo
         {
             Id = "gpt-4o",
             Name = "GPT-4o from upstream",
@@ -42,7 +68,7 @@ public sealed class ModelListServiceTests
             },
         });
 
-        var models = await service.GetModelInfoAsync();
+        var models = await service.ListModelsAsync();
 
         var model = Assert.Single(models);
         Assert.Equal("gpt-4o", model.Id);
@@ -54,15 +80,15 @@ public sealed class ModelListServiceTests
     }
 
     [Fact]
-    public async Task GetModelInfoAsync_WithUnknownModel_UsesConservativeDefaults()
+    public async Task ListModelsAsync_WithUnknownModel_UsesConservativeDefaults()
     {
-        var service = CreateService(new ModelDescriptor
+        var service = CreateService(new ModelInfo
         {
             Id = "unknown-model",
             SupportedEndpoints = ["/responses"],
         });
 
-        var models = await service.GetModelInfoAsync();
+        var models = await service.ListModelsAsync();
 
         var model = Assert.Single(models);
         Assert.Equal("unknown-model", model.Id);
@@ -75,7 +101,7 @@ public sealed class ModelListServiceTests
         Assert.Null(model.Pricing);
     }
 
-    private static ModelListService CreateService(params ModelDescriptor[] models)
+    private static ModelListService CreateService(params ModelInfo[] models)
     {
         return new ModelListService(
             new FakeModelProvider { Models = models },

@@ -26,7 +26,7 @@ public sealed class UsageMathTests
     [Fact]
     public void CalculateCost_WithPricing_ComputesPerMillionTokenCost()
     {
-        var model = new OpenAIModelInfo
+        var model = new ModelInfo
         {
             Id = "sample",
             Pricing = new UsagePricing
@@ -46,7 +46,7 @@ public sealed class UsageMathTests
     [Fact]
     public void CalculateCost_WithoutPricing_ReturnsNull()
     {
-        var cost = UsageMath.CalculateCost(new Usage(1, 2), new OpenAIModelInfo { Id = "sample" });
+        var cost = UsageMath.CalculateCost(new Usage(1, 2), new ModelInfo { Id = "sample" });
 
         Assert.Null(cost);
     }

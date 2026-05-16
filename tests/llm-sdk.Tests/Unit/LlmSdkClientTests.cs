@@ -320,7 +320,7 @@ public sealed class LlmSdkClientTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "gpt-5.4-mini",
                     Name = "GPT 5.4 Mini",
@@ -333,7 +333,7 @@ public sealed class LlmSdkClientTests
                         MaxOutputTokens = 16000,
                     },
                 },
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "embeddings-only",
                     SupportedEndpoints = ["/embeddings"],
@@ -355,13 +355,13 @@ public sealed class LlmSdkClientTests
     }
 
     [Fact]
-    public async Task ListModelInfoAsync_ReturnsMergedCatalogueModelInfo()
+    public async Task ListModelsAsync_ReturnsMergedCatalogueModelInfo()
     {
         var modelProvider = new FakeModelProvider
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "gpt-4o",
                     Name = "GPT-4o from upstream",
@@ -371,7 +371,7 @@ public sealed class LlmSdkClientTests
         };
         var client = CreateClient(modelProvider: modelProvider);
 
-        var models = await client.ListModelInfoAsync();
+        var models = await client.ListModelsAsync();
 
         var model = Assert.Single(models);
         Assert.Equal("gpt-4o", model.Id);
@@ -382,13 +382,13 @@ public sealed class LlmSdkClientTests
     }
 
     [Fact]
-    public async Task GetModelInfoAsync_WithKnownModel_ReturnsMergedCatalogueModelInfo()
+    public async Task GetModelAsync_WithKnownModel_ReturnsMergedCatalogueModelInfo()
     {
         var modelProvider = new FakeModelProvider
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "gpt-4o",
                     Name = "GPT-4o from upstream",
@@ -398,7 +398,7 @@ public sealed class LlmSdkClientTests
         };
         var client = CreateClient(modelProvider: modelProvider);
 
-        var model = await client.GetModelInfoAsync("gpt-4o");
+        var model = await client.GetModelAsync("gpt-4o");
 
         Assert.Equal("gpt-4o", model.Id);
         Assert.Equal("GPT-4o from upstream", model.DisplayName);
@@ -408,13 +408,13 @@ public sealed class LlmSdkClientTests
     }
 
     [Fact]
-    public async Task GetModelInfoAsync_IsCaseInsensitive()
+    public async Task GetModelAsync_IsCaseInsensitive()
     {
         var modelProvider = new FakeModelProvider
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "gpt-4o",
                     SupportedEndpoints = ["/responses"],
@@ -423,18 +423,18 @@ public sealed class LlmSdkClientTests
         };
         var client = CreateClient(modelProvider: modelProvider);
 
-        var model = await client.GetModelInfoAsync("GPT-4O");
+        var model = await client.GetModelAsync("GPT-4O");
 
         Assert.Equal("gpt-4o", model.Id);
         Assert.Equal(128000, model.ContextWindow);
     }
 
     [Fact]
-    public async Task GetModelInfoAsync_WithUnknownModel_ReturnsConservativeDefaults()
+    public async Task GetModelAsync_WithUnknownModel_ReturnsConservativeDefaults()
     {
         var client = CreateClient();
 
-        var model = await client.GetModelInfoAsync("unknown-model");
+        var model = await client.GetModelAsync("unknown-model");
 
         Assert.Equal("unknown-model", model.Id);
         Assert.Equal("unknown-model", model.DisplayName);
@@ -450,11 +450,11 @@ public sealed class LlmSdkClientTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData("\t")]
-    public async Task GetModelInfoAsync_WithBlankModel_ThrowsArgumentException(string id)
+    public async Task GetModelAsync_WithBlankModel_ThrowsArgumentException(string id)
     {
         var client = CreateClient();
 
-        await Assert.ThrowsAsync<ArgumentException>(() => client.GetModelInfoAsync(id));
+        await Assert.ThrowsAsync<ArgumentException>(() => client.GetModelAsync(id));
     }
 
     [Fact]

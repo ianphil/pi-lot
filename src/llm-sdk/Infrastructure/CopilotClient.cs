@@ -148,17 +148,25 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         return _models;
     }
 
-    async Task<ModelDescriptor[]> IModelProvider.FetchModelsAsync(bool forceRefresh, CancellationToken cancellationToken)
+    async Task<ModelInfo[]> IModelProvider.FetchModelsAsync(bool forceRefresh, CancellationToken cancellationToken)
     {
         var models = await FetchModelsAsync(forceRefresh);
         return models
             .Where(model => !string.IsNullOrWhiteSpace(model.Id))
-            .Select(model => new ModelDescriptor
+            .Select(model => new ModelInfo
             {
                 Id = model.Id!,
                 Name = model.Name,
                 OwnedBy = "github-copilot",
+                Object = model.Object ?? "model",
+                Vendor = model.Vendor,
+                Version = model.Version,
+                Preview = model.Preview,
+                ModelPickerCategory = model.ModelPickerCategory,
+                ModelPickerEnabled = model.ModelPickerEnabled,
+                Policy = model.Policy,
                 SupportedEndpoints = model.SupportedEndpoints ?? [],
+                Capabilities = model.Capabilities,
                 TokenLimits = model.Capabilities?.Limits is null
                     ? null
                     : new ModelTokenLimits

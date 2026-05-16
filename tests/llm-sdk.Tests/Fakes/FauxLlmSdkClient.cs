@@ -93,8 +93,11 @@ internal sealed class FauxLlmSdkClient : ILlmSdkClient
         CancellationToken cancellationToken = default) =>
         throw new NotSupportedException("FauxLlmSdkClient supports the portable Context API. Use CompleteAsync or StreamAsync.");
 
-    public Task<IReadOnlyList<OpenAIModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<OpenAIModelInfo>>([]);
+    public Task<IReadOnlyList<ModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ModelInfo>>([]);
+
+    public Task<ModelInfo> GetModelAsync(string id, CancellationToken cancellationToken = default) =>
+        Task.FromResult(ModelInfo.Unknown(id));
 
     private FauxResponse DequeueResponse()
     {

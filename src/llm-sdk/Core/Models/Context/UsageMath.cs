@@ -15,14 +15,6 @@ public static class UsageMath
             a.Cost is not null && b.Cost is not null ? a.Cost + b.Cost : null);
     }
 
-    public static decimal? CalculateCost(Usage usage, OpenAIModelInfo model)
-    {
-        ArgumentNullException.ThrowIfNull(usage);
-        ArgumentNullException.ThrowIfNull(model);
-
-        return CalculateCost(usage, model.Pricing);
-    }
-
     public static decimal? CalculateCost(Usage usage, ModelInfo model)
     {
         ArgumentNullException.ThrowIfNull(usage);

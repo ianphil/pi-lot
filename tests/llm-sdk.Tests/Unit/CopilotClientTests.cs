@@ -106,6 +106,49 @@ public sealed class CopilotClientTests
     }
 
     [Fact]
+    public async Task FetchModelsAsync_WithFullModelPayload_CapturesApiDetails()
+    {
+        var client = CreateClient(request =>
+        {
+            if (request.RequestUri?.AbsolutePath != "/models")
+            {
+                throw new InvalidOperationException($"Unexpected request path: {request.RequestUri?.AbsolutePath}");
+            }
+
+            return Task.FromResult(JsonResponse(FullModelListJson));
+        });
+
+        var models = await client.FetchModelsAsync(forceRefresh: true);
+        var descriptors = await ((IModelProvider)client).FetchModelsAsync(forceRefresh: true);
+
+        var model = Assert.Single(models);
+        Assert.Equal("claude-opus-4.6", model.Id);
+        Assert.Equal("Anthropic", model.Vendor);
+        Assert.Equal("claude-opus-4.6", model.Version);
+        Assert.False(model.Preview);
+        Assert.Equal("powerful", model.ModelPickerCategory);
+        Assert.True(model.ModelPickerEnabled);
+        Assert.Equal("enabled", model.Policy?.State);
+        Assert.Equal("model_capabilities", model.Capabilities?.Object);
+        Assert.Equal("claude-opus-4.6", model.Capabilities?.Family);
+        Assert.Equal("chat", model.Capabilities?.Type);
+        Assert.Equal("o200k_base", model.Capabilities?.Tokenizer);
+        Assert.True(model.Capabilities?.Supports?.AdaptiveThinking);
+        Assert.True(model.Capabilities?.Supports?.ParallelToolCalls);
+        Assert.Equal(["low", "medium", "high"], model.Capabilities?.Supports?.ReasoningEffort ?? []);
+        Assert.Equal(16000, model.Capabilities?.Limits?.MaxNonStreamingOutputTokens);
+        Assert.Equal(3145728, model.Capabilities?.Limits?.Vision?.MaxPromptImageSize);
+        Assert.Equal(["image/jpeg", "image/png", "image/webp"], model.Capabilities?.Limits?.Vision?.SupportedMediaTypes ?? []);
+
+        var descriptor = Assert.Single(descriptors);
+        Assert.Equal("Anthropic", descriptor.Vendor);
+        Assert.Equal("claude-opus-4.6", descriptor.Version);
+        Assert.Equal("powerful", descriptor.ModelPickerCategory);
+        Assert.True(descriptor.Capabilities?.Supports?.StructuredOutputs);
+        Assert.Equal(200000, descriptor.TokenLimits?.MaxContextWindowTokens);
+    }
+
+    [Fact]
     public async Task SendResponsesAsync_WhenTokenIsMissing_LoadsCredentialOnDemand()
     {
         var bearerTokens = new List<string>();
@@ -750,6 +793,68 @@ public sealed class CopilotClientTests
           "store": false,
           "background": false,
           "service_tier": "default"
+        }
+        """;
+
+    private const string FullModelListJson =
+        """
+        {
+          "data": [
+            {
+              "capabilities": {
+                "family": "claude-opus-4.6",
+                "limits": {
+                  "max_context_window_tokens": 200000,
+                  "max_non_streaming_output_tokens": 16000,
+                  "max_output_tokens": 32000,
+                  "max_prompt_tokens": 168000,
+                  "vision": {
+                    "max_prompt_image_size": 3145728,
+                    "max_prompt_images": 1,
+                    "supported_media_types": [
+                      "image/jpeg",
+                      "image/png",
+                      "image/webp"
+                    ]
+                  }
+                },
+                "object": "model_capabilities",
+                "supports": {
+                  "adaptive_thinking": true,
+                  "max_thinking_budget": 32000,
+                  "min_thinking_budget": 1024,
+                  "parallel_tool_calls": true,
+                  "reasoning_effort": [
+                    "low",
+                    "medium",
+                    "high"
+                  ],
+                  "streaming": true,
+                  "structured_outputs": true,
+                  "tool_calls": true,
+                  "vision": true
+                },
+                "tokenizer": "o200k_base",
+                "type": "chat"
+              },
+              "id": "claude-opus-4.6",
+              "model_picker_category": "powerful",
+              "model_picker_enabled": true,
+              "name": "Claude Opus 4.6",
+              "object": "model",
+              "policy": {
+                "state": "enabled",
+                "terms": "Enable access to Claude Opus 4.6."
+              },
+              "preview": false,
+              "supported_endpoints": [
+                "/v1/messages",
+                "/chat/completions"
+              ],
+              "vendor": "Anthropic",
+              "version": "claude-opus-4.6"
+            }
+          ]
         }
         """;
 

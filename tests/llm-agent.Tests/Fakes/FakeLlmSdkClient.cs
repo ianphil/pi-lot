@@ -26,7 +26,7 @@ internal sealed class FakeLlmSdkClient : ILlmSdkClient
     public CreateResponseRequest? LastCreateResponseStreamRequest { get; private set; }
     public ChatCompletionRequest? LastCreateChatCompletionRequest { get; private set; }
     public ChatCompletionRequest? LastCreateChatCompletionStreamRequest { get; private set; }
-    public IReadOnlyList<OpenAIModelInfo> Models { get; init; } = [];
+    public IReadOnlyList<ModelInfo> Models { get; init; } = [];
 
     public Task<Response> CreateResponseAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
     {
@@ -68,6 +68,9 @@ internal sealed class FakeLlmSdkClient : ILlmSdkClient
     public IAsyncEnumerable<ChatCompletionChunk> CreateChatCompletionStreamAsync(string? model, string message, CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
 
-    public Task<IReadOnlyList<OpenAIModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(Models);
+
+    public Task<ModelInfo> GetModelAsync(string id, CancellationToken cancellationToken = default)
+        => Task.FromResult(Models.FirstOrDefault(model => string.Equals(model.Id, id, StringComparison.OrdinalIgnoreCase)) ?? ModelInfo.Unknown(id));
 }

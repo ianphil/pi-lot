@@ -11,7 +11,7 @@ public sealed class FakeModelProvider : IAuthProvider, IModelProvider
 
     public Task<bool> ValidateTokenAsync() => Task.FromResult(IsAuthenticated);
 
-    public ModelDescriptor[] Models { get; set; } = [];
+    public ModelInfo[] Models { get; set; } = [];
 
     public ProxyHttpResult ChatCompletionsResult { get; set; } = new("{}", 200);
 
@@ -33,7 +33,7 @@ public sealed class FakeModelProvider : IAuthProvider, IModelProvider
         LastResponsesRequest = null;
     }
 
-    public Task<ModelDescriptor[]> FetchModelsAsync(bool forceRefresh = false, CancellationToken cancellationToken = default) =>
+    public Task<ModelInfo[]> FetchModelsAsync(bool forceRefresh = false, CancellationToken cancellationToken = default) =>
         Task.FromResult(Models);
 
     public Task<ProxyHttpResult> ChatAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)

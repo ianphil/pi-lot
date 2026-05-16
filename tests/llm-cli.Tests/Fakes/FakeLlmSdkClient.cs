@@ -132,7 +132,10 @@ internal sealed class FakeLlmSdkClient : ILlmSdkClient
     public IAsyncEnumerable<ChatCompletionChunk> CreateChatCompletionStreamAsync(string? model, string message, CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
 
-    public Task<IReadOnlyList<OpenAIModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    public Task<ModelInfo> GetModelAsync(string id, CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
 
     private static async IAsyncEnumerable<AssistantStreamEvent> ToAsyncEnumerable(

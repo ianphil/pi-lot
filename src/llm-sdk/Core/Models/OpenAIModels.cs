@@ -10,34 +10,7 @@ public sealed class OpenAIModelListResponse
     public string Object { get; init; } = "list";
 
     [JsonPropertyName("data")]
-    public required OpenAIModelInfo[] Data { get; init; }
-}
-
-public sealed class OpenAIModelInfo
-{
-    [JsonPropertyName("id")]
-    public string? Id { get; init; }
-
-    [JsonPropertyName("object")]
-    public string Object { get; init; } = "model";
-
-    [JsonPropertyName("owned_by")]
-    public string? OwnedBy { get; init; }
-
-    [JsonPropertyName("name")]
-    public string? Name { get; init; }
-
-    [JsonPropertyName("supported_endpoints")]
-    public string[]? SupportedEndpoints { get; init; }
-
-    [JsonPropertyName("proxy_supported_endpoints")]
-    public string[]? ProxySupportedEndpoints { get; init; }
-
-    [JsonPropertyName("token_limits")]
-    public ModelTokenLimits? TokenLimits { get; init; }
-
-    [JsonPropertyName("pricing")]
-    public ModelPricing? Pricing { get; init; }
+    public required ModelInfo[] Data { get; init; }
 }
 
 // ── Error response ───────────────────────────────────────────────────────────

@@ -19,7 +19,7 @@ public sealed class EmbeddedModelCatalogue : IModelCatalogue
 
         return _data.Value.ById.TryGetValue(id, out var model)
             ? model
-            : new ModelInfo(id, id, null, null, false, false, [], null);
+            : ModelInfo.Unknown(id);
     }
 
     public static Stream? OpenResourceStream()
@@ -41,15 +41,31 @@ public sealed class EmbeddedModelCatalogue : IModelCatalogue
         var entries = JsonSerializer.Deserialize<CatalogueEntry[]>(stream, JsonDefaults.Web)
             ?? throw new InvalidOperationException("The embedded model catalogue could not be deserialized.");
 
-        var models = entries.Select(static entry => new ModelInfo(
-                entry.Id,
-                entry.DisplayName ?? entry.Id,
-                entry.ContextWindow,
-                entry.MaxOutputTokens,
-                entry.SupportsVision,
-                entry.SupportsReasoning,
-                entry.SupportedThinkingLevels ?? [],
-                entry.Pricing))
+        var models = entries.Select(static entry => new ModelInfo
+            {
+                Id = entry.Id,
+                Name = entry.DisplayName ?? entry.Id,
+                DisplayName = entry.DisplayName ?? entry.Id,
+                TokenLimits = entry.ContextWindow is null && entry.MaxOutputTokens is null
+                    ? null
+                    : new ModelTokenLimits
+                    {
+                        MaxContextWindowTokens = entry.ContextWindow,
+                        MaxOutputTokens = entry.MaxOutputTokens,
+                    },
+                Capabilities = new ModelCapabilities
+                {
+                    Supports = new ModelSupports
+                    {
+                        Vision = entry.SupportsVision,
+                        AdaptiveThinking = entry.SupportsReasoning,
+                        ReasoningEffort = entry.SupportedThinkingLevels?
+                            .Select(static level => level.ToString().ToLowerInvariant())
+                            .ToArray(),
+                    },
+                },
+                Pricing = entry.Pricing,
+            })
             .ToArray();
 
         var byId = new Dictionary<string, ModelInfo>(StringComparer.OrdinalIgnoreCase);

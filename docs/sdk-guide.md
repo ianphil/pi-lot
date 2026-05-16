@@ -206,22 +206,29 @@ foreach (var model in models)
 }
 ```
 
-Each `OpenAIModelInfo` includes `SupportedEndpoints` (what the upstream API
-supports natively) and `ProxySupportedEndpoints` (what the proxy accepts via
-translation).
-
-For typed capability and pricing metadata, use the model catalogue surface:
+Each `ModelInfo` includes the model details reported by the upstream API,
+including `SupportedEndpoints`, capabilities, and token limits. It also includes
+SDK-supplied metadata such as `ProxySupportedEndpoints` and pricing when the SDK
+has it.
 
 ```csharp
-var modelInfo = await client.GetModelInfoAsync("gpt-4o");
+var modelInfo = await client.GetModelAsync("gpt-4o");
 
 Console.WriteLine($"{modelInfo.DisplayName}: context={modelInfo.ContextWindow}");
 Console.WriteLine($"Input price / 1M tokens: {modelInfo.Pricing?.InputPerMillionTokens}");
 ```
 
-`ListModelInfoAsync()` returns the same catalogue shape for models currently
-reported by upstream. Unknown models use conservative defaults: capability flags
-are false and token limits/pricing are null unless upstream reports token limits.
+`ListModelsAsync()` and `GetModelAsync()` use the same `ModelInfo` shape.
+Unknown models use conservative defaults: capability flags are false and token
+limits/pricing are null unless upstream reports token limits.
+
+For runs that return usage, pass the same model metadata to `UsageMath` to
+estimate cost:
+
+```csharp
+var usage = response.Usage;
+var cost = usage is null ? null : UsageMath.CalculateCost(usage, modelInfo);
+```
 
 ---
 

@@ -9,10 +9,10 @@
     "supportsReasoning": false,
     "supportedThinkingLevels": [],
     "pricing": {
-      "inputPerMillionTokens": 2.50,
-      "outputPerMillionTokens": 10.00,
-      "cacheReadPerMillionTokens": 1.25,
-      "cacheWritePerMillionTokens": 0.00
+      "input_per_million_tokens": 2.50,
+      "output_per_million_tokens": 10.00,
+      "cache_read_per_million_tokens": 1.25,
+      "cache_write_per_million_tokens": 0.00
     }
   },
   {
@@ -24,10 +24,10 @@
     "supportsReasoning": false,
     "supportedThinkingLevels": [],
     "pricing": {
-      "inputPerMillionTokens": 0.15,
-      "outputPerMillionTokens": 0.60,
-      "cacheReadPerMillionTokens": 0.075,
-      "cacheWritePerMillionTokens": 0.00
+      "input_per_million_tokens": 0.15,
+      "output_per_million_tokens": 0.60,
+      "cache_read_per_million_tokens": 0.075,
+      "cache_write_per_million_tokens": 0.00
     }
   },
   {
@@ -39,10 +39,10 @@
     "supportsReasoning": false,
     "supportedThinkingLevels": [],
     "pricing": {
-      "inputPerMillionTokens": 2.00,
-      "outputPerMillionTokens": 8.00,
-      "cacheReadPerMillionTokens": 0.50,
-      "cacheWritePerMillionTokens": 0.00
+      "input_per_million_tokens": 2.00,
+      "output_per_million_tokens": 8.00,
+      "cache_read_per_million_tokens": 0.50,
+      "cache_write_per_million_tokens": 0.00
     }
   },
   {

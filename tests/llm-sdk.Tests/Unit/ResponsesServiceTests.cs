@@ -16,7 +16,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     Name = "Claude Sonnet 4.5",
@@ -87,7 +87,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     Name = "Claude Sonnet 4.5",
@@ -152,7 +152,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -224,7 +224,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "gpt-5.4",
                     SupportedEndpoints = ["/responses"],
@@ -267,7 +267,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -317,7 +317,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -370,7 +370,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -415,7 +415,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -491,7 +491,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -561,7 +561,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -625,7 +625,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -684,7 +684,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -755,7 +755,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -808,7 +808,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -893,7 +893,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -935,7 +935,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -977,7 +977,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -1047,7 +1047,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -1150,7 +1150,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -1231,7 +1231,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
@@ -1313,7 +1313,7 @@ public sealed class ResponsesServiceTests
         {
             Models =
             [
-                new ModelDescriptor
+                new ModelInfo
                 {
                     Id = "claude-sonnet-4.5",
                     SupportedEndpoints = ["/chat/completions"],
