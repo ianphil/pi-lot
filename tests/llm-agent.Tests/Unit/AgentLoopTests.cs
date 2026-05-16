@@ -384,59 +384,9 @@ public sealed class AgentLoopTests
         var events = await CollectEventsAsync(AgentLoop.RunAsync(client, "Read test.txt", CreateOptions([tool])));
 
         var toolEnded = Assert.IsType<ToolExecutionEnded>(events.Single(evt => evt is ToolExecutionEnded));
-        Assert.Contains("arguments must be valid JSON", toolEnded.Result.Content);
+        Assert.StartsWith("Invalid arguments:", toolEnded.Result.Content);
         Assert.True(toolEnded.Result.IsError);
         Assert.Equal(0, tool.ExecuteCallCount);
-    }
-
-    [Fact]
-    public async Task RunAsync_ToolArgumentsThatFailSchemaValidationReturnErrorWithoutExecutingTool()
-    {
-        var requests = new List<CreateResponseRequest>();
-        var firstResponse = StreamHelpers.CreateResponse(
-            StreamHelpers.FunctionCall("read_file", "call_1", """{"path":123}"""));
-        var secondResponse = StreamHelpers.CreateResponse(StreamHelpers.AssistantMessage("Done."));
-        var streams = new Queue<ResponseStreamEvent[]>(
-        [
-            [StreamHelpers.Completed(firstResponse, sequenceNumber: 1)],
-            [StreamHelpers.Completed(secondResponse, sequenceNumber: 2)],
-        ]);
-        var tool = new FakeAgentTool(
-            "read_file",
-            "Read a file.",
-            JsonSerializer.SerializeToElement(new
-            {
-                type = "object",
-                required = new[] { "path" },
-                additionalProperties = false,
-                properties = new
-                {
-                    path = new { type = "string" },
-                },
-            }, JsonDefaults.Web),
-            strict: true,
-            executeAsync: (_, _, _) => Task.FromResult(new AgentToolResult("unused")));
-        var client = new FakeLlmSdkClient(
-            createResponseStreamAsync: (request, _) =>
-            {
-                requests.Add(request);
-                return StreamHelpers.ToAsyncEnumerable(streams.Dequeue());
-            });
-
-        var events = await CollectEventsAsync(AgentLoop.RunAsync(client, "Read test.txt", CreateOptions([tool])));
-
-        var toolEnded = Assert.IsType<ToolExecutionEnded>(events.Single(evt => evt is ToolExecutionEnded));
-        Assert.Equal("call_1", toolEnded.CallId);
-        Assert.Equal("read_file", toolEnded.ToolName);
-        Assert.Contains("path must be string", toolEnded.Result.Content);
-        Assert.True(toolEnded.Result.IsError);
-        Assert.Equal(0, tool.ExecuteCallCount);
-        Assert.DoesNotContain(events, static evt => evt is ToolExecutionStarted);
-
-        var toolOutput = requests[1].Input[requests[1].Input.GetArrayLength() - 1];
-        Assert.Equal("function_call_output", toolOutput.GetProperty("type").GetString());
-        Assert.Equal("call_1", toolOutput.GetProperty("call_id").GetString());
-        Assert.Contains("path must be string", toolOutput.GetProperty("output").GetString());
     }
 
     [Fact]

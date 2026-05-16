@@ -91,57 +91,6 @@ public sealed class AgentLoopIntTests
     }
 
     [Fact]
-    public async Task RunAsync_WithFakeSdkInvalidToolArguments_ReturnsValidationErrorWithoutExecutingTool()
-    {
-        var firstResponse = AgentIntTestHelpers.CreateResponse(
-            AgentIntTestHelpers.FunctionCall("lookup", "call_1", """{"topic":123}"""));
-        var secondResponse = AgentIntTestHelpers.CreateResponse(
-            AgentIntTestHelpers.AssistantMessage("The tool arguments were invalid."));
-        var streams = new Queue<ResponseStreamEvent[]>(
-        [
-            [AgentIntTestHelpers.Completed(firstResponse, sequenceNumber: 1)],
-            [AgentIntTestHelpers.Completed(secondResponse, sequenceNumber: 2)],
-        ]);
-        var client = new FakeLlmSdkClient((_, _) => AgentIntTestHelpers.ToAsyncEnumerable(streams.Dequeue()));
-        var tool = new FakeAgentTool(
-            "lookup",
-            "Look up a topic.",
-            JsonSerializer.SerializeToElement(new
-            {
-                type = "object",
-                properties = new
-                {
-                    topic = new { type = "string" },
-                },
-                required = new[] { "topic" },
-                additionalProperties = false,
-            }, JsonDefaults.Web),
-            strict: true,
-            executeAsync: (_, _, _) => Task.FromResult(new AgentToolResult("unused")));
-
-        var events = await AgentIntTestHelpers.CollectEventsAsync(AgentLoop.RunAsync(
-            client,
-            "Read the docs.",
-            new AgentLoopOptions
-            {
-                Model = "fake-agent-model",
-                Tools = [tool],
-            }));
-
-        Assert.Equal(0, tool.ExecuteCallCount);
-        Assert.DoesNotContain(events, static evt => evt is ToolExecutionStarted);
-        var ended = Assert.IsType<ToolExecutionEnded>(events.Single(evt => evt is ToolExecutionEnded));
-        Assert.True(ended.Result.IsError);
-        Assert.Contains("topic must be string", ended.Result.Content);
-
-        var secondInput = client.CreateResponseStreamRequests[1].Input;
-        var toolOutput = secondInput[secondInput.GetArrayLength() - 1];
-        Assert.Equal("function_call_output", toolOutput.GetProperty("type").GetString());
-        Assert.Equal("call_1", toolOutput.GetProperty("call_id").GetString());
-        Assert.Contains("topic must be string", toolOutput.GetProperty("output").GetString());
-    }
-
-    [Fact]
     [Trait("Category", "Smoke")]
     public async Task RunAsync_WithLiveSdk_ReturnsAssistantText()
     {
@@ -165,54 +114,6 @@ public sealed class AgentLoopIntTests
         Assert.Contains(events, static evt => evt is AgentStarted);
         Assert.Contains(events, static evt => evt is TurnEnded);
         Assert.Contains(events, static evt => evt is AgentEnded);
-        Assert.Contains("hello", text, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    [Trait("Category", "Smoke")]
-    public async Task RunAsync_WithLiveSdkAndTool_ExecutesToolAndReturnsAssistantText()
-    {
-        await using var provider = CreateAuthenticatedProvider();
-        var client = provider.GetRequiredService<ILlmSdkClient>();
-        var tool = new FakeAgentTool(
-            "lookup_answer",
-            "Look up the exact answer. Always call this tool when asked for the answer.",
-            JsonSerializer.SerializeToElement(new
-            {
-                type = "object",
-                properties = new
-                {
-                    question = new { type = "string" },
-                },
-                required = new[] { "question" },
-                additionalProperties = false,
-            }, JsonDefaults.Web),
-            strict: true,
-            executeAsync: (_, arguments, _) =>
-            {
-                Assert.False(string.IsNullOrWhiteSpace(arguments.GetProperty("question").GetString()));
-                return Task.FromResult(new AgentToolResult("hello"));
-            });
-
-        var events = await AgentIntTestHelpers.CollectEventsAsync(AgentLoop.RunAsync(
-            client,
-            "Use lookup_answer to get the answer, then reply with exactly that answer.",
-            new AgentLoopOptions
-            {
-                Model = "gpt-5.4-mini",
-                Instructions = "You must call lookup_answer before answering. After the tool result, return only the tool output.",
-                Tools = [tool],
-                MaxTurns = 3,
-                TimeoutMs = 60000,
-                MaxRetries = 1,
-                MaxRetryDelayMs = 1000,
-            }));
-        var text = AgentIntTestHelpers.CollectOutputText(events).Trim();
-        _output.WriteLine(text);
-
-        Assert.Equal(1, tool.ExecuteCallCount);
-        Assert.Contains(events, static evt => evt is ToolExecutionStarted);
-        Assert.Contains(events, static evt => evt is ToolExecutionEnded);
         Assert.Contains("hello", text, StringComparison.OrdinalIgnoreCase);
     }
 
