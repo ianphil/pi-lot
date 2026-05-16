@@ -135,7 +135,8 @@ Start-ScheduledTask -TaskName LlmProxy
 |---|---|---|---|
 | Unit | Pure logic, fakes | No | Yes |
 | Integration | WebApplicationFactory | No | Yes |
-| Smoke | Live upstream/API or proxy checks | Varies by test | No |
+| Smoke | Live product smoke checks through SDK, agent, service, or CLI surfaces | Varies by test | No |
+| UpstreamCapture | Direct upstream API capture/snapshot drift checks | No | No |
 | Compliance | OpenResponses spec suite | **Yes** | No |
 
 Run CI-safe tests (unit + integration):
@@ -149,11 +150,25 @@ dotnet test tests\llm-svc.Int --filter "Category!=Smoke" --no-restore
 dotnet test tests\llm-cli.Tests --filter "Category!=Smoke" --no-restore
 ```
 
+For a whole-solution CI-safe run, exclude both live product smoke tests and
+direct upstream capture drift checks:
+
+```powershell
+dotnet test copilot-llm.sln --filter "Category!=Smoke&Category!=UpstreamCapture" --no-restore
+```
+
 Run smoke tests (may require Copilot credentials, internet access, and sometimes
 a running proxy depending on the test):
 
 ```powershell
 dotnet test --filter "Category=Smoke" --no-restore
+```
+
+Run upstream capture drift checks separately when intentionally validating or
+refreshing direct upstream API captures:
+
+```powershell
+dotnet test tests\llm-upstream.Int --filter "Category=UpstreamCapture" --no-restore
 ```
 
 ### Unit and Integration Test Location
@@ -269,12 +284,14 @@ credential-like values only; do not normalize IDs, timestamps, model revisions,
 usage counts, response headers, SSE payloads, websocket messages, unknown fields,
 or other upstream details just because this repo does not consume them yet.
 
-All upstream capture tests are `Category=Smoke`. Refresh snapshots only when
-intentionally documenting accepted upstream drift:
+All upstream capture tests are `Category=UpstreamCapture`, not `Smoke`. They
+are direct upstream API documentation checks and should not be part of normal
+product smoke validation. Refresh snapshots only when intentionally documenting
+accepted upstream drift:
 
 ```powershell
 $env:LLM_UPSTREAM_UPDATE_SNAPSHOTS = "1"
-dotnet test tests\llm-upstream.Int --filter "Category=Smoke"
+dotnet test tests\llm-upstream.Int --filter "Category=UpstreamCapture"
 ```
 
 ### Agent Integration Test Pattern

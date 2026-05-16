@@ -95,7 +95,7 @@ public sealed class AskAgent
 
             if (functionCalls.Count == 0)
             {
-                if (request.ToolsEnabled)
+                if (request.ToolsEnabled || turn.BufferedOutput.Length == 0)
                 {
                     var finalText = turn.BufferedOutput.Length > 0
                         ? turn.BufferedOutput
@@ -130,11 +130,8 @@ public sealed class AskAgent
             switch (update)
             {
                 case StreamingResponseOutputTextDeltaUpdate delta:
-                    if (bufferOutput)
-                    {
-                        textBuffer.Write(delta.Delta);
-                    }
-                    else
+                    textBuffer.Write(delta.Delta);
+                    if (!bufferOutput)
                     {
                         _writer.Write(delta.Delta);
                     }

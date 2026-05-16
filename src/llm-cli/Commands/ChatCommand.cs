@@ -1,10 +1,8 @@
 #pragma warning disable OPENAI001
 
 using System.ClientModel;
-using System.ClientModel.Primitives;
 using System.CommandLine;
 using llm_cli.Agents;
-using OpenAI;
 using OpenAI.Chat;
 
 namespace llm_cli.Commands;
@@ -48,15 +46,13 @@ public static class ChatCommand
                 maxRetryDelayMs);
 
             var endpoint = parseResult.GetValue(endpointOption)!;
-            var options = new OpenAIClientOptions { Endpoint = new Uri(endpoint) };
-            options.AddPolicy(new LlmProxyRequestOptionsPolicy(request), PipelinePosition.PerCall);
             var client = new ChatClient(
                 parseResult.GetValue(model)!,
                 new ApiKeyCredential("unused"),
-                options);
+                CommandOptions.CreateProxyClientOptions(endpoint, request));
 
             using var toolHttpClient = new HttpClient();
-            var toolRegistry = LocalToolRegistry.CreateDefault(toolHttpClient);
+            var toolRegistry = CommandOptions.CreateDefaultToolRegistry(toolHttpClient);
             var chatAgent = ChatAgent.Create(client, toolRegistry, Console.Out);
 
             if (parseResult.GetValue(noStream))

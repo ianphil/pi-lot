@@ -2,7 +2,7 @@ using Xunit.Abstractions;
 
 namespace LlmUpstream.Int;
 
-[Trait("Category", "Smoke")]
+[Trait("Category", "UpstreamCapture")]
 public sealed class UpstreamApiCaptureTests
 {
     private readonly ITestOutputHelper _output;

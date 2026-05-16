@@ -331,11 +331,25 @@ llm-svc/
 
 ## Testing
 
-```bash
-# Run CI-safe library and host tests
-dotnet test tests/llm-sdk.Tests/llm-sdk.Tests.csproj
-dotnet test tests/llm-svc.Tests/llm-svc.Tests.csproj --filter "Category!=Smoke"
+See `CONTRIBUTING.md` for the full test matrix, ownership rules, and file-lock
+warning for the running proxy. For CI-safe local coverage, run the owning unit
+and fake integration suites with smoke tests excluded:
 
-# Run live smoke tests (requires running proxy with credentials)
+```bash
+dotnet test tests/llm-sdk.Tests/llm-sdk.Tests.csproj --filter "Category!=Smoke"
+dotnet test tests/llm-sdk.Int/llm-sdk.Int.csproj --filter "Category!=Smoke"
+dotnet test tests/llm-agent.Int/llm-agent.Int.csproj --filter "Category!=Smoke"
+dotnet test tests/llm-svc.Tests/llm-svc.Tests.csproj --filter "Category!=Smoke"
+dotnet test tests/llm-svc.Int/llm-svc.Int.csproj --filter "Category!=Smoke"
+dotnet test tests/llm-cli.Tests/llm-cli.Tests.csproj --filter "Category!=Smoke"
+dotnet test tests/llm-ui.Tests/llm-ui.Tests.csproj --filter "Category!=Smoke"
+
+# Whole-solution CI-safe run excludes live product smoke and upstream captures.
+dotnet test copilot-llm.sln --filter "Category!=Smoke&Category!=UpstreamCapture"
+
+# Live smoke tests require Copilot credentials and may require a running proxy.
 dotnet test --filter "Category=Smoke"
+
+# Direct upstream capture drift checks are separate from smoke validation.
+dotnet test tests/llm-upstream.Int/llm-upstream.Int.csproj --filter "Category=UpstreamCapture"
 ```

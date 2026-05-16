@@ -150,6 +150,37 @@ public sealed class AskAgentTests
         Assert.Equal(1, toolRegistry.ExecutionCount);
     }
 
+    [Fact]
+    public async Task RunStreamingAsync_WithoutToolsAndNoDeltasPrintsTerminalOutput()
+    {
+        var response = new ResponseResult
+        {
+            Id = "resp_1",
+            Model = "gpt-5.4-mini",
+            Status = ResponseStatus.Completed,
+        };
+        response.OutputItems.Add(ResponseItem.CreateAssistantMessageItem("Terminal summary"));
+        using var writer = new StringWriter();
+
+        var agent = new AskAgent(
+            (_, _) => throw new NotSupportedException(),
+            (_, _) => ToAsyncEnumerable(
+            [
+                new StreamingResponseCompletedUpdate
+                {
+                    Response = response,
+                },
+            ]),
+            new FakeToolRegistry("""{"ok":true}"""),
+            writer);
+
+        await agent.RunStreamingAsync(
+            new AskRequest("Summarize this", "gpt-5.4-mini", null, false),
+            CancellationToken.None);
+
+        Assert.Equal($"Terminal summary{Environment.NewLine}", writer.ToString());
+    }
+
     private static IAsyncEnumerable<StreamingResponseUpdate> ToAsyncEnumerable(
         IEnumerable<StreamingResponseUpdate> updates)
         => AsyncEnumerableHelpers.ToAsyncEnumerable(updates);

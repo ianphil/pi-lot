@@ -29,22 +29,19 @@ This matrix tracks coverage for the supported proxy surfaces and their upstream 
 | `/chat/completions` | Both | SSE streaming prefers native `/chat/completions` | Yes | `ChatCompletionsServiceTests.Stream_DualEndpointModel_PrefersNativeChatRoute` |
 | `/chat/completions` | `/chat/completions` capable | SSE streaming with tools | Yes | `ChatCompletionsServiceTests.Stream_ChatCapableModel_WithTools_StreamsToolCalls` |
 
-## SDK CLI surface (backlog/005)
+## SDK client surface
 
 | Surface | Client path | Scenario | Covered | Test |
 | --- | --- | --- | --- | --- |
-| `sdk-ask` | `ILlmSdkClient.CreateResponseStreamAsync` | Plain text response | Yes | `SdkAskAgentTests.RunNonStreamingAsync_WritesOutputText` |
-| `sdk-ask` | `ILlmSdkClient.CreateResponseStreamAsync` | Streaming response | Yes | `SdkAskAgentTests.RunStreamingAsync_WritesOutputTextDeltas` |
-| `sdk-ask` | `llm-agent` over `ILlmSdkClient.CreateResponseStreamAsync` | Tool-calling response loop | Yes | `SdkAskAgentTests.RunNonStreamingAsync_WithTools_ExecutesFunctionCallAndWritesFinalText` |
-| `sdk-ask` | `llm-agent` over `ILlmSdkClient.CreateResponseStreamAsync` | Streaming tool-calling response loop | Yes | `SdkAskAgentTests.RunStreamingAsync_WithTools_BuffersIntermediateTurnAndWritesFinalText` |
-| `sdk-chat` | `ILlmSdkClient.CreateChatCompletionAsync` | Plain text response | Yes | `SdkChatAgentTests.RunNonStreamingAsync_WritesMessageText` |
-| `sdk-chat` | `ILlmSdkClient.CreateChatCompletionStreamAsync` | Streaming response | Yes | `SdkChatAgentTests.RunStreamingAsync_WritesDeltaContentAndSkipsNulls` |
+| `ILlmSdkClient` | `CreateResponseAsync` / `CreateResponseStreamAsync` | Raw Responses request and stream surfaces | Yes | `LlmSdkClientTests`, `RawResponsesSdkTests` |
+| `ILlmSdkClient` | `CompleteAsync(Context)` / `StreamAsync(Context)` | Portable SDK context surface | Yes | `LlmSdkClientTests`, `AssistantStreamEventTests`, `PortableContextSdkTests` |
+| `ILlmSdkClient` | `CreateChatCompletionAsync` / `CreateChatCompletionStreamAsync` | Raw Chat Completions request and stream surfaces | Yes | `LlmSdkClientTests` |
 
 ## Notes
 
 - `/chat/completions` streaming uses `ChatCompletionsService` in Core, which routes and translates identically to `ResponsesService`. For responses-only models, `ResponsesStreamToChatTranslator` converts Responses SSE events into Chat Completions SSE chunks.
 - `/chat/completions -> /responses` behavior is validated in `CopilotClientTests`, not endpoint integration tests, because the current integration harness replaces `IModelProvider` and cannot exercise `CopilotClient.ChatAsync()`.
 - `/responses -> /chat/completions` behavior is validated in `ResponsesEndpointTests`, where the endpoint contract and translated request shapes are observable through the fake provider.
-- `sdk-ask` and `sdk-chat` bypass `llm-svc` entirely. They validate the SDK client surface rather than proxy translation/routing behavior.
+- SDK behavior is validated in `llm-sdk.Tests` and `llm-sdk.Int`; the CLI intentionally does not expose direct SDK commands.
 - Validation command used after completing the matrix:
   - `dotnet test tests\llm-svc.Tests\llm-svc.Tests.csproj --filter "Category!=Smoke" --no-restore`
