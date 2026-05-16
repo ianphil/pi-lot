@@ -92,6 +92,7 @@ using System.Text.Json.Nodes;
 var message = await client.CompleteAsync(context, new CompletionOptions
 {
     Model = "gpt-5.4-mini",
+    AbortMode = AbortMode.ReturnPartial,
     Headers = new Dictionary<string, string> { ["X-Debug"] = "enabled" },
     TimeoutMs = 30_000,
     MaxRetries = 2,
@@ -114,6 +115,12 @@ upstream. `OnPayload` receives the serialized outbound JSON as a mutable
 original payload unchanged. `OnResponse` runs once after final response headers
 arrive and before the body is read or streamed. Throwing hooks are logged and do
 not fail the request.
+
+`CompleteAsync` and `StreamAsync` default to `AbortMode.ReturnPartial`: once
+streaming has started, cancellation returns a partial assistant message with
+`StopReason.Aborted`, and stream failures return a partial assistant message with
+`StopReason.Error` plus `ErrorMessage`. Set `AbortMode.Throw` to preserve the
+previous exception behavior.
 
 ---
 

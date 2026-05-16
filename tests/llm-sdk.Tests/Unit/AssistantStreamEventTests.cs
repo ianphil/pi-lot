@@ -133,6 +133,145 @@ public sealed class AssistantStreamEventTests
         Assert.Empty(events.OfType<StreamDone>());
     }
 
+    [Fact]
+    public async Task StreamAsync_WhenResponseStreamIsCanceled_ReturnsAbortedPartialByDefault()
+    {
+        var service = new StubResponsesService(ResponseHttpResult.FromStream(ThrowAfter(
+            new OperationCanceledException("Canceled by caller."),
+            ResponseTextDelta("Hel"),
+            ResponseTextDelta("lo"))));
+        var client = CreateClient(responsesService: service);
+
+        var events = await CollectAsync(client.StreamAsync(
+            new Context { Messages = [new UserMessage([new TextContent("Hello")])] },
+            new CompletionOptions { Model = "gpt-5.4-mini" }));
+
+        var done = Assert.Single(events.OfType<StreamDone>());
+        Assert.Equal(StopReason.Aborted, done.FinalMessage.StopReason);
+        Assert.Equal("Hello", string.Concat(done.FinalMessage.Content.OfType<TextContent>().Select(static c => c.Text)));
+        Assert.Empty(events.OfType<StreamError>());
+    }
+
+    [Fact]
+    public async Task StreamAsync_WhenResponseStreamFails_ReturnsErrorPartialByDefault()
+    {
+        var service = new StubResponsesService(ResponseHttpResult.FromStream(ThrowAfter(
+            new HttpRequestException("stream disconnected"),
+            ResponseTextDelta("Hel"),
+            ResponseTextDelta("lo"))));
+        var client = CreateClient(responsesService: service);
+
+        var events = await CollectAsync(client.StreamAsync(
+            new Context { Messages = [new UserMessage([new TextContent("Hello")])] },
+            new CompletionOptions { Model = "gpt-5.4-mini" }));
+
+        var error = Assert.Single(events.OfType<StreamError>());
+        Assert.Equal("stream disconnected", error.Message);
+        Assert.Equal(StopReason.Error, error.PartialMessage.StopReason);
+        Assert.Equal("Hello", string.Concat(error.PartialMessage.Content.OfType<TextContent>().Select(static c => c.Text)));
+        Assert.Equal("stream disconnected", error.PartialMessage.ErrorMessage);
+        Assert.Empty(events.OfType<StreamDone>());
+    }
+
+    [Fact]
+    public async Task StreamAsync_WhenResponseStreamEmitsMultipleErrors_EmitsOneTerminalEvent()
+    {
+        var failed = new Response
+        {
+            Id = "resp_failed",
+            Model = "gpt-5.4-mini",
+            Status = ResponseStatuses.Failed,
+            Error = new ResponseError { Message = "Response failed.", Type = ErrorTypes.ServerError },
+        };
+        var service = new StubResponsesService(ResponseHttpResult.FromStream(ToAsyncEnumerable(
+            ResponseTextDelta("Partial"),
+            ResponseSseSerializer.SerializeEvent("error", new
+            {
+                type = "error",
+                sequence_number = 2,
+                error = new { message = "Stream failed.", type = ErrorTypes.ServerError },
+            }),
+            ResponseSseSerializer.SerializeEvent("response.failed", new
+            {
+                type = "response.failed",
+                sequence_number = 3,
+                response = failed,
+            }))));
+        var client = CreateClient(responsesService: service);
+
+        var events = await CollectAsync(client.StreamAsync(
+            new Context { Messages = [new UserMessage([new TextContent("Hello")])] },
+            new CompletionOptions { Model = "gpt-5.4-mini" }));
+
+        var error = Assert.Single(events.OfType<StreamError>());
+        Assert.Equal("Stream failed.", error.Message);
+        Assert.Equal("Partial", Assert.IsType<TextContent>(Assert.Single(error.PartialMessage.Content)).Text);
+        Assert.Empty(events.OfType<StreamDone>());
+    }
+
+    [Fact]
+    public async Task StreamAsync_WhenResponseStreamEndsWithoutTerminal_ReturnsErrorPartial()
+    {
+        var service = new StubResponsesService(ResponseHttpResult.FromStream(ToAsyncEnumerable(
+            ResponseTextDelta("Partial"))));
+        var client = CreateClient(responsesService: service);
+
+        var events = await CollectAsync(client.StreamAsync(
+            new Context { Messages = [new UserMessage([new TextContent("Hello")])] },
+            new CompletionOptions { Model = "gpt-5.4-mini" }));
+
+        var error = Assert.Single(events.OfType<StreamError>());
+        Assert.Equal("Response stream ended before a terminal event.", error.Message);
+        Assert.Equal(StopReason.Error, error.PartialMessage.StopReason);
+        Assert.Equal("Partial", Assert.IsType<TextContent>(Assert.Single(error.PartialMessage.Content)).Text);
+        Assert.Empty(events.OfType<StreamDone>());
+    }
+
+    [Fact]
+    public async Task StreamAsync_WithThrowAbortMode_PreservesCancellationException()
+    {
+        var service = new StubResponsesService(ResponseHttpResult.FromStream(ThrowAfter(
+            new OperationCanceledException("Canceled by caller."),
+            ResponseTextDelta("Hel"))));
+        var client = CreateClient(responsesService: service);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await CollectAsync(client.StreamAsync(
+                new Context { Messages = [new UserMessage([new TextContent("Hello")])] },
+                new CompletionOptions { Model = "gpt-5.4-mini", AbortMode = AbortMode.Throw })));
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WhenResponseStreamFails_ReturnsErrorPartialByDefault()
+    {
+        var service = new StubResponsesService(ResponseHttpResult.FromStream(ThrowAfter(
+            new HttpRequestException("stream disconnected"),
+            ResponseTextDelta("Partial"))));
+        var client = CreateClient(responsesService: service);
+
+        var message = await client.CompleteAsync(
+            new Context { Messages = [new UserMessage([new TextContent("Hello")])] },
+            new CompletionOptions { Model = "gpt-5.4-mini" });
+
+        Assert.Equal(StopReason.Error, message.StopReason);
+        Assert.Equal("Partial", Assert.IsType<TextContent>(Assert.Single(message.Content)).Text);
+        Assert.Equal("stream disconnected", message.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WithThrowAbortMode_PreservesNonStreamingBehavior()
+    {
+        var service = new StubResponsesService(ResponseHttpResult.FromStream(ThrowAfter(
+            new HttpRequestException("stream disconnected"),
+            ResponseTextDelta("Partial"))));
+        var client = CreateClient(responsesService: service);
+
+        await Assert.ThrowsAsync<HttpRequestException>(async () =>
+            await client.CompleteAsync(
+                new Context { Messages = [new UserMessage([new TextContent("Hello")])] },
+                new CompletionOptions { Model = "gpt-5.4-mini", AbortMode = AbortMode.Throw }));
+    }
+
     private static async Task<List<T>> CollectAsync<T>(IAsyncEnumerable<T> values)
     {
         var items = new List<T>();
@@ -152,6 +291,28 @@ public sealed class AssistantStreamEventTests
             await Task.Yield();
         }
     }
+
+    private static async IAsyncEnumerable<string> ThrowAfter(Exception exception, params string[] values)
+    {
+        foreach (var value in values)
+        {
+            yield return value;
+            await Task.Yield();
+        }
+
+        throw exception;
+    }
+
+    private static string ResponseTextDelta(string text) =>
+        ResponseSseSerializer.SerializeEvent("response.output_text.delta", new
+        {
+            type = "response.output_text.delta",
+            sequence_number = 1,
+            item_id = "msg_123",
+            output_index = 0,
+            content_index = 0,
+            delta = text,
+        });
 
     private static IEnumerable<string> SplitSseBody(string body)
     {

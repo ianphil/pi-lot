@@ -17,18 +17,35 @@ internal static class LlmSdkClientContextAdapter
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(context);
 
-        if (options?.PreferredApi == CompletionApi.ChatCompletions)
+        if (ShouldThrow(options))
         {
-            var chatResponse = await client.CreateChatCompletionAsync(
-                ContextTranslator.ToChatCompletionRequest(context, options),
+            if (options?.PreferredApi == CompletionApi.ChatCompletions)
+            {
+                var chatResponse = await client.CreateChatCompletionAsync(
+                    ContextTranslator.ToChatCompletionRequest(context, options),
+                    cancellationToken);
+                return ContextTranslator.ToAssistantMessage(chatResponse, context.Tools);
+            }
+
+            var response = await client.CreateResponseAsync(
+                ContextTranslator.ToCreateResponseRequest(context, options),
                 cancellationToken);
-            return ContextTranslator.ToAssistantMessage(chatResponse, context.Tools);
+            return ContextTranslator.ToAssistantMessage(response, context.Tools);
         }
 
-        var response = await client.CreateResponseAsync(
-            ContextTranslator.ToCreateResponseRequest(context, options),
-            cancellationToken);
-        return ContextTranslator.ToAssistantMessage(response, context.Tools);
+        await foreach (var streamEvent in StreamAsync(client, context, options, cancellationToken)
+                           .WithCancellation(cancellationToken))
+        {
+            switch (streamEvent)
+            {
+                case StreamDone done:
+                    return done.FinalMessage;
+                case StreamError error:
+                    return error.PartialMessage;
+            }
+        }
+
+        return new AssistantMessage([], StopReason.Stop);
     }
 
     public static async IAsyncEnumerable<AssistantStreamEvent> StreamAsync(
@@ -66,14 +83,49 @@ internal static class LlmSdkClientContextAdapter
     {
         var state = new ResponseStreamState(options?.Model, context.Tools);
         var request = ContextTranslator.ToCreateResponseRequest(context, options);
+        var enumerator = client.CreateResponseStreamAsync(request, cancellationToken)
+            .GetAsyncEnumerator(cancellationToken);
+        IEnumerable<AssistantStreamEvent>? interrupted = null;
 
-        await foreach (var rawEvent in client.CreateResponseStreamAsync(request, cancellationToken)
-                           .WithCancellation(cancellationToken))
+        try
         {
-            foreach (var streamEvent in state.Apply(rawEvent))
+            while (true)
+            {
+                ResponseStreamEvent rawEvent;
+                try
+                {
+                    if (!await enumerator.MoveNextAsync())
+                    {
+                        break;
+                    }
+
+                    rawEvent = enumerator.Current;
+                }
+                catch (Exception ex) when (IsRecoverableStreamException(ex) && !ShouldThrow(options))
+                {
+                    interrupted = state.Interrupt(ex);
+                    break;
+                }
+
+                foreach (var streamEvent in state.Apply(rawEvent))
+                {
+                    yield return streamEvent;
+                }
+            }
+        }
+        finally
+        {
+            await enumerator.DisposeAsync();
+        }
+
+        if (interrupted is not null)
+        {
+            foreach (var streamEvent in interrupted)
             {
                 yield return streamEvent;
             }
+
+            yield break;
         }
 
         foreach (var streamEvent in state.CompleteIfNeeded())
@@ -90,14 +142,49 @@ internal static class LlmSdkClientContextAdapter
     {
         var state = new ChatStreamState(options?.Model, context.Tools);
         var request = ContextTranslator.ToChatCompletionRequest(context, options);
+        var enumerator = client.CreateChatCompletionStreamAsync(request, cancellationToken)
+            .GetAsyncEnumerator(cancellationToken);
+        IEnumerable<AssistantStreamEvent>? interrupted = null;
 
-        await foreach (var chunk in client.CreateChatCompletionStreamAsync(request, cancellationToken)
-                           .WithCancellation(cancellationToken))
+        try
         {
-            foreach (var streamEvent in state.Apply(chunk))
+            while (true)
+            {
+                ChatCompletionChunk chunk;
+                try
+                {
+                    if (!await enumerator.MoveNextAsync())
+                    {
+                        break;
+                    }
+
+                    chunk = enumerator.Current;
+                }
+                catch (Exception ex) when (IsRecoverableStreamException(ex) && !ShouldThrow(options))
+                {
+                    interrupted = state.Interrupt(ex);
+                    break;
+                }
+
+                foreach (var streamEvent in state.Apply(chunk))
+                {
+                    yield return streamEvent;
+                }
+            }
+        }
+        finally
+        {
+            await enumerator.DisposeAsync();
+        }
+
+        if (interrupted is not null)
+        {
+            foreach (var streamEvent in interrupted)
             {
                 yield return streamEvent;
             }
+
+            yield break;
         }
 
         foreach (var streamEvent in state.Complete())
@@ -110,19 +197,39 @@ internal static class LlmSdkClientContextAdapter
     {
         private readonly Dictionary<string, ResponseFunctionCallItem> _toolCallsByItemId = [];
         private readonly Dictionary<string, StringBuilder> _toolCallArgumentsByItemId = [];
+        private readonly Dictionary<string, ResponseToolCallAccumulator> _toolCallAccumulators = [];
         private readonly List<ContentBlock> _partialContent = [];
+        private Usage? _usage;
         private bool _terminal;
         private bool _started;
 
         public IEnumerable<AssistantStreamEvent> Apply(ResponseStreamEvent rawEvent)
         {
+            if (_terminal)
+            {
+                return [];
+            }
+
             var events = new List<AssistantStreamEvent>();
             AddStartIfNeeded(events, rawEvent);
+            UpdateUsage(rawEvent);
 
             switch (rawEvent)
             {
                 case OutputItemAddedEvent { Item: ResponseFunctionCallItem toolCall }:
                     _toolCallsByItemId[toolCall.Id] = toolCall;
+                    _toolCallAccumulators[toolCall.Id] = new ResponseToolCallAccumulator(
+                        toolCall.CallId,
+                        toolCall.Name,
+                        toolCall.Arguments);
+                    break;
+
+                case OutputItemDoneEvent { Item: ResponseFunctionCallItem toolCall }:
+                    _toolCallsByItemId[toolCall.Id] = toolCall;
+                    _toolCallAccumulators[toolCall.Id] = new ResponseToolCallAccumulator(
+                        toolCall.CallId,
+                        toolCall.Name,
+                        toolCall.Arguments);
                     break;
 
                 case OutputTextDeltaEvent textDelta:
@@ -141,7 +248,19 @@ internal static class LlmSdkClientContextAdapter
                     break;
 
                 case FunctionCallArgumentsDeltaEvent toolDelta:
+                    if (toolDelta.ItemId is not null && _toolCallAccumulators.TryGetValue(toolDelta.ItemId, out var accumulator))
+                    {
+                        accumulator.Append(toolDelta.Delta);
+                    }
+
                     events.Add(ToToolCallDelta(toolDelta));
+                    break;
+
+                case FunctionCallArgumentsDoneEvent toolDone:
+                    if (toolDone.ItemId is not null && _toolCallAccumulators.TryGetValue(toolDone.ItemId, out var doneAccumulator))
+                    {
+                        doneAccumulator.Replace(toolDone.Arguments);
+                    }
                     break;
 
                 case ResponseCompletedEvent completed:
@@ -172,8 +291,25 @@ internal static class LlmSdkClientContextAdapter
             }
 
             _terminal = true;
-            var message = ContextTranslator.ValidateToolCalls(new AssistantMessage(_partialContent, StopReason.Stop), tools);
-            return [new StreamDone(message)];
+            var message = "Response stream ended before a terminal event.";
+            return [new StreamError(new AssistantMessage(GetPartialContent(), StopReason.Error, _usage, message), message)];
+        }
+
+        public IEnumerable<AssistantStreamEvent> Interrupt(Exception exception)
+        {
+            if (_terminal)
+            {
+                return [];
+            }
+
+            _terminal = true;
+            if (exception is OperationCanceledException)
+            {
+                return [new StreamDone(new AssistantMessage(GetPartialContent(), StopReason.Aborted, _usage))];
+            }
+
+            var message = GetExceptionMessage(exception);
+            return [new StreamError(new AssistantMessage(GetPartialContent(), StopReason.Error, _usage, message), message)];
         }
 
         private void AddStartIfNeeded(List<AssistantStreamEvent> events, ResponseStreamEvent rawEvent)
@@ -190,6 +326,20 @@ internal static class LlmSdkClientContextAdapter
                 _ => fallbackModel,
             };
             events.Add(new StreamStart(model ?? string.Empty));
+        }
+
+        private void UpdateUsage(ResponseStreamEvent rawEvent)
+        {
+            if (rawEvent is not ResponseEvent responseEvent)
+            {
+                return;
+            }
+
+            var usage = UsageMath.FromResponseUsage(responseEvent.Response.Usage);
+            if (usage is not null)
+            {
+                _usage = usage;
+            }
         }
 
         private ToolCallDelta ToToolCallDelta(FunctionCallArgumentsDeltaEvent toolDelta)
@@ -222,6 +372,7 @@ internal static class LlmSdkClientContextAdapter
             var usage = UsageMath.FromResponseUsage(response.Usage);
             if (usage is not null)
             {
+                _usage = usage;
                 events.Add(new UsageEvent(usage));
             }
 
@@ -231,10 +382,16 @@ internal static class LlmSdkClientContextAdapter
         private void AddError(List<AssistantStreamEvent> events, Response? response, string message)
         {
             _terminal = true;
-            var partial = response is null
-                ? new AssistantMessage(_partialContent, StopReason.Error, ErrorMessage: message)
-                : ContextTranslator.ToAssistantMessage(response, tools);
+            var usage = response is null ? _usage : UsageMath.FromResponseUsage(response.Usage) ?? _usage;
+            var partial = new AssistantMessage(GetPartialContent(), StopReason.Error, usage, message);
             events.Add(new StreamError(partial, message));
+        }
+
+        private IReadOnlyList<ContentBlock> GetPartialContent()
+        {
+            var content = new List<ContentBlock>(_partialContent);
+            content.AddRange(_toolCallAccumulators.Values.Select(static accumulator => accumulator.ToContent()));
+            return content;
         }
     }
 
@@ -286,6 +443,23 @@ internal static class LlmSdkClientContextAdapter
 
         public IEnumerable<AssistantStreamEvent> Complete()
         {
+            var message = ContextTranslator.ValidateToolCalls(CreateMessage(_stopReason), tools);
+            return [new StreamDone(message)];
+        }
+
+        public IEnumerable<AssistantStreamEvent> Interrupt(Exception exception)
+        {
+            if (exception is OperationCanceledException)
+            {
+                return [new StreamDone(CreateMessage(StopReason.Aborted))];
+            }
+
+            var message = GetExceptionMessage(exception);
+            return [new StreamError(CreateMessage(StopReason.Error, message), message)];
+        }
+
+        private AssistantMessage CreateMessage(StopReason stopReason, string? errorMessage = null)
+        {
             var content = new List<ContentBlock>();
             if (_text.Length > 0)
             {
@@ -296,8 +470,7 @@ internal static class LlmSdkClientContextAdapter
                 .OrderBy(static pair => pair.Key)
                 .Select(static pair => pair.Value.ToContent()));
 
-            var message = new AssistantMessage(content, _stopReason, _usage);
-            return [new StreamDone(ContextTranslator.ValidateToolCalls(message, tools))];
+            return new AssistantMessage(content, stopReason, _usage, errorMessage);
         }
 
         private void AddStartIfNeeded(List<AssistantStreamEvent> events, string? model)
@@ -359,6 +532,40 @@ internal static class LlmSdkClientContextAdapter
 
         public JsonElement? ParsedArguments => PartialJsonParser.TryParse(_arguments.ToString());
     }
+
+    private sealed class ResponseToolCallAccumulator(string id, string name, string? arguments)
+    {
+        private readonly StringBuilder _arguments = new(arguments ?? string.Empty);
+
+        public ToolCallContent ToContent() => new(id, name, _arguments.ToString());
+
+        public void Append(string? arguments)
+        {
+            if (!string.IsNullOrEmpty(arguments))
+            {
+                _arguments.Append(arguments);
+            }
+        }
+
+        public void Replace(string? arguments)
+        {
+            _arguments.Clear();
+            if (!string.IsNullOrEmpty(arguments))
+            {
+                _arguments.Append(arguments);
+            }
+        }
+    }
+
+    private static bool ShouldThrow(CompletionOptions? options) => options?.AbortMode == AbortMode.Throw;
+
+    private static bool IsRecoverableStreamException(Exception exception) =>
+        exception is OperationCanceledException or HttpRequestException or IOException or JsonException or InvalidOperationException;
+
+    private static string GetExceptionMessage(Exception exception) =>
+        string.IsNullOrWhiteSpace(exception.Message)
+            ? exception.GetType().Name
+            : exception.Message;
 
     private static StopReason ToStopReason(string? finishReason) => finishReason switch
     {

@@ -32,6 +32,7 @@ public sealed class ToolValidationSdkTests
         {
             Model = "fake-gpt",
             ToolChoice = ToolChoice.Function("get_weather"),
+            AbortMode = AbortMode.Throw,
         });
 
         var result = Assert.IsType<ToolResultContent>(Assert.Single(message.Content));
