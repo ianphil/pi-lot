@@ -8,10 +8,9 @@ Rules are explicit and unambiguous — follow them literally.
 **llm-svc** is the primary deployable host — a local proxy that translates OpenAI
 Responses API requests to upstream providers. **LlmSdk** is the reusable class
 library that contains the translation engine, auth, model discovery, and upstream HTTP
-adapter. **llm-cli** is a reference implementation client that demonstrates both how
-to consume the proxy over HTTP and how to call the SDK directly in-process. Changes to
-the host or library are the main concern; CLI changes support or demonstrate proxy and
-SDK capabilities.
+adapter. **llm-cli** is a thin smoke/reference client for the proxy. Changes to
+the host or library are the main concern; CLI changes should stay limited to the
+live matrix-backed command surface.
 
 ```
 llm-svc/
@@ -30,7 +29,7 @@ llm-svc/
 │   ├── llm-svc/                           Host proxy
 │   │   ├── Program.cs                     Composition root and endpoint wiring
 │   │   └── Worker.cs                      Background auth lifecycle
-│   └── llm-cli/                           Reference CLI client
+│   └── llm-cli/                           Proxy smoke/reference CLI client
 │       ├── Program.cs                     Entry point (System.CommandLine)
 │       ├── AskAgent.cs                    Agent loop with tool-calling support
 │       ├── FetchUrlTool.cs                Built-in fetch_url tool
@@ -71,8 +70,9 @@ endpoints, and registers `Worker`. Keep hosting concerns there; keep reusable
 logic in `src/llm-sdk/`.
 
 The CLI is self-contained in `src/llm-cli/`. Its `ask` / `chat` commands use the
-OpenAI .NET SDK to talk to the proxy over HTTP, while `sdk-ask` / `sdk-chat` are
-reference/debug commands that consume `src/llm-sdk/` directly in-process.
+OpenAI .NET SDK to talk to the proxy over HTTP. It intentionally does not expose
+direct SDK commands; validate SDK behavior in `llm-sdk.Int` and service/proxy
+behavior in `llm-svc.Int`.
 
 ## Build and Test
 

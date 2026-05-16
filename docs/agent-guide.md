@@ -151,11 +151,11 @@ the same with a "tool not found" result.
 
 The loop is client-side and stateless. It does not use `previous_response_id`.
 
-## Reference implementation in this repo
+## Reference consumers in this repo
 
-`llm sdk-ask --tools` is the reference CLI consumer of `LlmAgent`. It layers
-the agent loop on top of `ILlmSdkClient` and adapts CLI local tools into
-`IAgentTool` instances.
+`tests/llm-agent.Tests` and `tests/llm-sdk.Int` are the reference consumers of
+`LlmAgent`. They exercise the agent loop on top of `ILlmSdkClient` with fake and
+live SDK paths instead of routing agent correctness through the CLI.
 
 See `docs/cli-guide.md` for the CLI surface and `docs/sdk-guide.md` for the
 lower-level SDK client used underneath.

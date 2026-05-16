@@ -14,11 +14,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\llm-agent\llm-agent.csproj" />
-    <ProjectReference Include="..\llm-sdk\llm-sdk.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <EmbeddedResource Include="help.txt" />
   </ItemGroup>
 

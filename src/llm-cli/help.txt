@@ -1,19 +1,16 @@
-LLM CLI — query language models through the local Copilot LLM proxy.
+LLM CLI — smoke/reference client for the local Copilot LLM proxy.
 
 SETUP
-  The proxy (llm-svc) must be running at localhost:5100 for ask, chat,
-  models, and health commands. To check:
+  The proxy (llm-svc) must be running at localhost:5100 for all commands.
+  To check:
     llm health
 
-  SDK commands (sdk-ask, sdk-chat) do not require the proxy — they call
-  the Copilot API directly through the in-process SDK client.
-
-  If the proxy isn't running, install it:
+  If the proxy isn't running, install or start it:
     scripts\install.ps1        (as admin, registers a scheduled task)
-    dotnet run --project .      (for development)
+    dotnet run --project src\llm-svc
 
-  Authentication is handled by the proxy — it reads Copilot credentials
-  from Windows Credential Manager. No API key needed for llm commands.
+  Authentication is handled by the proxy. No API key is needed for llm
+  commands.
 
 ASKING QUESTIONS
   llm ask "your prompt"                   Stream a response (default)
@@ -25,48 +22,12 @@ ASKING QUESTIONS
   Streaming prints tokens as they arrive. Use --no-stream when piping
   output to another command or when you need the complete response at once.
 
-  The prompt is a single positional argument. Wrap it in quotes if it
-  contains spaces or special characters.
-
-SDK RESPONSES
-  llm sdk-ask "your prompt"               Stream directly through LlmSdk
-  llm sdk-ask "your prompt" --no-stream   Wait for the full response
-  llm sdk-ask "your prompt" -m gpt-5.4    Use a specific model
-  llm sdk-ask "your prompt" -s "Be concise" Set system instructions
-  llm sdk-ask "Summarize https://example.com" --tools
-                                          Use local tools through llm-agent
-
-  Same prompt/model/system behavior as "llm ask", but bypasses the local
-  proxy and talks to Copilot through the in-process SDK client.
-
 CHAT COMPLETIONS
   llm chat "your prompt"                  Stream via Chat Completions API
   llm chat "your prompt" --no-stream      Wait for the full response
   llm chat "your prompt" -m gpt-5-mini    Use a specific model
   llm chat "your prompt" -s "Be concise"  Set system instructions
   llm chat "summarize https://..." --tools Enable local fetch_url tool
-
-  Same behavior as "llm ask" but talks /v1/chat/completions directly.
-  Useful for testing the Chat Completions surface, including SSE streaming,
-  tool calls, and responses-to-chat translation.
-
-SDK CHAT COMPLETIONS
-  llm sdk-chat "your prompt"              Stream directly through LlmSdk chat
-  llm sdk-chat "your prompt" --no-stream  Wait for the full response
-  llm sdk-chat "your prompt" -m gpt-5-mini Use a specific model
-  llm sdk-chat "your prompt" -s "Be concise" Set system instructions
-
-  Same prompt/model/system behavior as "llm chat", but bypasses the local
-  proxy and talks to Copilot through the in-process SDK client.
-
-MODELS
-  llm models                              List all available models
-
-  Models fall into two categories:
-  - /responses models (GPT-5.x)       — native Responses API
-  - /chat/completions models (Claude)  — translated to Responses format
-
-  Both work transparently through "llm ask". The proxy handles translation.
 
 HEALTH
   llm health                              Check proxy status
@@ -81,7 +42,7 @@ ASK FLAGS
   --no-stream           Disable streaming, return complete response at once
   --tools               Enable local tools (currently: fetch_url)
   --request-id          Request ID sent upstream as X-Request-Id
-  --correlation-id      Local SDK/proxy correlation ID
+  --correlation-id      Local proxy correlation ID
   --metadata            Local metadata as key=value (repeatable)
   --timeout-ms          Per-call upstream timeout in milliseconds
   --max-retries         Per-call maximum retry count
@@ -94,31 +55,7 @@ CHAT FLAGS
   --no-stream           Disable streaming, return complete response at once
   --tools               Enable local tools (currently: fetch_url)
   --request-id          Request ID sent upstream as X-Request-Id
-  --correlation-id      Local SDK/proxy correlation ID
-  --metadata            Local metadata as key=value (repeatable)
-  --timeout-ms          Per-call upstream timeout in milliseconds
-  --max-retries         Per-call maximum retry count
-  --max-retry-delay-ms  Per-call maximum retry delay in milliseconds
-
-SDK-ASK FLAGS
-  <prompt>              The prompt to send (required, positional)
-  -m, --model           Model ID (default: gpt-5.4-mini)
-  -s, --system          System instructions prepended to the conversation
-  --no-stream           Disable streaming, return complete response at once
-  --request-id          Request ID sent upstream as X-Request-Id
-  --correlation-id      Local SDK/proxy correlation ID
-  --metadata            Local metadata as key=value (repeatable)
-  --timeout-ms          Per-call upstream timeout in milliseconds
-  --max-retries         Per-call maximum retry count
-  --max-retry-delay-ms  Per-call maximum retry delay in milliseconds
-
-SDK-CHAT FLAGS
-  <prompt>              The prompt to send (required, positional)
-  -m, --model           Model ID (default: gpt-5-mini)
-  -s, --system          System instructions prepended to the conversation
-  --no-stream           Disable streaming, return complete response at once
-  --request-id          Request ID sent upstream as X-Request-Id
-  --correlation-id      Local SDK/proxy correlation ID
+  --correlation-id      Local proxy correlation ID
   --metadata            Local metadata as key=value (repeatable)
   --timeout-ms          Per-call upstream timeout in milliseconds
   --max-retries         Per-call maximum retry count
@@ -131,38 +68,20 @@ EXAMPLES
   # Quick question
   llm ask "What is the capital of France?"
 
-  # Use a powerful model for complex tasks
+  # Use a specific model
   llm ask "Explain monads in simple terms" -m gpt-5.4
 
   # System prompt for persona
   llm ask "Review this code" -s "You are a senior .NET engineer. Be direct."
 
-  # Pipe-friendly (no streaming, clean output)
+  # Pipe-friendly output
   llm ask "Generate a UUID" --no-stream | clip
-
-  # Use Claude via the translation layer
-  llm ask "Write a haiku about shipping code" -m claude-haiku-4.5
 
   # Let the model fetch and summarize a web page
   llm ask "Summarize https://openresponses.org/specification" --tools
 
   # Use Chat Completions API directly
   llm chat "What is 2+2?" -m gpt-5-mini
-
-  # Chat with streaming disabled (pipe-friendly)
-  llm chat "Generate a UUID" --no-stream | clip
-
-  # Chat with tools
-  llm chat "Summarize https://example.com" --tools
-
-  # Use the SDK directly without running llm-svc
-  llm sdk-ask "Summarize this change" -m gpt-5.4-mini
-
-  # Use the SDK chat client directly
-  llm sdk-chat "What is 2+2?" -m gpt-5-mini
-
-  # Check what models are available before choosing
-  llm models
 
   # Verify the proxy is up before scripting
   llm health && llm ask "Ready to go"
@@ -174,19 +93,9 @@ EXIT CODES
 PROXY DETAILS
   The proxy runs at http://localhost:5100 and exposes:
     /health                 Health check
-    /v1/models              OpenAI-compatible model list
     /v1/responses           OpenAI Responses API
     /v1/chat/completions    OpenAI Chat Completions API
 
-  llm ask uses /v1/responses exclusively. The proxy translates to
-  /chat/completions upstream when needed (e.g., for Claude models).
-
-  llm chat uses /v1/chat/completions exclusively. The proxy translates
-  to /responses upstream when needed (e.g., for GPT-5.x models).
-
-SDK DETAILS
-  llm sdk-ask uses `ILlmSdkClient` directly in-process. With `--tools`, it
-  runs the `llm-agent` loop for local tool execution.
-
-  llm sdk-chat uses `ILlmSdkClient.CreateChatCompletionAsync` /
-  `CreateChatCompletionStreamAsync` directly in-process.
+  llm ask uses /v1/responses. llm chat uses /v1/chat/completions.
+  Service routing, translation, model discovery, and SDK behavior are covered
+  by llm-svc.Int and llm-sdk.Int rather than by extra CLI commands.
