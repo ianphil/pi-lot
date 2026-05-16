@@ -15,7 +15,7 @@ messages, negative probe responses, or unknown fields.
 To intentionally refresh these snapshots:
 
 ```bash
-LLM_UPSTREAM_UPDATE_SNAPSHOTS=1 dotnet test tests/llm-upstream.Int/llm-upstream.Int.csproj --filter Category=Smoke
+LLM_UPSTREAM_UPDATE_SNAPSHOTS=1 dotnet test tests/llm-upstream.Int/llm-upstream.Int.csproj --filter Category=UpstreamCapture
 ```
 
 Review snapshot diffs like API documentation changes.
