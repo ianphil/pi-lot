@@ -153,9 +153,10 @@ The loop is client-side and stateless. It does not use `previous_response_id`.
 
 ## Reference consumers in this repo
 
-`tests/llm-agent.Tests` and `tests/llm-sdk.Int` are the reference consumers of
-`LlmAgent`. They exercise the agent loop on top of `ILlmSdkClient` with fake and
-live SDK paths instead of routing agent correctness through the CLI.
+`tests/llm-agent.Tests` covers pure event-shape and edge-case behavior.
+`tests/llm-agent.Int` is the fake/live reference consumer for `LlmAgent`: it
+exercises the public agent loop on top of `ILlmSdkClient` with a deterministic
+fake SDK client and with the live SDK/upstream path.
 
 See `docs/cli-guide.md` for the CLI surface and `docs/sdk-guide.md` for the
 lower-level SDK client used underneath.

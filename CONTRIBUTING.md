@@ -113,6 +113,7 @@ Run CI-safe tests (unit + integration):
 
 ```powershell
 dotnet test tests\llm-sdk.Tests --no-restore
+dotnet test tests\llm-agent.Int --filter "Category!=Smoke" --no-restore
 dotnet test tests\llm-svc.Tests --filter "Category!=Smoke" --no-restore
 dotnet test tests\llm-svc.Int --filter "Category!=Smoke" --no-restore
 dotnet test tests\llm-cli.Tests --filter "Category!=Smoke" --no-restore
@@ -137,6 +138,7 @@ surface:
 | `src/llm-svc/` fake/live proxy behavior against real host wiring | `tests/llm-svc.Int/` |
 | `src/llm-cli/` commands, CLI agents, local tools | `tests/llm-cli.Tests/` |
 | `src/llm-agent/` agent loop, agent events, context budget | `tests/llm-agent.Tests/` |
+| `src/llm-agent/` fake/live agent loop behavior against SDK client surface | `tests/llm-agent.Int/` |
 | `src/llm-ui/` browser UI behavior | `tests/llm-ui.Tests/` |
 
 Do not put tests in `llm-agent.Tests` just because a feature touches prompts,
@@ -164,6 +166,20 @@ capabilities should prefer paired tests:
 The fake-provider test is the CI-friendly correctness check. The live test is
 the upstream compatibility check and should be marked `Category=Smoke`.
 
+### Agent Integration Test Pattern
+
+Use `tests/llm-agent.Int` for agent-loop behavior that benefits from fake/live
+pairing:
+
+- a deterministic fake-SDK-client test for multi-turn event flow, tool
+  execution, context updates, and option forwarding
+- a live smoke test that runs the same public `AgentLoop` surface through the
+  real SDK client and Copilot upstream
+
+Keep pure event-shape and edge-case coverage in `llm-agent.Tests`. Use
+`llm-agent.Int` when the test should prove the public agent API remains a
+working reference consumer of `ILlmSdkClient`.
+
 ### Service Integration Test Pattern
 
 Use `tests/llm-svc.Int` for service/proxy behavior that benefits from the same
@@ -187,10 +203,11 @@ use real Copilot auth, and call an actual LLM model.
 Fakes, mocks, stubs, `WebApplicationFactory`, test servers, and `dotnet test`
 are fine in `Unit` and `Integration` tests, but they do not belong in the test
 matrix execution path. If SDK behavior needs fake/live coverage, prefer paired
-`llm-sdk.Int` tests instead of adding CLI matrix rows. If service/proxy behavior
-needs fake/live coverage, prefer paired `llm-svc.Int` tests. If CLI behavior
-needs matrix coverage, expose a real CLI path that exercises the production code
-and live upstream behavior.
+`llm-sdk.Int` tests instead of adding CLI matrix rows. If agent behavior needs
+fake/live coverage, prefer paired `llm-agent.Int` tests. If service/proxy
+behavior needs fake/live coverage, prefer paired `llm-svc.Int` tests. If CLI
+behavior needs matrix coverage, expose a real CLI path that exercises the
+production code and live upstream behavior.
 
 ### What to Test Before Submitting
 

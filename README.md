@@ -321,6 +321,7 @@ llm-svc/
 │   └── llm-cli/                   CLI smoke client (System.CommandLine + OpenAI SDK)
 ├── tests/
 │   ├── llm-sdk.Tests/         Library unit tests
+│   ├── llm-agent.Int/         Agent fake/live integration tests
 │   ├── llm-svc.Tests/            Host integration + smoke tests
 │   └── llm-cli.Tests/            CLI tests
 ├── Directory.Build.props          Shared build properties
