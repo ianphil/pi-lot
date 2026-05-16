@@ -177,6 +177,33 @@ public sealed class UiEndpointTests
     }
 
     [Fact]
+    public async Task Chat_WhenSdkStreamThrows_StreamsErrorEvent()
+    {
+        var fakeClient = new FakeLlmSdkClient
+        {
+            StreamException = new InvalidOperationException("Upstream stream failed."),
+        };
+        using var factory = CreateFactory(fakeClient);
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/chat", new UiChatRequest(
+            "gpt-5.4",
+            """
+            ## User
+
+            Ping?
+            """,
+            null));
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.EnsureSuccessStatusCode();
+        Assert.Equal("text/event-stream", response.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("\"type\":\"error\"", body, StringComparison.Ordinal);
+        Assert.Contains("Upstream stream failed.", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"type\":\"done\"", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Chat_WithUnsupportedMarkdownSection_ReturnsBadRequest()
     {
         using var factory = CreateFactory(new FakeLlmSdkClient());
@@ -205,6 +232,7 @@ public sealed class UiEndpointTests
     {
         public IReadOnlyList<ModelInfo> Models { get; init; } = [];
         public IReadOnlyList<ResponseStreamEvent> StreamEvents { get; init; } = [];
+        public Exception? StreamException { get; init; }
         public CreateResponseRequest? LastCreateResponseStreamRequest { get; private set; }
 
         public Task<Response> CreateResponseAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
@@ -218,6 +246,10 @@ public sealed class UiEndpointTests
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             LastCreateResponseStreamRequest = request;
+            if (StreamException is not null)
+            {
+                throw StreamException;
+            }
 
             foreach (var streamEvent in StreamEvents)
             {

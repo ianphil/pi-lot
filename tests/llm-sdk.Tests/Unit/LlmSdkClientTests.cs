@@ -737,25 +737,4 @@ public sealed class LlmSdkClientTests
     private static string SerializeChatChunk(ChatCompletionChunk chunk) =>
         $"data: {JsonSerializer.Serialize(chunk, JsonDefaults.Web)}\n\n";
 
-    private sealed class StubResponsesService(ResponseHttpResult result) : IResponsesService
-    {
-        public CreateResponseRequest? LastRequest { get; private set; }
-
-        public Task<ResponseHttpResult> CreateAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
-        {
-            LastRequest = request;
-            return Task.FromResult(result);
-        }
-    }
-
-    private sealed class StubChatCompletionsService(ResponseHttpResult result) : IChatCompletionsService
-    {
-        public ChatCompletionRequest? LastRequest { get; private set; }
-
-        public Task<ResponseHttpResult> CreateAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
-        {
-            LastRequest = request;
-            return Task.FromResult(result);
-        }
-    }
 }

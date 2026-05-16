@@ -1,5 +1,7 @@
 using System.CommandLine;
+using System.ClientModel.Primitives;
 using llm_cli.Agents;
+using OpenAI;
 
 namespace llm_cli.Commands;
 
@@ -59,6 +61,16 @@ public static class CommandOptions
             Description = "Local metadata as key=value. Repeat for multiple values.",
             AllowMultipleArgumentsPerToken = true,
         };
+
+    public static OpenAIClientOptions CreateProxyClientOptions(string endpoint, AskRequest request)
+    {
+        var options = new OpenAIClientOptions { Endpoint = new Uri(endpoint) };
+        options.AddPolicy(new LlmProxyRequestOptionsPolicy(request), PipelinePosition.PerCall);
+        return options;
+    }
+
+    public static IToolRegistry CreateDefaultToolRegistry(HttpClient httpClient)
+        => LocalToolRegistry.CreateDefault(httpClient);
 
     public static AskRequest CreateAskRequest(
         ParseResult parseResult,
