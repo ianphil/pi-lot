@@ -612,7 +612,7 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
         _factory.Provider.ResetCapturedRequests();
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5.4-mini",
                 SupportedEndpoints = ["/responses"],
@@ -653,7 +653,7 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
         _factory.Provider.ResetCapturedRequests();
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5.4-mini",
                 SupportedEndpoints = ["/responses"],
@@ -684,7 +684,7 @@ public sealed class ResponsesEndpointTests : IClassFixture<ResponsesWebApplicati
         _factory.Provider.ResetCapturedRequests();
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5.4-mini",
                 SupportedEndpoints = ["/responses"],

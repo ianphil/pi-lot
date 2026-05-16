@@ -268,7 +268,7 @@ public sealed class ChatCompletionsServiceTests : IClassFixture<ResponsesWebAppl
         _factory.Provider.ResetCapturedRequests();
         _factory.Provider.Models =
         [
-            new ModelDescriptor
+            new ModelInfo
             {
                 Id = "gpt-5-mini",
                 SupportedEndpoints = ["/chat/completions"],
