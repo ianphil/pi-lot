@@ -74,6 +74,35 @@ OpenAI .NET SDK to talk to the proxy over HTTP. It intentionally does not expose
 direct SDK commands; validate SDK behavior in `llm-sdk.Int` and service/proxy
 behavior in `llm-svc.Int`.
 
+### SDK Surface Design Rule
+
+Before implementing an SDK issue, identify the intended public surface:
+
+| Surface | Shape | Typical consumers |
+|---|---|---|
+| SDK client surface | `ILlmSdkClient`, raw `CreateResponse*`, portable `Context`, `AssistantMessage`, `AssistantStreamEvent` | agent, UI, SDK package consumers |
+| Service/proxy surface | HTTP `/responses` and `/chat/completions`, `IResponsesService`, Core request routing/translation | `llm-svc` proxy consumers |
+| Agent surface | agent loop behavior, tools, context budget, event handling | `llm-agent` consumers |
+
+The surfaces may have different shapes because they are different boundaries:
+the service is an HTTP proxy and should preserve wire-compatible DTO behavior;
+the SDK client can expose ergonomic in-process abstractions such as `Context`.
+Do not force both surfaces to look the same.
+
+Shared semantics belong below the boundary, usually in Core services,
+translators, validators, or request normalization. If a feature is intended for
+both SDK-client consumers and service/proxy consumers, implement it where both
+paths consume the same behavior and prove both public surfaces. If a feature is
+client-only, service-only, or agent-only, make that boundary decision explicit in
+the PR and test only the owning surface plus the units underneath it.
+
+Do not cross package boundaries just because another package may eventually use
+the feature. Potential future consumption is not scope. A SDK PR must not modify
+or add tests under `llm-agent`, `llm-svc`, `llm-cli`, or `llm-ui` unless the
+issue explicitly changes that package's owned behavior. Prove SDK-owned behavior
+in `llm-sdk.Tests` / `llm-sdk.Int`; create a separate follow-up issue or PR when
+a consumer package should adopt the new SDK surface.
+
 ## Build and Test
 
 ### ⚠️ File-Lock Warning
@@ -187,6 +216,15 @@ When a feature only has unit tests or helper-level coverage, ask whether the
 owning package actually uses the new code in its public flow. A paired fake/live
 integration test should catch "the helper works, but the product never calls it"
 before the PR is ready.
+
+For SDK issue work, unit-test the units that own the logic, then add fake/live
+integration coverage for the SDK public surface that owns the behavior. Raw SDK
+APIs such as `CreateResponseAsync` and `CreateResponseStreamAsync` belong in
+`llm-sdk.Int`; ergonomic portable-client APIs such as `CompleteAsync(Context)`
+or `StreamAsync(Context)` also belong in `llm-sdk.Int`. HTTP proxy wire behavior
+belongs in `llm-svc.Int` or `llm-svc.Tests` only when the service contract itself
+changes; agent-owned behavior belongs in `llm-agent.Tests` or `llm-agent.Int`
+only when the agent loop itself changes.
 
 Run all PR-safe fake integration tests with:
 
