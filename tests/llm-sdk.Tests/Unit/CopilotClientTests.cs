@@ -286,6 +286,62 @@ public sealed class CopilotClientTests
     }
 
     [Fact]
+    public async Task SendResponsesAsync_WhenUpstreamEchoesPerCallHeader_CapturesResponseHeaders()
+    {
+        var client = CreateClient(request =>
+        {
+            var response = JsonResponse(CompletedResponseJson);
+            response.Headers.TryAddWithoutValidation("X-Request-Id", request.Headers.GetValues("X-Request-Id"));
+            response.Headers.TryAddWithoutValidation("X-Upstream-Request-Id", "upstream-123");
+            return Task.FromResult(response);
+        });
+
+        var result = await client.SendResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+            Headers = new Dictionary<string, string>
+            {
+                ["X-Request-Id"] = "request-123",
+            },
+        });
+
+        Assert.Equal("request-123", Assert.Single(result.Headers["X-Request-Id"]));
+        Assert.Equal("upstream-123", Assert.Single(result.Headers["X-Upstream-Request-Id"]));
+        Assert.StartsWith("application/json", Assert.Single(result.Headers["Content-Type"]), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task StreamResponsesAsync_WhenUpstreamReturnsHeaders_CapturesHeadersBeforeEnumeration()
+    {
+        var client = CreateClient(request =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "event: response.completed\ndata: {}\n\n",
+                    Encoding.UTF8,
+                    "text/event-stream"),
+            };
+            response.Headers.TryAddWithoutValidation("X-Request-Id", request.Headers.GetValues("X-Request-Id"));
+            return Task.FromResult(response);
+        });
+
+        var result = await client.StreamResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+            Headers = new Dictionary<string, string>
+            {
+                ["X-Request-Id"] = "stream-request-123",
+            },
+        });
+
+        Assert.Equal("stream-request-123", Assert.Single(result.Headers["X-Request-Id"]));
+        Assert.StartsWith("text/event-stream", Assert.Single(result.Headers["Content-Type"]), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task SendResponsesAsync_WithMetadata_SerializesMetadata()
     {
         string? body = null;

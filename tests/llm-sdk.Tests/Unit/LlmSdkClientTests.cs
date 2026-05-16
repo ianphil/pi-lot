@@ -94,6 +94,31 @@ public sealed class LlmSdkClientTests
     }
 
     [Fact]
+    public async Task CreateResponseAsync_WithPerCallOptions_PreservesOptions()
+    {
+        var service = new StubResponsesService(ResponseHttpResult.FromBody(
+            JsonSerializer.Serialize(CreateResponse("resp_options", "Options"), JsonDefaults.Web),
+            200,
+            "application/json"));
+        var client = CreateClient(responsesService: service);
+
+        await client.CreateResponseAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonSerializer.SerializeToElement("Hello!", JsonDefaults.Web),
+            Headers = new Dictionary<string, string> { ["X-Request-Id"] = "request-123" },
+            TimeoutMs = 10000,
+            MaxRetries = 1,
+            MaxRetryDelayMs = 500,
+        });
+
+        Assert.Equal("request-123", service.LastRequest?.Headers?["X-Request-Id"]);
+        Assert.Equal(10000, service.LastRequest?.TimeoutMs);
+        Assert.Equal(1, service.LastRequest?.MaxRetries);
+        Assert.Equal(500, service.LastRequest?.MaxRetryDelayMs);
+    }
+
+    [Fact]
     public async Task CreateChatCompletionAsync_WithRequest_ReturnsDeserializedResponseOnSuccess()
     {
         var expected = new ChatCompletionResponse

@@ -418,7 +418,11 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         using var resp = await SendPostWithRetriesAsync(path, payload, options, stream: false, effectiveToken);
 
         var body = await resp.Content.ReadAsStringAsync(effectiveToken);
-        return new ProxyHttpResult(body, (int)resp.StatusCode, resp.Content.Headers.ContentType?.MediaType ?? "application/json");
+        return new ProxyHttpResult(
+            body,
+            (int)resp.StatusCode,
+            resp.Content.Headers.ContentType?.MediaType ?? "application/json",
+            CaptureHeaders(resp));
     }
 
     private async Task<ProxyStreamResult> SendStreamAsync(string path, object payload, RequestOptions options, CancellationToken cancellationToken)
@@ -432,12 +436,18 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
             if (!resp.IsSuccessStatusCode)
             {
                 var body = await resp.Content.ReadAsStringAsync(effectiveToken);
+                var headers = CaptureHeaders(resp);
                 resp.Dispose();
                 timeout?.Dispose();
-                return new ProxyStreamResult(body, (int)resp.StatusCode, contentType);
+                return new ProxyStreamResult(body, (int)resp.StatusCode, contentType, headers: headers);
             }
 
-            return new ProxyStreamResult(null, (int)resp.StatusCode, contentType, ReadEventChunks(resp, effectiveToken, timeout));
+            return new ProxyStreamResult(
+                null,
+                (int)resp.StatusCode,
+                contentType,
+                ReadEventChunks(resp, effectiveToken, timeout),
+                CaptureHeaders(resp));
         }
         catch
         {
@@ -626,6 +636,22 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
             request.Headers.Remove(key);
             request.Headers.TryAddWithoutValidation(key, value);
         }
+    }
+
+    private static IReadOnlyDictionary<string, string[]> CaptureHeaders(HttpResponseMessage response)
+    {
+        var headers = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        foreach (var header in response.Headers)
+        {
+            headers[header.Key] = header.Value.ToArray();
+        }
+
+        foreach (var header in response.Content.Headers)
+        {
+            headers[header.Key] = header.Value.ToArray();
+        }
+
+        return headers;
     }
 
     private static CancellationTokenSource? CreateTimeout(RequestOptions options, CancellationToken cancellationToken)

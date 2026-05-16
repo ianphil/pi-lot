@@ -12,6 +12,52 @@ public interface IModelProvider
     Task<ProxyStreamResult> StreamResponsesAsync(CreateResponseRequest request, CancellationToken cancellationToken = default);
 }
 
-public sealed record ProxyHttpResult(string Body, int StatusCode, string ContentType = "application/json");
+public sealed record ProxyHttpResult
+{
+    public ProxyHttpResult(
+        string body,
+        int statusCode,
+        string contentType = "application/json",
+        IReadOnlyDictionary<string, string[]>? headers = null)
+    {
+        Body = body;
+        StatusCode = statusCode;
+        ContentType = contentType;
+        Headers = headers ?? new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+    }
 
-public sealed record ProxyStreamResult(string? Body, int StatusCode, string ContentType = "text/event-stream", IAsyncEnumerable<string>? Chunks = null);
+    public string Body { get; init; }
+
+    public int StatusCode { get; init; }
+
+    public string ContentType { get; init; }
+
+    public IReadOnlyDictionary<string, string[]> Headers { get; init; }
+}
+
+public sealed record ProxyStreamResult
+{
+    public ProxyStreamResult(
+        string? body,
+        int statusCode,
+        string contentType = "text/event-stream",
+        IAsyncEnumerable<string>? chunks = null,
+        IReadOnlyDictionary<string, string[]>? headers = null)
+    {
+        Body = body;
+        StatusCode = statusCode;
+        ContentType = contentType;
+        Chunks = chunks;
+        Headers = headers ?? new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public string? Body { get; init; }
+
+    public int StatusCode { get; init; }
+
+    public string ContentType { get; init; }
+
+    public IAsyncEnumerable<string>? Chunks { get; init; }
+
+    public IReadOnlyDictionary<string, string[]> Headers { get; init; }
+}
