@@ -336,8 +336,13 @@ matching to handle specific event types:
 | `FunctionCallArgumentsDeltaEvent` | `Delta`, `OutputIndex` | Tool call argument chunk |
 | `FunctionCallArgumentsDoneEvent` | `Arguments`, `OutputIndex` | Tool call arguments finalized |
 
-Use `ToolValidator` to validate completed tool-call arguments against a
-`ToolDefinition` schema before invoking local code:
+The portable `CompleteAsync` and `StreamAsync` context APIs validate completed
+tool-call arguments against the matching `Context.Tools` schema before returning
+tool calls to the consumer. Invalid arguments are converted to an error
+`ToolResultContent` so local tool code does not execute with malformed input.
+
+For lower-level raw stream handling, use `ToolValidator` directly before
+invoking local code:
 
 ```csharp
 var result = ToolValidator.Validate(tool, toolCall.ArgumentsJson);

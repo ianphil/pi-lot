@@ -113,6 +113,7 @@ Run CI-safe tests (unit + integration):
 
 ```powershell
 dotnet test tests\llm-sdk.Tests --no-restore
+dotnet test tests\llm-sdk.Int --filter "Category!=Smoke" --no-restore
 dotnet test tests\llm-agent.Int --filter "Category!=Smoke" --no-restore
 dotnet test tests\llm-svc.Tests --filter "Category!=Smoke" --no-restore
 dotnet test tests\llm-svc.Int --filter "Category!=Smoke" --no-restore
@@ -134,6 +135,7 @@ surface:
 | Changed surface | Test project |
 |---|---|
 | `src/llm-sdk/` SDK client, Core models/services, Infrastructure adapters | `tests/llm-sdk.Tests/` |
+| SDK fake/live reference-consumer behavior | `tests/llm-sdk.Int/` |
 | `src/llm-svc/` host, HTTP endpoints, service wiring | `tests/llm-svc.Tests/` |
 | `src/llm-svc/` fake/live proxy behavior against real host wiring | `tests/llm-svc.Int/` |
 | `src/llm-cli/` commands, CLI agents, local tools | `tests/llm-cli.Tests/` |
@@ -153,6 +155,41 @@ SDK consumer tests that use the portable `Context` API, prefer scripted
 and return scripted `AssistantMessage` or `AssistantStreamEvent` sequences.
 Keep those helpers internal to the test project that owns the consumer; do not
 create separate test-support projects unless the repo explicitly adopts one.
+
+### Fake/Live Integration Suite Pattern
+
+The `.Int` projects are reference-consumer integration suites. They replace the
+old pattern of expanding `llm-cli` or `scripts/test-matrix.*` whenever we need
+coverage for SDK, service, or agent behavior.
+
+Each important integration scenario should usually have two tests in the owning
+`.Int` project:
+
+| Test type | Category | Purpose | CI |
+|---|---|---|---|
+| Fake integration | no `Smoke` trait | Deterministic correctness through the public consumer surface with scripted fakes | PR-safe |
+| Live integration | `[Trait("Category", "Smoke")]` | Compatibility with real Copilot credentials, network, and upstream behavior | manual/live only |
+
+Fake tests should use the same public surface as the live test and assert the
+shape of forwarded requests, options, events, and responses. Live tests should be
+small smoke/reference checks; do not use them for exhaustive edge cases.
+
+Run all PR-safe fake integration tests with:
+
+```powershell
+dotnet test tests\llm-sdk.Int --filter "Category!=Smoke" --no-restore
+dotnet test tests\llm-agent.Int --filter "Category!=Smoke" --no-restore
+dotnet test tests\llm-svc.Int --filter "Category!=Smoke" --no-restore
+```
+
+Run live integration smoke tests only when credentials and network access are
+available:
+
+```powershell
+dotnet test tests\llm-sdk.Int --filter "Category=Smoke" --no-restore
+dotnet test tests\llm-agent.Int --filter "Category=Smoke" --no-restore
+dotnet test tests\llm-svc.Int --filter "Category=Smoke" --no-restore
+```
 
 ### SDK Integration Test Pattern
 
@@ -234,6 +271,9 @@ production code and live upstream behavior.
 ### What to Test Before Submitting
 
 - If you changed **src/llm-sdk/**: run `llm-sdk.Tests`.
+- If you changed SDK consumer behavior: run `llm-sdk.Int --filter "Category!=Smoke"`.
+- If you changed agent-loop integration behavior: run `llm-agent.Int --filter "Category!=Smoke"`.
+- If you changed service/proxy integration behavior: run `llm-svc.Int --filter "Category!=Smoke"`.
 - If you changed **src/llm-svc/Program.cs** or **Worker.cs**: run `llm-svc.Tests` (stop task first).
 - If you changed **src/llm-cli/**: run `llm-cli.Tests`.
 - If you changed response serialization or translation: run smoke tests against both

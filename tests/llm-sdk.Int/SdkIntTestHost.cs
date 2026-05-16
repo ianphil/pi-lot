@@ -19,9 +19,14 @@ internal static class SdkIntTestHost
 
     public static ServiceProvider CreateFakeApiProvider(params ModelInfo[] models)
     {
+        return CreateFakeApiProvider(new FakeModelProvider { Models = models });
+    }
+
+    public static ServiceProvider CreateFakeApiProvider(FakeModelProvider provider)
+    {
         var services = CreateBaseServices();
         services.RemoveAll<IModelProvider>();
-        services.AddSingleton<IModelProvider>(new FakeModelProvider { Models = models });
+        services.AddSingleton<IModelProvider>(provider);
         return services.BuildServiceProvider();
     }
 

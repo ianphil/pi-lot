@@ -84,6 +84,9 @@ public static class ContextTranslator
         return new AssistantMessage(content, ToStopReason(response.Status), UsageMath.FromResponseUsage(response.Usage), response.Error?.Message);
     }
 
+    public static AssistantMessage ToAssistantMessage(Response response, IReadOnlyList<ToolDefinition> tools) =>
+        ValidateToolCalls(ToAssistantMessage(response), tools);
+
     public static AssistantMessage ToAssistantMessage(ChatCompletionResponse response)
     {
         ArgumentNullException.ThrowIfNull(response);
@@ -109,6 +112,9 @@ public static class ContextTranslator
 
         return new AssistantMessage(content, ToStopReason(choice.FinishReason), UsageMath.FromUsageInfo(response.Usage));
     }
+
+    public static AssistantMessage ToAssistantMessage(ChatCompletionResponse response, IReadOnlyList<ToolDefinition> tools) =>
+        ValidateToolCalls(ToAssistantMessage(response), tools);
 
     private static object ToResponseInputItem(Message message) => message switch
     {
@@ -238,6 +244,54 @@ public static class ContextTranslator
     }
 
     private static object? ToChatToolChoice(ToolChoice? toolChoice) => ToolChoiceToWireObject(toolChoice, responses: false);
+
+    internal static AssistantMessage ValidateToolCalls(AssistantMessage message, IReadOnlyList<ToolDefinition> tools)
+    {
+        if (tools.Count == 0 || !message.Content.OfType<ToolCallContent>().Any())
+        {
+            return message;
+        }
+
+        var toolsByName = new Dictionary<string, ToolDefinition>(StringComparer.Ordinal);
+        foreach (var tool in tools)
+        {
+            toolsByName.TryAdd(tool.Name, tool);
+        }
+
+        var content = new List<ContentBlock>(message.Content.Count);
+        var changed = false;
+
+        foreach (var block in message.Content)
+        {
+            if (block is not ToolCallContent toolCall)
+            {
+                content.Add(block);
+                continue;
+            }
+
+            if (!toolsByName.TryGetValue(toolCall.Name, out var tool))
+            {
+                content.Add(new ToolResultContent(
+                    toolCall.Id,
+                    $"Tool argument validation failed: tool '{toolCall.Name}' is not declared.",
+                    IsError: true));
+                changed = true;
+                continue;
+            }
+
+            var result = ToolValidator.Validate(tool, toolCall.ArgumentsJson);
+            if (result.IsValid)
+            {
+                content.Add(block);
+                continue;
+            }
+
+            content.Add(result.ToErrorResult(toolCall.Id));
+            changed = true;
+        }
+
+        return changed ? message with { Content = content } : message;
+    }
 
     private static object? ToolChoiceToWireObject(ToolChoice? toolChoice, bool responses) => toolChoice?.Kind switch
     {
