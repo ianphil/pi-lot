@@ -180,6 +180,7 @@ public sealed record CompletionOptions
 {
     public string? Model { get; init; }
     public CompletionApi PreferredApi { get; init; } = CompletionApi.Responses;
+    public AbortMode AbortMode { get; init; } = AbortMode.ReturnPartial;
     public int? MaxOutputTokens { get; init; }
     public double? Temperature { get; init; }
     public double? TopP { get; init; }
@@ -200,6 +201,12 @@ public enum CompletionApi
     Auto,
     Responses,
     ChatCompletions,
+}
+
+public enum AbortMode
+{
+    ReturnPartial,
+    Throw,
 }
 
 public sealed record ToolChoice(ToolChoiceKind Kind, string? FunctionName = null)

@@ -38,6 +38,7 @@ public sealed class PortableContextSdkTests
         {
             Model = "fake-gpt",
             MaxOutputTokens = 32,
+            AbortMode = AbortMode.Throw,
         });
 
         Assert.Equal("Hello from fake.", Assert.IsType<TextContent>(Assert.Single(message.Content)).Text);
@@ -143,6 +144,57 @@ public sealed class PortableContextSdkTests
     }
 
     [Fact]
+    public async Task StreamAsync_WithFakeApiCancellation_ReturnsAbortedPartial()
+    {
+        var provider = new FakeModelProvider { Models = [CreateResponsesModel()] };
+        provider.ResponsesStreamResults.Enqueue(new ProxyStreamResult(
+            null,
+            200,
+            chunks: ThrowAfter(
+                new OperationCanceledException("Canceled by caller."),
+                ResponseTextDelta("Partial fake response"))));
+        await using var services = SdkIntTestHost.CreateFakeApiProvider(provider);
+        var client = services.GetRequiredService<ILlmSdkClient>();
+
+        var events = await CollectAsync(client.StreamAsync(CreateContext("Write a long answer."), new CompletionOptions
+        {
+            Model = "fake-gpt",
+        }));
+
+        var done = Assert.Single(events.OfType<StreamDone>());
+        Assert.Equal(StopReason.Aborted, done.FinalMessage.StopReason);
+        Assert.Equal("Partial fake response", Assert.IsType<TextContent>(Assert.Single(done.FinalMessage.Content)).Text);
+        Assert.Empty(events.OfType<StreamError>());
+        var request = Assert.Single(provider.ResponsesStreamRequests);
+        Assert.True(request.Stream);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WithFakeApiStreamFailure_ReturnsErrorPartial()
+    {
+        var provider = new FakeModelProvider { Models = [CreateResponsesModel()] };
+        provider.ResponsesStreamResults.Enqueue(new ProxyStreamResult(
+            null,
+            200,
+            chunks: ThrowAfter(
+                new HttpRequestException("stream disconnected"),
+                ResponseTextDelta("Partial fake response"))));
+        await using var services = SdkIntTestHost.CreateFakeApiProvider(provider);
+        var client = services.GetRequiredService<ILlmSdkClient>();
+
+        var message = await client.CompleteAsync(CreateContext("Write a long answer."), new CompletionOptions
+        {
+            Model = "fake-gpt",
+        });
+
+        Assert.Equal(StopReason.Error, message.StopReason);
+        Assert.Equal("Partial fake response", Assert.IsType<TextContent>(Assert.Single(message.Content)).Text);
+        Assert.Equal("stream disconnected", message.ErrorMessage);
+        var request = Assert.Single(provider.ResponsesStreamRequests);
+        Assert.True(request.Stream);
+    }
+
+    [Fact]
     [Trait("Category", "Smoke")]
     public async Task CompleteAsync_WithLiveApi_ReturnsAssistantMessageWithUsage()
     {
@@ -191,6 +243,36 @@ public sealed class PortableContextSdkTests
         Assert.NotNull(done.FinalMessage.Usage);
         Assert.True(done.FinalMessage.Usage.InputTokens > 0);
         Assert.True(done.FinalMessage.Usage.OutputTokens > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Smoke")]
+    public async Task StreamAsync_WithLiveApiCancellation_ReturnsAbortedPartial()
+    {
+        await using var services = SdkIntTestHost.CreateAuthenticatedProvider();
+        var client = services.GetRequiredService<ILlmSdkClient>();
+        using var cts = new CancellationTokenSource();
+        var events = new List<AssistantStreamEvent>();
+
+        await foreach (var streamEvent in client.StreamAsync(CreateContext("Write ten short sentences about integration testing."), new CompletionOptions
+        {
+            Model = "gpt-5.4-mini",
+            MaxOutputTokens = 512,
+        }, cts.Token))
+        {
+            events.Add(streamEvent);
+            if (streamEvent is TextDelta)
+            {
+                await cts.CancelAsync();
+            }
+        }
+
+        _output.WriteLine(string.Join(Environment.NewLine, events.Select(static item => item.GetType().Name)));
+        var done = Assert.Single(events.OfType<StreamDone>());
+        var text = string.Concat(done.FinalMessage.Content.OfType<TextContent>().Select(static content => content.Text));
+        Assert.Equal(StopReason.Aborted, done.FinalMessage.StopReason);
+        Assert.NotEmpty(text);
+        Assert.Empty(events.OfType<StreamError>());
     }
 
     [Fact]
@@ -287,6 +369,28 @@ public sealed class PortableContextSdkTests
             await Task.Yield();
         }
     }
+
+    private static async IAsyncEnumerable<string> ThrowAfter(Exception exception, params string[] values)
+    {
+        foreach (var value in values)
+        {
+            yield return value;
+            await Task.Yield();
+        }
+
+        throw exception;
+    }
+
+    private static string ResponseTextDelta(string text) =>
+        ResponseSseSerializer.SerializeEvent("response.output_text.delta", new
+        {
+            type = "response.output_text.delta",
+            sequence_number = 1,
+            item_id = "msg_context_int",
+            output_index = 0,
+            content_index = 0,
+            delta = text,
+        });
 
     private static IEnumerable<string> SplitSseBody(string body)
     {

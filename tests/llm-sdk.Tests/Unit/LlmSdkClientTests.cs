@@ -502,7 +502,7 @@ public sealed class LlmSdkClientTests
                 System = "Be concise.",
                 Messages = [new UserMessage([new TextContent("Hello!")])],
             },
-            new CompletionOptions { Model = "gpt-5.4-mini", PreferredApi = CompletionApi.Responses });
+            new CompletionOptions { Model = "gpt-5.4-mini", PreferredApi = CompletionApi.Responses, AbortMode = AbortMode.Throw });
 
         Assert.Equal(StopReason.Stop, message.StopReason);
         var text = Assert.IsType<TextContent>(Assert.Single(message.Content));
@@ -526,7 +526,7 @@ public sealed class LlmSdkClientTests
                 Messages = [new UserMessage([new TextContent("Weather in London?")])],
                 Tools = [CreateWeatherTool()],
             },
-            new CompletionOptions { Model = "gpt-5.4-mini", PreferredApi = CompletionApi.Responses });
+            new CompletionOptions { Model = "gpt-5.4-mini", PreferredApi = CompletionApi.Responses, AbortMode = AbortMode.Throw });
 
         var result = Assert.IsType<ToolResultContent>(Assert.Single(message.Content));
         Assert.Equal("call_1", result.ToolCallId);
@@ -549,7 +549,7 @@ public sealed class LlmSdkClientTests
                 Messages = [new UserMessage([new TextContent("Weather in London?")])],
                 Tools = [CreateWeatherTool()],
             },
-            new CompletionOptions { Model = "gpt-5.4-mini", PreferredApi = CompletionApi.Responses });
+            new CompletionOptions { Model = "gpt-5.4-mini", PreferredApi = CompletionApi.Responses, AbortMode = AbortMode.Throw });
 
         var toolCall = Assert.IsType<ToolCallContent>(Assert.Single(message.Content));
         Assert.Equal("call_1", toolCall.Id);
@@ -599,7 +599,7 @@ public sealed class LlmSdkClientTests
             {
                 Messages = [new UserMessage([new TextContent("Weather in London?")])],
             },
-            new CompletionOptions { Model = "gpt-5.4-mini", PreferredApi = CompletionApi.ChatCompletions });
+            new CompletionOptions { Model = "gpt-5.4-mini", PreferredApi = CompletionApi.ChatCompletions, AbortMode = AbortMode.Throw });
 
         Assert.Equal(StopReason.ToolUse, message.StopReason);
         var toolCall = Assert.IsType<ToolCallContent>(Assert.Single(message.Content));

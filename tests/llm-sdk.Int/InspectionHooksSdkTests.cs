@@ -47,6 +47,7 @@ public sealed class InspectionHooksSdkTests
         var message = await client.CompleteAsync(CreateContext("Say hello."), new CompletionOptions
         {
             Model = "fake-gpt",
+            AbortMode = AbortMode.Throw,
             OnPayload = payload =>
             {
                 observedModel = payload["model"]?.GetValue<string>();
@@ -80,6 +81,7 @@ public sealed class InspectionHooksSdkTests
         {
             Model = "gpt-5.4-mini",
             MaxOutputTokens = 32,
+            AbortMode = AbortMode.Throw,
             OnPayload = payload =>
             {
                 observedModel = payload["model"]?.GetValue<string>();
