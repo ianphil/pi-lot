@@ -238,4 +238,49 @@ public sealed class ContextTranslatorTests
         Assert.True(thinking.Redacted);
         Assert.Equal("encrypted_reasoning", thinking.Signature);
     }
+
+    [Fact]
+    public void ToCreateResponseRequest_WithImageContent_EmitsResponsesImagePart()
+    {
+        var request = ContextTranslator.ToCreateResponseRequest(new Context
+        {
+            Messages =
+            [
+                new UserMessage(
+                [
+                    new TextContent("Describe this image."),
+                    new ImageContent("image/png", "iVBORw0KGgo="),
+                ]),
+            ],
+        });
+
+        var json = request.Input.GetRawText();
+
+        Assert.Contains("\"type\":\"input_image\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"image_url\":\"data:image/png;base64,iVBORw0KGgo=\"", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ToChatCompletionRequest_WithImageContent_EmitsChatImagePart()
+    {
+        var request = ContextTranslator.ToChatCompletionRequest(new Context
+        {
+            Messages =
+            [
+                new UserMessage(
+                [
+                    new TextContent("Describe this image."),
+                    new ImageContent("image/png", "iVBORw0KGgo="),
+                ]),
+            ],
+        });
+
+        Assert.NotNull(request.Messages);
+        var content = Assert.Single(request.Messages).Content;
+        Assert.NotNull(content);
+        var json = JsonSerializer.Serialize(content, JsonDefaults.Web);
+
+        Assert.Contains("\"type\":\"image_url\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"url\":\"data:image/png;base64,iVBORw0KGgo=\"", json, StringComparison.Ordinal);
+    }
 }

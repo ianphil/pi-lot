@@ -1,8 +1,11 @@
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using LlmSdk.Core;
 using LlmSdk.Core.Models;
 using LlmSdk.Core.Services;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LlmSdk.Client;
 
@@ -12,14 +15,17 @@ internal static class LlmSdkClientContextAdapter
         ILlmSdkClient client,
         Context context,
         CompletionOptions? options,
+        ILogger? logger,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(context);
+        logger ??= NullLogger.Instance;
 
         if (ShouldThrow(options))
         {
             var effectiveOptions = await ApplyThinkingClampAsync(client, options, cancellationToken);
+            context = await PrepareContextAsync(client, context, effectiveOptions, logger, cancellationToken);
             if (effectiveOptions?.PreferredApi == CompletionApi.ChatCompletions)
             {
                 var chatResponse = await client.CreateChatCompletionAsync(
@@ -34,7 +40,7 @@ internal static class LlmSdkClientContextAdapter
             return ContextTranslator.ToAssistantMessage(response, context.Tools);
         }
 
-        await foreach (var streamEvent in StreamAsync(client, context, options, cancellationToken)
+        await foreach (var streamEvent in StreamAsync(client, context, options, logger, cancellationToken)
                            .WithCancellation(cancellationToken))
         {
             switch (streamEvent)
@@ -53,10 +59,13 @@ internal static class LlmSdkClientContextAdapter
         ILlmSdkClient client,
         Context context,
         CompletionOptions? options,
+        ILogger? logger,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(context);
+        logger ??= NullLogger.Instance;
+        context = await PrepareContextAsync(client, context, options, logger, cancellationToken);
 
         var effectiveOptions = await ApplyThinkingClampAsync(client, options, cancellationToken);
 
@@ -78,6 +87,20 @@ internal static class LlmSdkClientContextAdapter
         }
     }
 
+    public static Task<AssistantMessage> CompleteAsync(
+        ILlmSdkClient client,
+        Context context,
+        CompletionOptions? options,
+        CancellationToken cancellationToken) =>
+        CompleteAsync(client, context, options, NullLogger.Instance, cancellationToken);
+
+    public static IAsyncEnumerable<AssistantStreamEvent> StreamAsync(
+        ILlmSdkClient client,
+        Context context,
+        CompletionOptions? options,
+        CancellationToken cancellationToken) =>
+        StreamAsync(client, context, options, NullLogger.Instance, cancellationToken);
+
     private static async Task<CompletionOptions?> ApplyThinkingClampAsync(
         ILlmSdkClient client,
         CompletionOptions? options,
@@ -94,6 +117,62 @@ internal static class LlmSdkClientContextAdapter
             ? options
             : options with { Thinking = clamped };
     }
+
+    private static async Task<Context> PrepareContextAsync(
+        ILlmSdkClient client,
+        Context context,
+        CompletionOptions? options,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        var imageCount = CountImages(context);
+        if (imageCount == 0 || string.IsNullOrWhiteSpace(options?.Model))
+        {
+            return context;
+        }
+
+        var model = await client.GetModelAsync(options.Model, cancellationToken);
+        if (model.SupportsVision)
+        {
+            return context;
+        }
+
+        logger.LogDebug(
+            LogEvents.ImagesDroppedForNonVisionModel,
+            "Dropping {ImageCount} image(s) for non-vision model {Model}.",
+            imageCount,
+            model.Id);
+        return DropImages(context);
+    }
+
+    private static int CountImages(Context context) =>
+        context.Messages.Sum(static message => GetContent(message).Count(static block => block is ImageContent));
+
+    private static Context DropImages(Context context) => context with
+    {
+        Messages = context.Messages.Select(DropImages).ToArray(),
+    };
+
+    private static Message DropImages(Message message) => message switch
+    {
+        UserMessage user => user with { Content = DropImages(user.Content) },
+        AssistantMessage assistant => assistant with { Content = DropImages(assistant.Content) },
+        ToolMessage tool => tool with { Content = DropImages(tool.Content) },
+        _ => message,
+    };
+
+    private static IReadOnlyList<ContentBlock> DropImages(IReadOnlyList<ContentBlock> content) =>
+        content.Select(static block => block is ImageContent
+            ? new TextContent("[image omitted: model does not support vision]")
+            : block).ToArray();
+
+    private static IReadOnlyList<ContentBlock> GetContent(Message message) => message switch
+    {
+        UserMessage user => user.Content,
+        AssistantMessage assistant => assistant.Content,
+        ToolMessage tool => tool.Content,
+        _ => [],
+    };
 
     private static async IAsyncEnumerable<AssistantStreamEvent> StreamResponsesAsync(
         ILlmSdkClient client,
