@@ -112,6 +112,46 @@ public sealed class PortableContextSdkTests
     }
 
     [Fact]
+    public async Task StreamAsync_WithFakeChatApiFragmentedUnicodeSse_PreservesUnicodeText()
+    {
+        const string expectedText = "🚀 日本語 👩‍💻";
+        var provider = new FakeModelProvider { Models = [CreateChatModel()] };
+        provider.ChatCompletionsStreamResults.Enqueue(new ProxyStreamResult(
+            null,
+            200,
+            chunks: ToAsyncEnumerable(SplitEveryChar(SerializeChatChunk(new ChatCompletionChunk
+            {
+                Id = "chatcmpl_unicode",
+                Model = "fake-chat",
+                Choices =
+                [
+                    new ChatChunkChoice
+                    {
+                        Index = 0,
+                        Delta = new ChatChunkDelta { Role = "assistant", Content = expectedText },
+                        FinishReason = "stop",
+                    },
+                ],
+            })).Concat(["data: [DONE]\n\n"]).ToArray())));
+        await using var services = SdkIntTestHost.CreateFakeApiProvider(provider);
+        var client = services.GetRequiredService<ILlmSdkClient>();
+
+        var events = await CollectAsync(client.StreamAsync(CreateContext("Return Unicode."), new CompletionOptions
+        {
+            Model = "fake-chat",
+            PreferredApi = CompletionApi.ChatCompletions,
+        }));
+
+        var text = string.Concat(events.OfType<TextDelta>().Select(static content => content.Text));
+        var done = Assert.Single(events.OfType<StreamDone>());
+        Assert.Equal(expectedText, text);
+        Assert.Equal(expectedText, Assert.IsType<TextContent>(Assert.Single(done.FinalMessage.Content)).Text);
+        Assert.DoesNotContain("\uFFFD", text, StringComparison.Ordinal);
+        var request = Assert.Single(provider.ChatCompletionsStreamRequests);
+        Assert.True(request.Stream);
+    }
+
+    [Fact]
     public async Task StreamAsync_WithFakeApiToolCallDeltas_PopulatesParsedSoFar()
     {
         var provider = new FakeModelProvider { Models = [CreateResponsesModel()] };
@@ -388,6 +428,16 @@ public sealed class PortableContextSdkTests
         SupportedEndpoints = ["/responses"],
     };
 
+    private static ModelInfo CreateChatModel() => new()
+    {
+        Id = "fake-chat",
+        Object = "model",
+        Name = "Fake Chat",
+        Vendor = "Fake LLM",
+        Version = "fake-chat",
+        SupportedEndpoints = ["/chat/completions"],
+    };
+
     private static Response CreateTextResponse(string text, ResponseUsage usage) => new()
     {
         Id = "resp_context_int",
@@ -452,6 +502,9 @@ public sealed class PortableContextSdkTests
             yield return $"{chunk}\n\n";
         }
     }
+
+    private static string SerializeChatChunk(ChatCompletionChunk chunk) =>
+        $"data: {JsonSerializer.Serialize(chunk, JsonDefaults.Web)}\n\n";
 
     private static IEnumerable<string> SplitEveryChar(string text)
     {

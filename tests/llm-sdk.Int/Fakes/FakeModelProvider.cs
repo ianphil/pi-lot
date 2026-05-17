@@ -11,9 +11,13 @@ internal sealed class FakeModelProvider : IModelProvider
 
     public Queue<ProxyStreamResult> ResponsesStreamResults { get; } = [];
 
+    public Queue<ProxyStreamResult> ChatCompletionsStreamResults { get; } = [];
+
     public List<CreateResponseRequest> ResponsesRequests { get; } = [];
 
     public List<CreateResponseRequest> ResponsesStreamRequests { get; } = [];
+
+    public List<ChatCompletionRequest> ChatCompletionsStreamRequests { get; } = [];
 
     public Task<ModelInfo[]> FetchModelsAsync(bool forceRefresh = false, CancellationToken cancellationToken = default) =>
         Task.FromResult(Models);
@@ -30,8 +34,11 @@ internal sealed class FakeModelProvider : IModelProvider
         return Task.FromResult(ResponsesResults.Dequeue());
     }
 
-    public Task<ProxyStreamResult> StreamChatCompletionsAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException();
+    public Task<ProxyStreamResult> StreamChatCompletionsAsync(ChatCompletionRequest request, CancellationToken cancellationToken = default)
+    {
+        ChatCompletionsStreamRequests.Add(request);
+        return Task.FromResult(ChatCompletionsStreamResults.Dequeue());
+    }
 
     public Task<ProxyStreamResult> StreamResponsesAsync(CreateResponseRequest request, CancellationToken cancellationToken = default)
     {
