@@ -7,6 +7,24 @@ translation between the Responses and Chat Completions API surfaces.
 For a higher-level tool-calling loop built on top of `LlmSdk`, see
 `docs/agent-guide.md`.
 
+## Scope and pi-ai capability parity
+
+`LlmSdk` is a Copilot-specific capability port of the core runtime semantics in
+`pi/packages/ai`, not a generic multi-provider SDK. The intended parity target is
+portable chat/runtime behavior: context messages, tools, streaming, partial
+results, thinking, prompt-cache/session controls, image input, diagnostics,
+usage, overflow handling, and inspection hooks.
+
+Provider registries, provider-specific auth/configuration, and non-Copilot
+transport layers are intentional non-goals. The SDK should continue to use
+Copilot authentication and the model catalog exposed by GitHub Copilot.
+
+Copilot model metadata currently exposes vision support for image inputs through
+`/responses` and `/chat/completions`. The API surface used by this repo does not
+currently expose an image-generation endpoint; common `/images/*` generation and
+edit endpoint probes return 404. Treat image generation as unsupported unless
+Copilot adds a model and endpoint for it.
+
 ## Installation
 
 From [GitHub Packages](https://github.com/ianphil/copilot-llm-svc/packages):
