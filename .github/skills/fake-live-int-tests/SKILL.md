@@ -1,6 +1,6 @@
 ---
 name: fake-live-int-tests
-description: Use this when adding or reviewing fake/live integration tests in this repo, especially for SDK, service, or agent behavior. It creates paired .Int coverage: fake tests for deterministic happy, negative, edge, and error cases; live Smoke tests for small real-upstream happy-path compatibility.
+description: 'Use this when adding or reviewing fake/live integration tests in this repo, especially for SDK, service, or agent behavior. It creates paired .Int coverage: fake tests for deterministic happy, negative, edge, and error cases; live Smoke tests for small real-upstream happy-path compatibility.'
 ---
 
 # Fake/Live Integration Test Workflow
