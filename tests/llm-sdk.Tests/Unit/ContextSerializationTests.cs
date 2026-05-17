@@ -57,6 +57,44 @@ public sealed class ContextSerializationTests
     }
 
     [Fact]
+    public void AssistantMessage_WithoutDiagnostics_OmitsDiagnosticsProperty()
+    {
+        var message = new AssistantMessage([new TextContent("Hello")], StopReason.Stop);
+
+        var json = JsonSerializer.Serialize(message, JsonDefaults.Web);
+
+        Assert.DoesNotContain("diagnostics", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AssistantMessage_WithDiagnostics_RoundTrips()
+    {
+        var message = new AssistantMessage(
+            [new TextContent("Partial")],
+            StopReason.Error,
+            ErrorMessage: "stream disconnected")
+        {
+            Diagnostics = new Diagnostics(
+            [
+                new DiagnosticEntry(
+                    DiagnosticSeverity.Error,
+                    "partial_due_to_error",
+                    "A partial assistant message was returned because the stream failed.",
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        ["exception"] = "HttpRequestException",
+                    }),
+            ]),
+        };
+
+        var json = JsonSerializer.Serialize(message, JsonDefaults.Web);
+
+        Assert.Contains("\"diagnostics\":", json, StringComparison.Ordinal);
+        Assert.Contains("\"severity\":\"Error\"", json, StringComparison.Ordinal);
+        Assert.Equal(message, JsonSerializer.Deserialize<AssistantMessage>(json, JsonDefaults.Web));
+    }
+
+    [Fact]
     public void CompletionOptions_WithPromptCacheControls_RoundTrips()
     {
         var options = new CompletionOptions

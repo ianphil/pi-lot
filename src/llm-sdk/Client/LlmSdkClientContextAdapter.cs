@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
@@ -21,26 +22,37 @@ internal static class LlmSdkClientContextAdapter
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(context);
         logger ??= NullLogger.Instance;
+        var diagnostics = new DiagnosticsBuilder();
 
         if (ShouldThrow(options))
         {
-            var effectiveOptions = await ApplyThinkingClampAsync(client, options, cancellationToken);
-            context = await PrepareContextAsync(client, context, effectiveOptions, logger, cancellationToken);
+            var effectiveOptions = await ApplyThinkingClampAsync(client, options, diagnostics, cancellationToken);
+            context = await PrepareContextAsync(client, context, effectiveOptions, logger, diagnostics, cancellationToken);
             if (effectiveOptions?.PreferredApi == CompletionApi.ChatCompletions)
             {
                 var chatResponse = await client.CreateChatCompletionAsync(
                     ContextTranslator.ToChatCompletionRequest(context, effectiveOptions),
                     cancellationToken);
-                return ContextTranslator.ToAssistantMessage(chatResponse, context.Tools);
+                return await AttachDiagnosticsAsync(
+                    client,
+                    ContextTranslator.ToAssistantMessage(chatResponse, context.Tools),
+                    effectiveOptions,
+                    diagnostics,
+                    cancellationToken);
             }
 
             var response = await client.CreateResponseAsync(
                 ContextTranslator.ToCreateResponseRequest(context, effectiveOptions),
                 cancellationToken);
-            return ContextTranslator.ToAssistantMessage(response, context.Tools);
+            return await AttachDiagnosticsAsync(
+                client,
+                ContextTranslator.ToAssistantMessage(response, context.Tools),
+                effectiveOptions,
+                diagnostics,
+                cancellationToken);
         }
 
-        await foreach (var streamEvent in StreamAsync(client, context, options, logger, cancellationToken)
+        await foreach (var streamEvent in StreamAsync(client, context, options, logger, diagnostics, cancellationToken)
                            .WithCancellation(cancellationToken))
         {
             switch (streamEvent)
@@ -52,7 +64,7 @@ internal static class LlmSdkClientContextAdapter
             }
         }
 
-        return new AssistantMessage([], StopReason.Stop);
+        return AttachDiagnostics(new AssistantMessage([], StopReason.Stop), diagnostics);
     }
 
     public static async IAsyncEnumerable<AssistantStreamEvent> StreamAsync(
@@ -65,14 +77,31 @@ internal static class LlmSdkClientContextAdapter
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(context);
         logger ??= NullLogger.Instance;
-        context = await PrepareContextAsync(client, context, options, logger, cancellationToken);
+        var diagnostics = new DiagnosticsBuilder();
 
-        var effectiveOptions = await ApplyThinkingClampAsync(client, options, cancellationToken);
+        await foreach (var streamEvent in StreamAsync(client, context, options, logger, diagnostics, cancellationToken)
+                           .WithCancellation(cancellationToken))
+        {
+            yield return streamEvent;
+        }
+    }
+
+    private static async IAsyncEnumerable<AssistantStreamEvent> StreamAsync(
+        ILlmSdkClient client,
+        Context context,
+        CompletionOptions? options,
+        ILogger? logger,
+        DiagnosticsBuilder diagnostics,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        logger ??= NullLogger.Instance;
+        var effectiveOptions = await ApplyThinkingClampAsync(client, options, diagnostics, cancellationToken);
+        context = await PrepareContextAsync(client, context, effectiveOptions, logger, diagnostics, cancellationToken);
 
         if (effectiveOptions?.PreferredApi == CompletionApi.ChatCompletions)
         {
-            await foreach (var streamEvent in StreamChatCompletionsAsync(client, context, effectiveOptions, cancellationToken)
-                               .WithCancellation(cancellationToken))
+            await foreach (var streamEvent in StreamChatCompletionsAsync(client, context, effectiveOptions, diagnostics, cancellationToken)
+                                .WithCancellation(cancellationToken))
             {
                 yield return streamEvent;
             }
@@ -80,7 +109,7 @@ internal static class LlmSdkClientContextAdapter
             yield break;
         }
 
-        await foreach (var streamEvent in StreamResponsesAsync(client, context, effectiveOptions, cancellationToken)
+        await foreach (var streamEvent in StreamResponsesAsync(client, context, effectiveOptions, diagnostics, cancellationToken)
                             .WithCancellation(cancellationToken))
         {
             yield return streamEvent;
@@ -104,6 +133,7 @@ internal static class LlmSdkClientContextAdapter
     private static async Task<CompletionOptions?> ApplyThinkingClampAsync(
         ILlmSdkClient client,
         CompletionOptions? options,
+        DiagnosticsBuilder diagnostics,
         CancellationToken cancellationToken)
     {
         if (options?.Thinking is not { } requested || string.IsNullOrWhiteSpace(options.Model))
@@ -113,6 +143,20 @@ internal static class LlmSdkClientContextAdapter
 
         var model = await client.GetModelAsync(options.Model, cancellationToken);
         var clamped = ThinkingLevelClamp.Clamp(requested, model);
+        if (clamped != options.Thinking)
+        {
+            diagnostics.Add(
+                DiagnosticSeverity.Warning,
+                "thinking_clamped",
+                "Requested thinking level was clamped to the model-supported level.",
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["model"] = model.Id,
+                    ["requested"] = requested.ToString(),
+                    ["effective"] = clamped?.ToString() ?? "none",
+                });
+        }
+
         return clamped == options.Thinking
             ? options
             : options with { Thinking = clamped };
@@ -123,6 +167,7 @@ internal static class LlmSdkClientContextAdapter
         Context context,
         CompletionOptions? options,
         ILogger logger,
+        DiagnosticsBuilder diagnostics,
         CancellationToken cancellationToken)
     {
         var imageCount = CountImages(context);
@@ -142,6 +187,15 @@ internal static class LlmSdkClientContextAdapter
             "Dropping {ImageCount} image(s) for non-vision model {Model}.",
             imageCount,
             model.Id);
+        diagnostics.Add(
+            DiagnosticSeverity.Warning,
+            "image_dropped",
+            "Image content was omitted because the selected model does not support vision.",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["count"] = imageCount.ToString(CultureInfo.InvariantCulture),
+                ["model"] = model.Id,
+            });
         return DropImages(context);
     }
 
@@ -178,9 +232,10 @@ internal static class LlmSdkClientContextAdapter
         ILlmSdkClient client,
         Context context,
         CompletionOptions? options,
+        DiagnosticsBuilder diagnostics,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var state = new ResponseStreamState(options?.Model, context.Tools);
+        var state = new ResponseStreamState(options?.Model, context.Tools, diagnostics);
         var request = ContextTranslator.ToCreateResponseRequest(context, options);
         var enumerator = client.CreateResponseStreamAsync(request, cancellationToken)
             .GetAsyncEnumerator(cancellationToken);
@@ -208,7 +263,7 @@ internal static class LlmSdkClientContextAdapter
 
                 foreach (var streamEvent in state.Apply(rawEvent))
                 {
-                    yield return streamEvent;
+                    yield return await AttachDiagnosticsAsync(client, streamEvent, options, diagnostics, cancellationToken);
                 }
             }
         }
@@ -221,7 +276,7 @@ internal static class LlmSdkClientContextAdapter
         {
             foreach (var streamEvent in interrupted)
             {
-                yield return streamEvent;
+                yield return await AttachDiagnosticsAsync(client, streamEvent, options, diagnostics, cancellationToken);
             }
 
             yield break;
@@ -229,7 +284,7 @@ internal static class LlmSdkClientContextAdapter
 
         foreach (var streamEvent in state.CompleteIfNeeded())
         {
-            yield return streamEvent;
+            yield return await AttachDiagnosticsAsync(client, streamEvent, options, diagnostics, cancellationToken);
         }
     }
 
@@ -237,9 +292,10 @@ internal static class LlmSdkClientContextAdapter
         ILlmSdkClient client,
         Context context,
         CompletionOptions? options,
+        DiagnosticsBuilder diagnostics,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var state = new ChatStreamState(options?.Model, context.Tools);
+        var state = new ChatStreamState(options?.Model, context.Tools, diagnostics);
         var request = ContextTranslator.ToChatCompletionRequest(context, options);
         var enumerator = client.CreateChatCompletionStreamAsync(request, cancellationToken)
             .GetAsyncEnumerator(cancellationToken);
@@ -267,7 +323,7 @@ internal static class LlmSdkClientContextAdapter
 
                 foreach (var streamEvent in state.Apply(chunk))
                 {
-                    yield return streamEvent;
+                    yield return await AttachDiagnosticsAsync(client, streamEvent, options, diagnostics, cancellationToken);
                 }
             }
         }
@@ -280,7 +336,7 @@ internal static class LlmSdkClientContextAdapter
         {
             foreach (var streamEvent in interrupted)
             {
-                yield return streamEvent;
+                yield return await AttachDiagnosticsAsync(client, streamEvent, options, diagnostics, cancellationToken);
             }
 
             yield break;
@@ -288,11 +344,14 @@ internal static class LlmSdkClientContextAdapter
 
         foreach (var streamEvent in state.Complete())
         {
-            yield return streamEvent;
+            yield return await AttachDiagnosticsAsync(client, streamEvent, options, diagnostics, cancellationToken);
         }
     }
 
-    private sealed class ResponseStreamState(string? fallbackModel, IReadOnlyList<ToolDefinition> tools)
+    private sealed class ResponseStreamState(
+        string? fallbackModel,
+        IReadOnlyList<ToolDefinition> tools,
+        DiagnosticsBuilder diagnostics)
     {
         private readonly Dictionary<string, ResponseFunctionCallItem> _toolCallsByItemId = [];
         private readonly Dictionary<string, StringBuilder> _toolCallArgumentsByItemId = [];
@@ -391,6 +450,7 @@ internal static class LlmSdkClientContextAdapter
 
             _terminal = true;
             var message = "Response stream ended before a terminal event.";
+            AddPartialDueToError(typeof(InvalidOperationException).Name);
             return [new StreamError(new AssistantMessage(GetPartialContent(), StopReason.Error, _usage, message), message)];
         }
 
@@ -404,10 +464,23 @@ internal static class LlmSdkClientContextAdapter
             _terminal = true;
             if (exception is OperationCanceledException)
             {
+                diagnostics.Add(
+                    DiagnosticSeverity.Info,
+                    "partial_due_to_abort",
+                    "A partial assistant message was returned because the request was aborted.");
                 return [new StreamDone(new AssistantMessage(GetPartialContent(), StopReason.Aborted, _usage))];
             }
 
             var message = GetExceptionMessage(exception);
+            if (exception is ContextOverflowException overflow)
+            {
+                AddOverflowDetected(overflow);
+            }
+            else
+            {
+                AddPartialDueToError(exception.GetType().Name);
+            }
+
             return [new StreamError(new AssistantMessage(GetPartialContent(), StopReason.Error, _usage, message), message)];
         }
 
@@ -482,8 +555,30 @@ internal static class LlmSdkClientContextAdapter
         {
             _terminal = true;
             var usage = response is null ? _usage : UsageMath.FromResponseUsage(response.Usage) ?? _usage;
+            AddPartialDueToError("upstream");
             var partial = new AssistantMessage(GetPartialContent(), StopReason.Error, usage, message);
             events.Add(new StreamError(partial, message));
+        }
+
+        private void AddPartialDueToError(string exception)
+        {
+            diagnostics.Add(
+                DiagnosticSeverity.Error,
+                "partial_due_to_error",
+                "A partial assistant message was returned because the stream failed.",
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["exception"] = exception,
+                });
+        }
+
+        private void AddOverflowDetected(ContextOverflowException overflow)
+        {
+            diagnostics.Add(
+                DiagnosticSeverity.Error,
+                "overflow_detected",
+                "The request exceeded the model context window.",
+                CreateOverflowDetail(overflow));
         }
 
         private IReadOnlyList<ContentBlock> GetPartialContent()
@@ -494,7 +589,10 @@ internal static class LlmSdkClientContextAdapter
         }
     }
 
-    private sealed class ChatStreamState(string? fallbackModel, IReadOnlyList<ToolDefinition> tools)
+    private sealed class ChatStreamState(
+        string? fallbackModel,
+        IReadOnlyList<ToolDefinition> tools,
+        DiagnosticsBuilder diagnostics)
     {
         private readonly StringBuilder _text = new();
         private readonly Dictionary<int, ToolCallAccumulator> _toolCalls = [];
@@ -550,11 +648,45 @@ internal static class LlmSdkClientContextAdapter
         {
             if (exception is OperationCanceledException)
             {
+                diagnostics.Add(
+                    DiagnosticSeverity.Info,
+                    "partial_due_to_abort",
+                    "A partial assistant message was returned because the request was aborted.");
                 return [new StreamDone(CreateMessage(StopReason.Aborted))];
             }
 
             var message = GetExceptionMessage(exception);
+            if (exception is ContextOverflowException overflow)
+            {
+                AddOverflowDetected(overflow);
+            }
+            else
+            {
+                AddPartialDueToError(exception.GetType().Name);
+            }
+
             return [new StreamError(CreateMessage(StopReason.Error, message), message)];
+        }
+
+        private void AddPartialDueToError(string exception)
+        {
+            diagnostics.Add(
+                DiagnosticSeverity.Error,
+                "partial_due_to_error",
+                "A partial assistant message was returned because the stream failed.",
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["exception"] = exception,
+                });
+        }
+
+        private void AddOverflowDetected(ContextOverflowException overflow)
+        {
+            diagnostics.Add(
+                DiagnosticSeverity.Error,
+                "overflow_detected",
+                "The request exceeded the model context window.",
+                CreateOverflowDetail(overflow));
         }
 
         private AssistantMessage CreateMessage(StopReason stopReason, string? errorMessage = null)
@@ -659,7 +791,84 @@ internal static class LlmSdkClientContextAdapter
     private static bool ShouldThrow(CompletionOptions? options) => options?.AbortMode == AbortMode.Throw;
 
     private static bool IsRecoverableStreamException(Exception exception) =>
-        exception is OperationCanceledException or HttpRequestException or IOException or JsonException or InvalidOperationException;
+        exception is OperationCanceledException or HttpRequestException or IOException or JsonException or InvalidOperationException or ContextOverflowException;
+
+    private static async ValueTask<AssistantStreamEvent> AttachDiagnosticsAsync(
+        ILlmSdkClient client,
+        AssistantStreamEvent streamEvent,
+        CompletionOptions? options,
+        DiagnosticsBuilder diagnostics,
+        CancellationToken cancellationToken) =>
+        streamEvent switch
+        {
+            StreamDone done => new StreamDone(await AttachDiagnosticsAsync(client, done.FinalMessage, options, diagnostics, cancellationToken)),
+            StreamError error => new StreamError(await AttachDiagnosticsAsync(client, error.PartialMessage, options, diagnostics, cancellationToken), error.Message),
+            _ => streamEvent,
+        };
+
+    private static async Task<AssistantMessage> AttachDiagnosticsAsync(
+        ILlmSdkClient client,
+        AssistantMessage message,
+        CompletionOptions? options,
+        DiagnosticsBuilder diagnostics,
+        CancellationToken cancellationToken)
+    {
+        await AddSilentTruncationIfSuspectedAsync(client, message, options, diagnostics, cancellationToken);
+        return AttachDiagnostics(message, diagnostics);
+    }
+
+    private static async Task AddSilentTruncationIfSuspectedAsync(
+        ILlmSdkClient client,
+        AssistantMessage message,
+        CompletionOptions? options,
+        DiagnosticsBuilder diagnostics,
+        CancellationToken cancellationToken)
+    {
+        if (message.StopReason != StopReason.Length ||
+            message.Usage?.InputTokens is not > 0 ||
+            string.IsNullOrWhiteSpace(options?.Model))
+        {
+            return;
+        }
+
+        var model = await client.GetModelAsync(options.Model, cancellationToken);
+        if (!OverflowDetector.IsSilentTruncation(message.Usage.InputTokens, model.ContextWindow, message.StopReason))
+        {
+            return;
+        }
+
+        diagnostics.Add(
+            DiagnosticSeverity.Warning,
+            "silent_truncation_suspected",
+            "The response stopped due to length near the model context window.",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["model"] = model.Id,
+                ["inputTokens"] = message.Usage.InputTokens.ToString(CultureInfo.InvariantCulture),
+                ["window"] = model.ContextWindow?.ToString(CultureInfo.InvariantCulture) ?? "unknown",
+            });
+    }
+
+    private static AssistantMessage AttachDiagnostics(AssistantMessage message, DiagnosticsBuilder diagnostics) =>
+        diagnostics.Build() is { } built
+            ? message with { Diagnostics = built }
+            : message;
+
+    private static IReadOnlyDictionary<string, string> CreateOverflowDetail(ContextOverflowException overflow)
+    {
+        var detail = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (overflow.ContextWindow is { } contextWindow)
+        {
+            detail["window"] = contextWindow.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (overflow.InputTokens is { } inputTokens)
+        {
+            detail["input"] = inputTokens.ToString(CultureInfo.InvariantCulture);
+        }
+
+        return detail;
+    }
 
     private static string GetExceptionMessage(Exception exception) =>
         string.IsNullOrWhiteSpace(exception.Message)

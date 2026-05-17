@@ -633,7 +633,7 @@ public sealed class LlmSdkClientTests
         };
         var client = CreateClient(responsesService: service, modelProvider: modelProvider);
 
-        await client.CompleteAsync(
+        var message = await client.CompleteAsync(
             new Context { Messages = [new UserMessage([new TextContent("Hello!")])] },
             new CompletionOptions
             {
@@ -644,6 +644,11 @@ public sealed class LlmSdkClientTests
             });
 
         Assert.Equal("medium", service.LastRequest?.Reasoning?.Effort);
+        var diagnostic = Assert.Single(message.Diagnostics?.Entries ?? []);
+        Assert.Equal("thinking_clamped", diagnostic.Code);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal("XHigh", diagnostic.Detail?["requested"]);
+        Assert.Equal("Medium", diagnostic.Detail?["effective"]);
     }
 
     [Fact]
@@ -672,7 +677,7 @@ public sealed class LlmSdkClientTests
         var logger = new CapturingLogger<LlmSdkClient>();
         var client = CreateClient(responsesService: service, modelProvider: modelProvider, logger: logger);
 
-        await client.CompleteAsync(
+        var message = await client.CompleteAsync(
             new Context
             {
                 Messages =
@@ -692,6 +697,47 @@ public sealed class LlmSdkClientTests
         var entry = Assert.Single(logger.Entries, static entry => entry.EventId == LogEvents.ImagesDroppedForNonVisionModel);
         Assert.Equal(LogLevel.Debug, entry.Level);
         Assert.Contains("Dropping 1 image(s) for non-vision model text-only-model.", entry.Message);
+        var diagnostic = Assert.Single(message.Diagnostics?.Entries ?? []);
+        Assert.Equal("image_dropped", diagnostic.Code);
+        Assert.Equal("1", diagnostic.Detail?["count"]);
+        Assert.Equal("text-only-model", diagnostic.Detail?["model"]);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WhenLengthStopIsNearContextWindow_AttachesSilentTruncationDiagnostic()
+    {
+        var response = CreateResponse(
+            "resp_context_length",
+            "Truncated",
+            status: ResponseStatuses.Incomplete,
+            usage: new ResponseUsage { InputTokens = 96, OutputTokens = 1 });
+        var service = new StubResponsesService(ResponseHttpResult.FromBody(
+            JsonSerializer.Serialize(response, JsonDefaults.Web),
+            200,
+            "application/json"));
+        var modelProvider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelInfo
+                {
+                    Id = "short-context-model",
+                    SupportedEndpoints = ["/responses"],
+                    TokenLimits = new ModelTokenLimits { MaxContextWindowTokens = 100 },
+                },
+            ],
+        };
+        var client = CreateClient(responsesService: service, modelProvider: modelProvider);
+
+        var message = await client.CompleteAsync(
+            new Context { Messages = [new UserMessage([new TextContent("Hello!")])] },
+            new CompletionOptions { Model = "short-context-model", PreferredApi = CompletionApi.Responses, AbortMode = AbortMode.Throw });
+
+        var diagnostic = Assert.Single(message.Diagnostics?.Entries ?? []);
+        Assert.Equal("silent_truncation_suspected", diagnostic.Code);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal("96", diagnostic.Detail?["inputTokens"]);
+        Assert.Equal("100", diagnostic.Detail?["window"]);
     }
 
     [Fact]
@@ -1000,12 +1046,18 @@ public sealed class LlmSdkClientTests
         };
     }
 
-    private static Response CreateResponse(string id, string text)
+    private static Response CreateResponse(
+        string id,
+        string text,
+        string status = ResponseStatuses.Completed,
+        ResponseUsage? usage = null)
     {
         return new Response
         {
             Id = id,
             Model = "gpt-5.4-mini",
+            Status = status,
+            Usage = usage,
             Output =
             [
                 new ResponseMessageItem
