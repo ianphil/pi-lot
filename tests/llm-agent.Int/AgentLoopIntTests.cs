@@ -162,6 +162,68 @@ public sealed class AgentLoopIntTests
     }
 
     [Fact]
+    public async Task RunAsync_WithFakeSdk_InvalidToolArgumentsReturnErrorsWithoutExecutingTools()
+    {
+        var firstResponse = AgentIntTestHelpers.CreateResponse(
+            AgentIntTestHelpers.FunctionCall("lookup", "call_1", """{"topic":42,"extra":true}""", id: "fc_1"),
+            AgentIntTestHelpers.FunctionCall("lookup", "call_2", "{invalid", id: "fc_2"));
+        var secondResponse = AgentIntTestHelpers.CreateResponse(
+            AgentIntTestHelpers.AssistantMessage("I could not use the tool."));
+        var streams = new Queue<ResponseStreamEvent[]>(
+        [
+            [AgentIntTestHelpers.Completed(firstResponse, sequenceNumber: 1)],
+            [AgentIntTestHelpers.Completed(secondResponse, sequenceNumber: 2)],
+        ]);
+        var client = new FakeLlmSdkClient((_, _) => AgentIntTestHelpers.ToAsyncEnumerable(streams.Dequeue()));
+        var tool = new FakeAgentTool(
+            "lookup",
+            "Look up a topic.",
+            CreateLookupParameters(),
+            strict: true,
+            executeAsync: (_, _, _) => Task.FromResult(new AgentToolResult("unused")));
+
+        var events = await AgentIntTestHelpers.CollectEventsAsync(AgentLoop.RunAsync(
+            client,
+            "Read the docs.",
+            new AgentLoopOptions
+            {
+                Model = "fake-agent-model",
+                Tools = [tool],
+            }));
+
+        Assert.Contains(events, static evt => evt is AgentEnded);
+        Assert.Equal(0, tool.ExecuteCallCount);
+        Assert.Equal(2, client.CreateResponseStreamRequests.Count);
+        var toolEndedEvents = events.OfType<ToolExecutionEnded>().ToArray();
+        Assert.Collection(
+            toolEndedEvents,
+            first =>
+            {
+                Assert.Equal("call_1", first.CallId);
+                Assert.True(first.Result.IsError);
+                Assert.Contains("Tool argument validation failed", first.Result.Content, StringComparison.Ordinal);
+                Assert.Contains("topic must be string", first.Result.Content, StringComparison.Ordinal);
+                Assert.Contains("extra is not allowed", first.Result.Content, StringComparison.Ordinal);
+            },
+            second =>
+            {
+                Assert.Equal("call_2", second.CallId);
+                Assert.True(second.Result.IsError);
+                Assert.Contains("arguments must be valid JSON", second.Result.Content, StringComparison.Ordinal);
+            });
+
+        var secondInput = client.CreateResponseStreamRequests[1].Input;
+        var firstToolOutput = secondInput[secondInput.GetArrayLength() - 2];
+        var secondToolOutput = secondInput[secondInput.GetArrayLength() - 1];
+        Assert.Equal("function_call_output", firstToolOutput.GetProperty("type").GetString());
+        Assert.Equal("call_1", firstToolOutput.GetProperty("call_id").GetString());
+        Assert.Contains("Tool argument validation failed", firstToolOutput.GetProperty("output").GetString(), StringComparison.Ordinal);
+        Assert.Equal("function_call_output", secondToolOutput.GetProperty("type").GetString());
+        Assert.Equal("call_2", secondToolOutput.GetProperty("call_id").GetString());
+        Assert.Contains("arguments must be valid JSON", secondToolOutput.GetProperty("output").GetString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     [Trait("Category", "Smoke")]
     public async Task RunAsync_WithLiveSdk_ReturnsAssistantText()
     {
@@ -189,6 +251,45 @@ public sealed class AgentLoopIntTests
         Assert.Contains("hello", text, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    [Trait("Category", "Smoke")]
+    public async Task RunAsync_WithLiveSdk_CanExecuteStrictSchemaTool()
+    {
+        await using var provider = CreateAuthenticatedProvider();
+        var client = provider.GetRequiredService<ILlmSdkClient>();
+        var tool = new FakeAgentTool(
+            "lookup_fact",
+            "Look up one known fact by topic.",
+            CreateLookupParameters(),
+            strict: true,
+            executeAsync: (_, arguments, _) =>
+            {
+                Assert.Equal("docs", arguments.GetProperty("topic").GetString());
+                return Task.FromResult(new AgentToolResult("pi-lot docs are public"));
+            });
+
+        var events = await AgentIntTestHelpers.CollectEventsAsync(AgentLoop.RunAsync(
+            client,
+            "Call lookup_fact exactly once with topic set to docs, then answer using the tool result.",
+            new AgentLoopOptions
+            {
+                Model = "gpt-5.4-mini",
+                Instructions = "You must call the provided tool before answering. Use only topic value docs.",
+                Tools = [tool],
+                PromptCacheKey = $"agent-live-tool-smoke-{Guid.NewGuid():N}",
+                TimeoutMs = 60000,
+                MaxRetries = 1,
+                MaxRetryDelayMs = 1000,
+            }));
+        var text = AgentIntTestHelpers.CollectOutputText(events).Trim();
+        _output.WriteLine(text);
+
+        Assert.Equal(1, tool.ExecuteCallCount);
+        Assert.Contains(events, static evt => evt is ToolExecutionStarted);
+        Assert.Contains(events, static evt => evt is ToolExecutionEnded { Result.IsError: false });
+        Assert.Contains(events, static evt => evt is AgentEnded);
+    }
+
     private static ServiceProvider CreateAuthenticatedProvider()
     {
         var services = new ServiceCollection();
@@ -199,4 +300,16 @@ public sealed class AgentLoopIntTests
         Assert.True(auth.TryLoadCredential(), "Could not load Copilot credentials from COPILOT_TOKEN or the local credential store.");
         return provider;
     }
+
+    private static JsonElement CreateLookupParameters() =>
+        JsonSerializer.SerializeToElement(new
+        {
+            type = "object",
+            properties = new
+            {
+                topic = new { type = "string" },
+            },
+            required = new[] { "topic" },
+            additionalProperties = false,
+        }, JsonDefaults.Web);
 }

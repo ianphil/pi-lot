@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using LlmSdk.Client;
 using LlmSdk.Core.Models;
+using LlmSdk.Core.Services;
 
 namespace LlmAgent;
 
@@ -158,6 +159,12 @@ public static class AgentLoop
             return new AgentToolResult($"Tool '{functionCall.Name}' not found.", true);
         }
 
+        var validation = ToolValidator.Validate(ToValidationDefinition(tool), functionCall.Arguments);
+        if (!validation.IsValid)
+        {
+            return new AgentToolResult(FormatToolValidationError(validation), true);
+        }
+
         JsonElement arguments;
         try
         {
@@ -165,7 +172,7 @@ public static class AgentLoop
         }
         catch (JsonException exception)
         {
-            return new AgentToolResult($"Invalid arguments: {exception.Message}", true);
+            return new AgentToolResult(FormatToolValidationError(new ToolValidationResult(false, [exception.Message])), true);
         }
 
         try
@@ -176,6 +183,19 @@ public static class AgentLoop
         {
             return new AgentToolResult(exception.Message, true);
         }
+    }
+
+    private static ToolDefinition ToValidationDefinition(IAgentTool tool) =>
+        new(tool.Name, tool.Description, tool.Parameters, tool.Strict);
+
+    private static string FormatToolValidationError(ToolValidationResult result)
+    {
+        if (result.Errors.Count == 0)
+        {
+            return "Tool argument validation failed.";
+        }
+
+        return $"Tool argument validation failed: {string.Join("; ", result.Errors)}";
     }
 
     private enum StreamTerminalState
