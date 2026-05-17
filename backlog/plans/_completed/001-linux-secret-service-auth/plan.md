@@ -185,4 +185,4 @@ COPILOT_TOKEN=ghu_xxx dotnet run
 - `Infrastructure/CredentialManager.cs`
 - `Program.cs`
 - [Secret Service API 0.2 DRAFT](https://specifications.freedesktop.org/secret-service-spec/latest-single/)
-- [Issue #1: Linux Copilot credential lookup](https://github.com/ianphil/copilot-llm-svc/issues/1)
+- [Issue #1: Linux Copilot credential lookup](https://github.com/ianphil/pi-lot/issues/1)

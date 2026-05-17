@@ -85,9 +85,9 @@ The feature should integrate directly with the Linux desktop secret-store surfac
 ## Sources
 
 - [Secret Service API 0.2 DRAFT](https://specifications.freedesktop.org/secret-service-spec/latest-single/)
-- [Issue #1 comment: design direction and abstraction proposal](https://github.com/ianphil/copilot-llm-svc/issues/1#issuecomment-4187219472)
-- [Issue #1 comment: Linux Secret Service spike with D-Bus package evaluation](https://github.com/ianphil/copilot-llm-svc/issues/1#issuecomment-4187229758)
-- [Issue #1 comment: Copilot CLI auth storage behavior on Linux](https://github.com/ianphil/copilot-llm-svc/issues/1#issuecomment-4187238747)
+- [Issue #1 comment: design direction and abstraction proposal](https://github.com/ianphil/pi-lot/issues/1#issuecomment-4187219472)
+- [Issue #1 comment: Linux Secret Service spike with D-Bus package evaluation](https://github.com/ianphil/pi-lot/issues/1#issuecomment-4187229758)
+- [Issue #1 comment: Copilot CLI auth storage behavior on Linux](https://github.com/ianphil/pi-lot/issues/1#issuecomment-4187238747)
 
 ## Conclusion
 

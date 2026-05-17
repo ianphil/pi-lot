@@ -198,6 +198,6 @@ Details in tasks.md.
 
 ## References
 
-- [Issue #4: SDK API Surface Research](https://github.com/ianphil/copilot-llm-svc/issues/4)
+- [Issue #4: SDK API Surface Research](https://github.com/ianphil/pi-lot/issues/4)
 - [Azure SDK General Design Guidelines](https://azure.github.io/azure-sdk/general_design.html)
 - [Google AIP-4232: Flattened method signatures](https://google.aip.dev/client-libraries/4232)
