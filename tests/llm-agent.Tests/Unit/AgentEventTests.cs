@@ -11,25 +11,8 @@ public sealed class AgentEventTests
         var context = new AgentContext();
         context.AddUserMessage("hello");
 
-        var response = new Response
-        {
-            Id = "resp_123",
-            Output =
-            [
-                new ResponseMessageItem
-                {
-                    Id = "msg_123",
-                    Content =
-                    [
-                        new ResponseOutputTextPart
-                        {
-                            Text = "hi",
-                        },
-                    ],
-                },
-            ],
-        };
-        var streamEvent = new OutputTextDeltaEvent("response.output_text.delta", 1, "hi", 0, 0, "msg_123");
+        var message = new AssistantMessage([new TextContent("hi")], StopReason.Stop);
+        var streamEvent = new TextDelta("hi");
         var toolResult = new AgentToolResult("done");
 
         var names = new[]
@@ -37,7 +20,7 @@ public sealed class AgentEventTests
             Describe(new AgentStarted()),
             Describe(new AgentEnded(context)),
             Describe(new TurnStarted()),
-            Describe(new TurnEnded(response, [new AgentToolCallResult("call_1", "lookup", "done", false)])),
+            Describe(new TurnEnded(message, [new AgentToolCallResult("call_1", "lookup", "done", false)])),
             Describe(new ContextBudgetWarning(new AgentContextBudgetResult(
                 "gpt-5.4",
                 600,
@@ -47,7 +30,7 @@ public sealed class AgentEventTests
                 new ModelTokenLimits { MaxPromptTokens = 1000 }))),
             Describe(new MessageStarted()),
             Describe(new MessageDelta(streamEvent)),
-            Describe(new MessageEnded(response)),
+            Describe(new MessageEnded(message)),
             Describe(new ToolExecutionStarted("call_1", "lookup", "{\"city\":\"Paris\"}")),
             Describe(new ToolExecutionEnded("call_1", "lookup", toolResult)),
         };

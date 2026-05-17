@@ -34,6 +34,9 @@ public sealed record AgentLoopOptions
     public int? MaxTurns { get; init; }
     public double? Temperature { get; init; }
     public ResponseReasoning? Reasoning { get; init; }
+    public ThinkingLevel? Thinking { get; init; }
+    public CacheRetention CacheRetention { get; init; } = CacheRetention.None;
+    public string? SessionId { get; init; }
     public string? RequestId { get; init; }
     public string? CorrelationId { get; init; }
     public IReadOnlyDictionary<string, string>? Metadata { get; init; }
@@ -55,15 +58,21 @@ public sealed record AgentEnded(AgentContext Context) : AgentEvent;
 
 public sealed record TurnStarted : AgentEvent;
 
-public sealed record TurnEnded(Response Response, IReadOnlyList<AgentToolCallResult> ToolResults) : AgentEvent;
+public sealed record TurnEnded(AssistantMessage Message, IReadOnlyList<AgentToolCallResult> ToolResults) : AgentEvent
+{
+    public AssistantMessage Response => Message;
+}
 
 public sealed record ContextBudgetWarning(AgentContextBudgetResult Result) : AgentEvent;
 
 public sealed record MessageStarted : AgentEvent;
 
-public sealed record MessageDelta(ResponseStreamEvent StreamEvent) : AgentEvent;
+public sealed record MessageDelta(AssistantStreamEvent StreamEvent) : AgentEvent;
 
-public sealed record MessageEnded(Response Response) : AgentEvent;
+public sealed record MessageEnded(AssistantMessage Message) : AgentEvent
+{
+    public AssistantMessage Response => Message;
+}
 
 public sealed record ToolExecutionStarted(string CallId, string ToolName, string Arguments) : AgentEvent;
 
@@ -71,16 +80,10 @@ public sealed record ToolExecutionEnded(string CallId, string ToolName, AgentToo
 
 public static class AgentToolExtensions
 {
-    public static ResponseFunctionToolDefinition ToToolDefinition(this IAgentTool tool)
+    public static ToolDefinition ToToolDefinition(this IAgentTool tool)
     {
         ArgumentNullException.ThrowIfNull(tool);
 
-        return new ResponseFunctionToolDefinition
-        {
-            Name = tool.Name,
-            Description = tool.Description,
-            Parameters = tool.Parameters,
-            Strict = tool.Strict,
-        };
+        return new ToolDefinition(tool.Name, tool.Description, tool.Parameters, tool.Strict);
     }
 }

@@ -72,9 +72,9 @@ internal static class AgentIntTestHelpers
         var builder = new StringBuilder();
         foreach (var evt in events)
         {
-            if (evt is MessageDelta { StreamEvent: OutputTextDeltaEvent delta })
+            if (evt is MessageDelta { StreamEvent: TextDelta delta })
             {
-                builder.Append(delta.Delta);
+                builder.Append(delta.Text);
             }
         }
 
@@ -87,6 +87,8 @@ internal static class AgentIntTestHelpers
             .OfType<MessageEnded>()
             .LastOrDefault()
             ?.Response
-            .GetOutputText() ?? string.Empty;
+            .Content
+            .OfType<TextContent>()
+            .Aggregate(string.Empty, static (text, content) => text + content.Text) ?? string.Empty;
     }
 }

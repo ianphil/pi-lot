@@ -193,34 +193,25 @@ public sealed class AgentLoopIntTests
 
         Assert.Contains(events, static evt => evt is AgentEnded);
         Assert.Equal(0, tool.ExecuteCallCount);
-        Assert.Equal(2, client.CreateResponseStreamRequests.Count);
-        var toolEndedEvents = events.OfType<ToolExecutionEnded>().ToArray();
+        Assert.Single(client.CreateResponseStreamRequests);
+        Assert.DoesNotContain(events, static evt => evt is ToolExecutionStarted or ToolExecutionEnded);
+        var messageEnded = Assert.IsType<MessageEnded>(events.Single(static evt => evt is MessageEnded));
         Assert.Collection(
-            toolEndedEvents,
+            messageEnded.Message.Content.OfType<ToolResultContent>(),
             first =>
             {
-                Assert.Equal("call_1", first.CallId);
-                Assert.True(first.Result.IsError);
-                Assert.Contains("Tool argument validation failed", first.Result.Content, StringComparison.Ordinal);
-                Assert.Contains("topic must be string", first.Result.Content, StringComparison.Ordinal);
-                Assert.Contains("extra is not allowed", first.Result.Content, StringComparison.Ordinal);
+                Assert.Equal("call_1", first.ToolCallId);
+                Assert.True(first.IsError);
+                Assert.Contains("Tool argument validation failed", first.Output, StringComparison.Ordinal);
+                Assert.Contains("topic must be string", first.Output, StringComparison.Ordinal);
+                Assert.Contains("extra is not allowed", first.Output, StringComparison.Ordinal);
             },
             second =>
             {
-                Assert.Equal("call_2", second.CallId);
-                Assert.True(second.Result.IsError);
-                Assert.Contains("arguments must be valid JSON", second.Result.Content, StringComparison.Ordinal);
+                Assert.Equal("call_2", second.ToolCallId);
+                Assert.True(second.IsError);
+                Assert.Contains("arguments must be valid JSON", second.Output, StringComparison.Ordinal);
             });
-
-        var secondInput = client.CreateResponseStreamRequests[1].Input;
-        var firstToolOutput = secondInput[secondInput.GetArrayLength() - 2];
-        var secondToolOutput = secondInput[secondInput.GetArrayLength() - 1];
-        Assert.Equal("function_call_output", firstToolOutput.GetProperty("type").GetString());
-        Assert.Equal("call_1", firstToolOutput.GetProperty("call_id").GetString());
-        Assert.Contains("Tool argument validation failed", firstToolOutput.GetProperty("output").GetString(), StringComparison.Ordinal);
-        Assert.Equal("function_call_output", secondToolOutput.GetProperty("type").GetString());
-        Assert.Equal("call_2", secondToolOutput.GetProperty("call_id").GetString());
-        Assert.Contains("arguments must be valid JSON", secondToolOutput.GetProperty("output").GetString(), StringComparison.Ordinal);
     }
 
     [Fact]

@@ -50,6 +50,27 @@ public sealed class AgentContextTests
     }
 
     [Fact]
+    public void ToResponseInput_WithAssistantResponse_ProducesResponsesItems()
+    {
+        var context = new AgentContext();
+
+        context.AddAssistantMessage(new AssistantMessage(
+        [
+            new TextContent("I'll read it."),
+            new ToolCallContent("call_123", "read_file", "{\"path\":\"test.txt\"}"),
+        ], StopReason.ToolUse));
+
+        var input = context.ToResponseInput();
+
+        Assert.Equal(JsonValueKind.Array, input.ValueKind);
+        Assert.Equal(2, input.GetArrayLength());
+        Assert.Equal("assistant", input[0].GetProperty("role").GetString());
+        Assert.Equal("input_text", input[0].GetProperty("content")[0].GetProperty("type").GetString());
+        Assert.Equal("function_call", input[1].GetProperty("type").GetString());
+        Assert.Equal("call_123", input[1].GetProperty("call_id").GetString());
+    }
+
+    [Fact]
     public void SerializeInput_WithUserMessageResponseOutputAndToolResult_ProducesExpectedItemSequence()
     {
         var context = new AgentContext();

@@ -39,7 +39,9 @@ public static class AgentLoop
 
             yield return new TurnStarted();
 
-            var request = BuildRequest(context, options);
+            var sdkContext = BuildContext(context, options);
+            var completionOptions = BuildCompletionOptions(options);
+            var request = ContextTranslator.ToCreateResponseRequest(sdkContext, completionOptions);
             var budget = options.ContextBudget is null
                 ? null
                 : await AgentContextBudget.EvaluateAsync(client, request, options.ContextBudget, cancellationToken);
@@ -49,11 +51,11 @@ public static class AgentLoop
                 yield return new ContextBudgetWarning(budget);
             }
 
-            var stream = client.CreateResponseStreamAsync(request, cancellationToken);
+            var stream = client.StreamAsync(sdkContext, completionOptions, cancellationToken);
 
             yield return new MessageStarted();
 
-            Response? response = null;
+            AssistantMessage? message = null;
             var terminalState = StreamTerminalState.Completed;
 
             await foreach (var streamEvent in stream.WithCancellation(cancellationToken))
@@ -62,22 +64,20 @@ public static class AgentLoop
 
                 switch (streamEvent)
                 {
-                    case ResponseCompletedEvent completed:
-                        response = completed.Response;
-                        terminalState = StreamTerminalState.Completed;
-                        yield return new MessageEnded(completed.Response);
+                    case StreamStart:
+                    case UsageEvent:
                         break;
 
-                    case ResponseFailedEvent failed:
-                        response = failed.Response;
+                    case StreamDone done:
+                        message = done.FinalMessage;
+                        terminalState = ToTerminalState(done.FinalMessage.StopReason);
+                        yield return new MessageEnded(done.FinalMessage);
+                        break;
+
+                    case StreamError error:
+                        message = error.PartialMessage;
                         terminalState = StreamTerminalState.Failed;
-                        yield return new MessageEnded(failed.Response);
-                        break;
-
-                    case ResponseIncompleteEvent incomplete:
-                        response = incomplete.Response;
-                        terminalState = StreamTerminalState.Incomplete;
-                        yield return new MessageEnded(incomplete.Response);
+                        yield return new MessageEnded(error.PartialMessage);
                         break;
 
                     default:
@@ -86,19 +86,19 @@ public static class AgentLoop
                 }
             }
 
-            if (response is null)
+            if (message is null)
             {
-                throw new InvalidOperationException("Response stream ended without a terminal response event.");
+                throw new InvalidOperationException("Response stream ended without a terminal assistant message event.");
             }
 
-            context.AddResponseOutput(response.Output);
+            context.AddAssistantMessage(message);
 
             var toolResults = new List<AgentToolCallResult>();
-            var functionCalls = response.Output.OfType<ResponseFunctionCallItem>().ToArray();
+            var functionCalls = message.Content.OfType<ToolCallContent>().ToArray();
 
             if (terminalState is not StreamTerminalState.Completed)
             {
-                yield return new TurnEnded(response, toolResults);
+                yield return new TurnEnded(message, toolResults);
                 break;
             }
 
@@ -106,16 +106,16 @@ public static class AgentLoop
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                yield return new ToolExecutionStarted(functionCall.CallId, functionCall.Name, functionCall.Arguments);
+                yield return new ToolExecutionStarted(functionCall.Id, functionCall.Name, functionCall.ArgumentsJson);
 
                 var result = await ExecuteToolAsync(options.Tools, functionCall, cancellationToken);
-                toolResults.Add(new AgentToolCallResult(functionCall.CallId, functionCall.Name, result.Content, result.IsError));
-                context.AddToolResult(functionCall.CallId, result.Content);
+                toolResults.Add(new AgentToolCallResult(functionCall.Id, functionCall.Name, result.Content, result.IsError));
+                context.AddToolResult(functionCall.Id, result.Content);
 
-                yield return new ToolExecutionEnded(functionCall.CallId, functionCall.Name, result);
+                yield return new ToolExecutionEnded(functionCall.Id, functionCall.Name, result);
             }
 
-            yield return new TurnEnded(response, toolResults);
+            yield return new TurnEnded(message, toolResults);
 
             if (functionCalls.Length == 0)
             {
@@ -126,15 +126,17 @@ public static class AgentLoop
         yield return new AgentEnded(context);
     }
 
-    private static CreateResponseRequest BuildRequest(AgentContext context, AgentLoopOptions options)
+    private static Context BuildContext(AgentContext context, AgentLoopOptions options)
+        => context.ToSdkContext(options.Instructions, options.Tools.Select(static tool => tool.ToToolDefinition()).ToArray());
+
+    private static CompletionOptions BuildCompletionOptions(AgentLoopOptions options)
         => new()
         {
             Model = options.Model,
-            Input = context.SerializeInput(),
-            Stream = true,
-            Instructions = options.Instructions,
             Temperature = options.Temperature,
-            Reasoning = options.Reasoning,
+            Thinking = options.Thinking ?? ToThinkingLevel(options.Reasoning),
+            Cache = options.CacheRetention,
+            SessionId = options.SessionId ?? options.PromptCacheKey,
             RequestId = options.RequestId,
             CorrelationId = options.CorrelationId,
             Metadata = options.Metadata,
@@ -142,15 +144,13 @@ public static class AgentLoop
             MaxRetries = options.MaxRetries,
             MaxRetryDelayMs = options.MaxRetryDelayMs,
             Headers = options.Headers,
-            PromptCacheKey = options.PromptCacheKey,
             OnPayload = options.OnPayload,
             OnResponse = options.OnResponse,
-            Tools = options.Tools.Select(static tool => tool.ToToolDefinition()).ToArray(),
         };
 
     private static async Task<AgentToolResult> ExecuteToolAsync(
         IReadOnlyList<IAgentTool> tools,
-        ResponseFunctionCallItem functionCall,
+        ToolCallContent functionCall,
         CancellationToken cancellationToken)
     {
         var tool = tools.FirstOrDefault(candidate => string.Equals(candidate.Name, functionCall.Name, StringComparison.Ordinal));
@@ -159,7 +159,7 @@ public static class AgentLoop
             return new AgentToolResult($"Tool '{functionCall.Name}' not found.", true);
         }
 
-        var validation = ToolValidator.Validate(ToValidationDefinition(tool), functionCall.Arguments);
+        var validation = ToolValidator.Validate(ToValidationDefinition(tool), functionCall.ArgumentsJson);
         if (!validation.IsValid)
         {
             return new AgentToolResult(FormatToolValidationError(validation), true);
@@ -168,7 +168,7 @@ public static class AgentLoop
         JsonElement arguments;
         try
         {
-            arguments = JsonSerializer.Deserialize<JsonElement>(functionCall.Arguments, JsonDefaults.Web);
+            arguments = JsonSerializer.Deserialize<JsonElement>(functionCall.ArgumentsJson, JsonDefaults.Web);
         }
         catch (JsonException exception)
         {
@@ -177,7 +177,7 @@ public static class AgentLoop
 
         try
         {
-            return await tool.ExecuteAsync(functionCall.CallId, arguments, cancellationToken);
+            return await tool.ExecuteAsync(functionCall.Id, arguments, cancellationToken);
         }
         catch (Exception exception)
         {
@@ -187,6 +187,25 @@ public static class AgentLoop
 
     private static ToolDefinition ToValidationDefinition(IAgentTool tool) =>
         new(tool.Name, tool.Description, tool.Parameters, tool.Strict);
+
+    private static ThinkingLevel? ToThinkingLevel(ResponseReasoning? reasoning) =>
+        reasoning?.Effort?.ToLowerInvariant() switch
+        {
+            "minimal" => ThinkingLevel.Minimal,
+            "low" => ThinkingLevel.Low,
+            "medium" => ThinkingLevel.Medium,
+            "high" => ThinkingLevel.High,
+            "xhigh" => ThinkingLevel.XHigh,
+            _ => null,
+        };
+
+    private static StreamTerminalState ToTerminalState(StopReason stopReason) => stopReason switch
+    {
+        StopReason.Error => StreamTerminalState.Failed,
+        StopReason.Aborted => StreamTerminalState.Failed,
+        StopReason.Length => StreamTerminalState.Incomplete,
+        _ => StreamTerminalState.Completed,
+    };
 
     private static string FormatToolValidationError(ToolValidationResult result)
     {
