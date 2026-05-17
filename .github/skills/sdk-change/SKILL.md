@@ -1,6 +1,6 @@
 ---
 name: sdk-change
-description: Use this for LlmSdk work: SDK issues, SDK client changes, Core/Proxy behavior, Infrastructure adapters, model/auth/routing/translation changes, or any task that mentions the SDK layer. It forces an SDK layer decision first, keeps agent/service consumers separate, and picks the owning SDK tests before implementation.
+description: 'Use this for LlmSdk work: SDK issues, SDK client changes, Core/Proxy behavior, Infrastructure adapters, model/auth/routing/translation changes, or any task that mentions the SDK layer. It forces an SDK layer decision first, keeps agent/service consumers separate, and picks the owning SDK tests before implementation.'
 ---
 
 # SDK Change Workflow

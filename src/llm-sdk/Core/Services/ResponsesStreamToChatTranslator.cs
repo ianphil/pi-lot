@@ -18,9 +18,10 @@ public sealed class ResponsesStreamToChatTranslator
         var nextToolCallIndex = 0;
         var started = false;
 
+        var parser = new SseChunkParser();
         await foreach (var chunk in chunks.WithCancellation(cancellationToken))
         {
-            var parsed = SseChunkParser.Parse(chunk);
+            var parsed = parser.ParseChunk(chunk);
             if (parsed is null)
             {
                 continue;

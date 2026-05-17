@@ -15,9 +15,10 @@ public sealed class ChatCompletionsStreamTranslator
     {
         var state = new ChatCompletionResponseStreamState(request);
 
+        var parser = new SseChunkParser();
         await foreach (var chunk in chunks.WithCancellation(cancellationToken))
         {
-            var envelope = SseChunkParser.Parse(chunk);
+            var envelope = parser.ParseChunk(chunk);
             if (envelope is null)
             {
                 continue;
