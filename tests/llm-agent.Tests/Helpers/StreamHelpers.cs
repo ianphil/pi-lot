@@ -60,6 +60,17 @@ internal static class StreamHelpers
             contentIndex,
             itemId);
 
+    public static FunctionCallArgumentsDeltaEvent FunctionCallArgumentsDelta(
+        string delta,
+        int sequenceNumber = 0,
+        int outputIndex = 0,
+        string? itemId = "fc_123") => new(
+            "response.function_call_arguments.delta",
+            sequenceNumber,
+            delta,
+            outputIndex,
+            itemId);
+
     public static ResponseCompletedEvent Completed(Response response, int sequenceNumber = 0)
         => new("response.completed", sequenceNumber, response);
 

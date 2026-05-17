@@ -131,13 +131,25 @@ Each tool supplies:
 
 - `Name` — must match what the model calls
 - `Description` — shown to the model
-- `Parameters` — JSON Schema as `JsonElement`
+- `Parameters` — JSON Schema as `JsonElement`; enforced before local execution
 - `Strict` — whether schema validation should be strict
-- `ExecuteAsync(...)` — receives parsed `JsonElement` arguments
+- `ExecuteAsync(...)` — receives parsed arguments only after JSON and schema
+  validation pass
 
-If a tool throws, the loop catches the exception and sends an error result back
-to the model as tool output. If the model calls an unknown tool, the loop does
-the same with a "tool not found" result.
+Before local tool code runs, the agent parses the final model-produced arguments
+and validates them against the matching tool's `Parameters` schema using the SDK
+validator. Invalid JSON or schema-invalid arguments become agent-owned tool error
+results; the local `ExecuteAsync(...)` method is not called. If a tool throws,
+the loop catches the exception and sends an error result back to the model as
+tool output. If the model calls an unknown tool, the loop does the same with a
+"tool not found" result.
+
+Raw streamed tool-call argument deltas remain observable through
+`MessageDelta.StreamEvent` as `FunctionCallArgumentsDeltaEvent`. `LlmAgent` does
+not currently add a separate typed argument-progress event because raw deltas do
+not always carry the final tool call id and name without additional stream state.
+Local tool progress callbacks and pre/post tool policy hooks are separate future
+agent API stories.
 
 ## Request behavior
 

@@ -166,6 +166,13 @@ public sealed class AgentLoopTests
         var tool = new FakeAgentTool(
             "read_file",
             "Read a file.",
+            CreateObjectSchema(
+                new
+                {
+                    path = new { type = "string" },
+                },
+                ["path"]),
+            strict: true,
             executeAsync: (_, arguments, _) =>
             {
                 Assert.Equal("test.txt", arguments.GetProperty("path").GetString());
@@ -178,6 +185,66 @@ public sealed class AgentLoopTests
 
         Assert.True(tool.LastArguments.HasValue);
         Assert.Equal("test.txt", tool.LastArguments.Value.GetProperty("path").GetString());
+    }
+
+    [Fact]
+    public async Task RunAsync_InvalidSchemaToolArgumentsReturnsErrorResultWithoutExecutingTool()
+    {
+        var requests = new List<CreateResponseRequest>();
+        var firstResponse = StreamHelpers.CreateResponse(
+            StreamHelpers.FunctionCall("read_file", "call_1", "{\"path\":42,\"extra\":true}"));
+        var secondResponse = StreamHelpers.CreateResponse(StreamHelpers.AssistantMessage("Done."));
+        var streams = new Queue<ResponseStreamEvent[]>(
+        [
+            [StreamHelpers.Completed(firstResponse, sequenceNumber: 1)],
+            [StreamHelpers.Completed(secondResponse, sequenceNumber: 2)],
+        ]);
+        var tool = new FakeAgentTool(
+            "read_file",
+            "Read a file.",
+            CreateObjectSchema(
+                new
+                {
+                    path = new { type = "string" },
+                },
+                ["path"],
+                additionalProperties: false),
+            strict: true,
+            executeAsync: (_, _, _) => Task.FromResult(new AgentToolResult("unused")));
+        var client = new FakeLlmSdkClient(
+            createResponseStreamAsync: (request, _) =>
+            {
+                requests.Add(request);
+                return StreamHelpers.ToAsyncEnumerable(streams.Dequeue());
+            });
+
+        var events = await CollectEventsAsync(AgentLoop.RunAsync(client, "Read test.txt", CreateOptions([tool])));
+
+        Assert.Equal(0, tool.ExecuteCallCount);
+        Assert.Collection(
+            events.Where(static evt => evt is ToolExecutionStarted or ToolExecutionEnded),
+            toolStarted =>
+            {
+                var started = Assert.IsType<ToolExecutionStarted>(toolStarted);
+                Assert.Equal("call_1", started.CallId);
+                Assert.Equal("read_file", started.ToolName);
+                Assert.Equal("{\"path\":42,\"extra\":true}", started.Arguments);
+            },
+            toolEnded =>
+            {
+                var ended = Assert.IsType<ToolExecutionEnded>(toolEnded);
+                Assert.Equal("call_1", ended.CallId);
+                Assert.Equal("read_file", ended.ToolName);
+                Assert.True(ended.Result.IsError);
+                Assert.Contains("Tool argument validation failed", ended.Result.Content, StringComparison.Ordinal);
+                Assert.Contains("path must be string", ended.Result.Content, StringComparison.Ordinal);
+                Assert.Contains("extra is not allowed", ended.Result.Content, StringComparison.Ordinal);
+            });
+
+        var toolOutput = requests[1].Input[requests[1].Input.GetArrayLength() - 1];
+        Assert.Equal("function_call_output", toolOutput.GetProperty("type").GetString());
+        Assert.Equal("call_1", toolOutput.GetProperty("call_id").GetString());
+        Assert.Contains("Tool argument validation failed", toolOutput.GetProperty("output").GetString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -384,10 +451,42 @@ public sealed class AgentLoopTests
 
         var events = await CollectEventsAsync(AgentLoop.RunAsync(client, "Read test.txt", CreateOptions([tool])));
 
-        var toolEnded = Assert.IsType<ToolExecutionEnded>(events.Single(evt => evt is ToolExecutionEnded));
-        Assert.StartsWith("Invalid arguments:", toolEnded.Result.Content);
-        Assert.True(toolEnded.Result.IsError);
+        Assert.Collection(
+            events.Where(static evt => evt is ToolExecutionStarted or ToolExecutionEnded),
+            toolStarted => Assert.IsType<ToolExecutionStarted>(toolStarted),
+            toolEnded =>
+            {
+                var ended = Assert.IsType<ToolExecutionEnded>(toolEnded);
+                Assert.Equal("call_1", ended.CallId);
+                Assert.Equal("read_file", ended.ToolName);
+                Assert.StartsWith("Tool argument validation failed:", ended.Result.Content, StringComparison.Ordinal);
+                Assert.Contains("arguments must be valid JSON", ended.Result.Content, StringComparison.Ordinal);
+                Assert.True(ended.Result.IsError);
+            });
         Assert.Equal(0, tool.ExecuteCallCount);
+    }
+
+    [Fact]
+    public async Task RunAsync_FunctionCallArgumentDeltasRemainObservableThroughMessageDelta()
+    {
+        var response = StreamHelpers.CreateResponse(
+            StreamHelpers.FunctionCall("read_file", "call_1", "{\"path\":\"test.txt\"}"));
+        var client = new FakeLlmSdkClient(
+            createResponseStreamAsync: (_, _) => StreamHelpers.ToAsyncEnumerable(
+                StreamHelpers.FunctionCallArgumentsDelta("{\"path\":\"", sequenceNumber: 1),
+                StreamHelpers.FunctionCallArgumentsDelta("test.txt\"}", sequenceNumber: 2),
+                StreamHelpers.Completed(response, sequenceNumber: 3)));
+
+        var events = await CollectEventsAsync(AgentLoop.RunAsync(client, "Read test.txt", CreateOptions(maxTurns: 1)));
+
+        var deltas = events.OfType<MessageDelta>()
+            .Select(static evt => evt.StreamEvent)
+            .OfType<FunctionCallArgumentsDeltaEvent>()
+            .ToArray();
+        Assert.Collection(
+            deltas,
+            delta => Assert.Equal("{\"path\":\"", delta.Delta),
+            delta => Assert.Equal("test.txt\"}", delta.Delta));
     }
 
     [Fact]
@@ -996,6 +1095,17 @@ public sealed class AgentLoopTests
             OnResponse = onResponse,
             ContextBudget = contextBudget,
         };
+
+    private static JsonElement CreateObjectSchema(object properties, string[] required, bool additionalProperties = true) =>
+        JsonSerializer.SerializeToElement(
+            new
+            {
+                type = "object",
+                properties,
+                required,
+                additionalProperties,
+            },
+            JsonDefaults.Web);
 
     private static async Task<List<AgentEvent>> CollectEventsAsync(IAsyncEnumerable<AgentEvent> events)
     {
