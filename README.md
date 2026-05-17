@@ -22,11 +22,11 @@ A .NET library for accessing GitHub Copilot's LLM API with OpenAI-compatible Res
 
 `LlmSdk` is the reusable core product in this repo. It handles Copilot credential resolution, request-level credential refresh and retry, model discovery, native `/responses` routing, `/chat/completions` fallback, and translation between the two API shapes.
 
-The SDK is a Copilot-specific capability port of the core `pi/packages/ai`
-runtime semantics. It targets context messages, tools, streaming, partials,
-thinking, prompt cache/session controls, image input, diagnostics, usage,
-overflow handling, and inspection hooks while intentionally avoiding a generic
-multi-provider registry or provider-specific auth/configuration surface.
+The SDK is Copilot-specific by design. It targets context messages, tools,
+streaming, partials, thinking, prompt cache/session controls, image input,
+diagnostics, usage, overflow handling, and inspection hooks while intentionally
+avoiding a generic multi-provider registry or provider-specific
+auth/configuration surface.
 
 Copilot currently exposes vision/image-input capability through chat and
 Responses models, but this API surface does not expose image generation

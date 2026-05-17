@@ -7,13 +7,12 @@ translation between the Responses and Chat Completions API surfaces.
 For a higher-level tool-calling loop built on top of `LlmSdk`, see
 `docs/agent-guide.md`.
 
-## Scope and pi-ai capability parity
+## Scope
 
-`LlmSdk` is a Copilot-specific capability port of the core runtime semantics in
-`pi/packages/ai`, not a generic multi-provider SDK. The intended parity target is
-portable chat/runtime behavior: context messages, tools, streaming, partial
-results, thinking, prompt-cache/session controls, image input, diagnostics,
-usage, overflow handling, and inspection hooks.
+`LlmSdk` is Copilot-specific by design, not a generic multi-provider SDK. Its
+public surface targets portable chat/runtime behavior: context messages, tools,
+streaming, partial results, thinking, prompt-cache/session controls, image
+input, diagnostics, usage, overflow handling, and inspection hooks.
 
 Provider registries, provider-specific auth/configuration, and non-Copilot
 transport layers are intentional non-goals. The SDK should continue to use
