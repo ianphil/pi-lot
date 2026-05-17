@@ -29,7 +29,7 @@ public sealed class PortableContextSdkTests
                 {
                     Capabilities = new ModelCapabilities
                     {
-                        Supports = new ModelSupports { ReasoningEffort = ["low", "medium"] },
+                        Supports = new ModelSupports { ReasoningEffort = ["low", "medium"], Vision = true },
                     },
                 },
             ],
@@ -46,7 +46,7 @@ public sealed class PortableContextSdkTests
         await using var services = SdkIntTestHost.CreateFakeApiProvider(provider);
         var client = services.GetRequiredService<ILlmSdkClient>();
 
-        var message = await client.CompleteAsync(CreateContext("Say hello."), new CompletionOptions
+        var message = await client.CompleteAsync(CreateImageContext("Say hello."), new CompletionOptions
         {
             Model = "fake-gpt",
             MaxOutputTokens = 32,
@@ -64,6 +64,9 @@ public sealed class PortableContextSdkTests
         Assert.Equal(32, request.MaxOutputTokens);
         Assert.Equal("sdk-int-cache-session", request.PromptCacheKey);
         Assert.Equal("medium", request.Reasoning?.Effort);
+        var inputJson = request.Input.GetRawText();
+        Assert.Contains("\"type\":\"input_image\"", inputJson, StringComparison.Ordinal);
+        Assert.Contains("\"image_url\":\"data:image/png;base64,", inputJson, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -289,7 +292,7 @@ public sealed class PortableContextSdkTests
         await using var services = SdkIntTestHost.CreateAuthenticatedProvider();
         var client = services.GetRequiredService<ILlmSdkClient>();
 
-        var message = await client.CompleteAsync(CreateContext("Reply with exactly: hello"), new CompletionOptions
+        var message = await client.CompleteAsync(CreateImageContext("Reply with exactly: hello. Do not describe the image."), new CompletionOptions
         {
             Model = "gpt-5.4-mini",
             MaxOutputTokens = 32,
@@ -413,6 +416,19 @@ public sealed class PortableContextSdkTests
     {
         System = "Be concise.",
         Messages = [new UserMessage([new TextContent(prompt)])],
+    };
+
+    private static Context CreateImageContext(string prompt) => new()
+    {
+        System = "Be concise.",
+        Messages =
+        [
+            new UserMessage(
+            [
+                new TextContent(prompt),
+                ImageContentFactory.FromBytes(Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"), "image/png"),
+            ]),
+        ],
     };
 
     private static Context CreateWeatherContext() => new()
