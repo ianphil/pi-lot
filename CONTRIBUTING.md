@@ -245,6 +245,7 @@ compatible AI tools.
 | Agent | `csharp-dotnet-janitor` | C#/.NET cleanup and modernization |
 | Agent | `doublecheck` | Verification and adversarial review |
 | Hook | `secrets-scanner` | Scans modified files for secret-like values at session end |
+| Skill | `agent-change` | Agent public API, loop, tool, event, and context-budget workflow |
 | Skill | `csharp-xunit` | XUnit best practices |
 | Skill | `fake-live-int-tests` | Paired fake/live `.Int` test workflow |
 | Skill | `issue-slate` | Batch workflow for grouped GitHub issues |
