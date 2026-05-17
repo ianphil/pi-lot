@@ -7,7 +7,7 @@
     <PackageId>LlmAgent</PackageId>
     <Authors>ianphil</Authors>
     <Description>A .NET agent loop library built on top of LlmSdk.</Description>
-    <RepositoryUrl>https://github.com/ianphil/copilot-llm-svc</RepositoryUrl>
+    <RepositoryUrl>https://github.com/ianphil/pi-lot</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <IsPackable>true</IsPackable>
   </PropertyGroup>

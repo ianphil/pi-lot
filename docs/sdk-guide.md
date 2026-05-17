@@ -26,7 +26,7 @@ Copilot adds a model and endpoint for it.
 
 ## Installation
 
-From [GitHub Packages](https://github.com/ianphil/copilot-llm-svc/packages):
+From [GitHub Packages](https://github.com/ianphil/pi-lot/packages):
 
 ```bash
 dotnet add package LlmSdk --source https://nuget.pkg.github.com/ianphil/index.json

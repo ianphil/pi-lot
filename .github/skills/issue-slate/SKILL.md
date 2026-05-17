@@ -7,7 +7,7 @@ description: Batch workflow for llm-svc issue slates. Use this when the user ask
 
 Drive a labeled or explicitly supplied GitHub issue slate from triage through reviewable PRs.
 
-Use `gh` for all GitHub operations. Never use MCP. The default base branch is `main`, and the default repository is `ianphil/copilot-llm-svc`.
+Use `gh` for all GitHub operations. Never use MCP. The default base branch is `main`, and the default repository is `ianphil/pi-lot`.
 
 Always read `CONTRIBUTING.md` before planning or editing. It is the source of truth for build commands, test categories, test locations, branch workflow, and E2E rules.
 
@@ -26,7 +26,7 @@ Do not use this skill for a single already-scoped PR. Handle that PR directly wi
 ## Defaults
 
 - User: `ianphil`.
-- Repository: `ianphil/copilot-llm-svc`.
+- Repository: `ianphil/pi-lot`.
 - Base branch: `main`.
 - Labels are priority buckets such as `p0`, `p1`, and component labels such as `llm-sdk`.
 - Default slate label: ask if unclear; otherwise use the label named by the user.
@@ -92,8 +92,8 @@ Fakes, mocks, stubs, and test servers are fine in unit and integration tests und
 2. Sync issue metadata with `gh`:
 
    ```powershell
-   gh issue list --repo ianphil/copilot-llm-svc --state open --label <label> --limit 100 --json number,title,labels,state,url,updatedAt
-   gh issue list --repo ianphil/copilot-llm-svc --state all --limit 100 --json number,title,labels,state,url,updatedAt
+   gh issue list --repo ianphil/pi-lot --state open --label <label> --limit 100 --json number,title,labels,state,url,updatedAt
+   gh issue list --repo ianphil/pi-lot --state all --limit 100 --json number,title,labels,state,url,updatedAt
    ```
 
 3. Check whether all relevant issues have an expected priority/component label such as `p0`, `p1`, or `llm-sdk`.
@@ -171,7 +171,7 @@ gh pr create --base main --head <branch>
 Read the GitHub issue body and comments:
 
 ```powershell
-gh issue view <issue-number> --repo ianphil/copilot-llm-svc --comments
+gh issue view <issue-number> --repo ianphil/pi-lot --comments
 ```
 
 Inspect the nearest code, tests, and docs before editing. Follow `CONTRIBUTING.md` and existing repo conventions.
@@ -237,13 +237,13 @@ When the user explicitly approves a PR merge:
 1. Verify checks are green:
 
    ```powershell
-   gh pr checks <pr-number> --repo ianphil/copilot-llm-svc
+   gh pr checks <pr-number> --repo ianphil/pi-lot
    ```
 
 2. Admin squash merge only if the user asks for admin merge:
 
    ```powershell
-   gh pr merge <pr-number> --repo ianphil/copilot-llm-svc --admin --squash --delete-branch
+   gh pr merge <pr-number> --repo ianphil/pi-lot --admin --squash --delete-branch
    ```
 
 3. Pull latest `main`:
@@ -263,7 +263,7 @@ At the end of a slate:
 2. Verify no open issue unexpectedly remains with the slate label:
 
    ```powershell
-   gh issue list --repo ianphil/copilot-llm-svc --state open --label <label> --limit 100
+   gh issue list --repo ianphil/pi-lot --state open --label <label> --limit 100
    ```
 
 3. Confirm all PR URLs are recorded in the roadmap.
