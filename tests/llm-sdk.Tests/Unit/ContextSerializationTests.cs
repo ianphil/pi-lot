@@ -55,4 +55,20 @@ public sealed class ContextSerializationTests
         Assert.Contains("\"type\":\"tool_result\"", json, StringComparison.Ordinal);
         Assert.Equal(context, JsonSerializer.Deserialize<Context>(json, JsonDefaults.Web));
     }
+
+    [Fact]
+    public void CompletionOptions_WithPromptCacheControls_RoundTrips()
+    {
+        var options = new CompletionOptions
+        {
+            Cache = CacheRetention.Long,
+            SessionId = "session-123",
+        };
+
+        var json = JsonSerializer.Serialize(options, JsonDefaults.Web);
+
+        Assert.Contains("\"cache\":\"Long\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"sessionId\":\"session-123\"", json, StringComparison.Ordinal);
+        Assert.Equal(options, JsonSerializer.Deserialize<CompletionOptions>(json, JsonDefaults.Web));
+    }
 }

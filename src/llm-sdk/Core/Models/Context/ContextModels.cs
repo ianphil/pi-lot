@@ -192,8 +192,18 @@ public sealed record CompletionOptions
     public int? MaxRetries { get; init; }
     public int? MaxRetryDelayMs { get; init; }
     public IReadOnlyDictionary<string, string>? Metadata { get; init; }
+    public CacheRetention Cache { get; init; } = CacheRetention.None;
+    public string? SessionId { get; init; }
     public Func<JsonNode, JsonNode?>? OnPayload { get; init; }
     public Action<ResponseSnapshot>? OnResponse { get; init; }
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<CacheRetention>))]
+public enum CacheRetention
+{
+    None,
+    Short,
+    Long,
 }
 
 public enum CompletionApi

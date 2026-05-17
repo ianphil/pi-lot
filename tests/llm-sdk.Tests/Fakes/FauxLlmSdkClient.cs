@@ -7,6 +7,7 @@ namespace LlmSdk.Tests.Fakes;
 internal sealed class FauxLlmSdkClient : ILlmSdkClient
 {
     private readonly List<Context> _recordedRequests = [];
+    private readonly Dictionary<string, int> _cacheUseBySessionId = new(StringComparer.Ordinal);
     private readonly IReadOnlyList<ModelInfo> _models;
     private int _callCount;
 
@@ -31,7 +32,7 @@ internal sealed class FauxLlmSdkClient : ILlmSdkClient
 
         var response = DequeueResponse();
         _recordedRequests.Add(context);
-        return Task.FromResult(response.ToAssistantMessage());
+        return Task.FromResult(ApplyCacheUsage(response.ToAssistantMessage(), options));
     }
 
     public async IAsyncEnumerable<AssistantStreamEvent> StreamAsync(
@@ -43,6 +44,7 @@ internal sealed class FauxLlmSdkClient : ILlmSdkClient
 
         var response = DequeueResponse();
         _recordedRequests.Add(context);
+        var cacheAdjustedMessage = ApplyCacheUsage(response.ToAssistantMessage(), options);
 
         foreach (var streamEvent in response.Events)
         {
@@ -52,7 +54,12 @@ internal sealed class FauxLlmSdkClient : ILlmSdkClient
                 await Task.Delay(response.PerEventDelay.Value, cancellationToken);
             }
 
-            yield return streamEvent;
+            yield return streamEvent switch
+            {
+                StreamDone => new StreamDone(cacheAdjustedMessage),
+                UsageEvent when cacheAdjustedMessage.Usage is not null => new UsageEvent(cacheAdjustedMessage.Usage),
+                _ => streamEvent,
+            };
         }
     }
 
@@ -120,5 +127,30 @@ internal sealed class FauxLlmSdkClient : ILlmSdkClient
         }
 
         throw new InvalidOperationException($"FauxLlmSdkClient has no scripted response for call {_callCount}.");
+    }
+
+    private AssistantMessage ApplyCacheUsage(AssistantMessage message, CompletionOptions? options)
+    {
+        if (options?.Cache is CacheRetention.None or null ||
+            string.IsNullOrWhiteSpace(options.SessionId) ||
+            message.Usage is null)
+        {
+            return message;
+        }
+
+        var useCount = _cacheUseBySessionId.GetValueOrDefault(options.SessionId);
+        _cacheUseBySessionId[options.SessionId] = useCount + 1;
+        if (useCount == 0)
+        {
+            return message;
+        }
+
+        var cacheReadTokens = message.Usage.CacheReadTokens > 0
+            ? message.Usage.CacheReadTokens
+            : message.Usage.InputTokens;
+        return message with
+        {
+            Usage = message.Usage with { CacheReadTokens = cacheReadTokens },
+        };
     }
 }
