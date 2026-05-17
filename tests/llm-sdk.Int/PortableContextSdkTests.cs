@@ -81,6 +81,37 @@ public sealed class PortableContextSdkTests
     }
 
     [Fact]
+    public async Task StreamAsync_WithFakeApiFragmentedUnicodeSse_PreservesUnicodeText()
+    {
+        const string expectedText = "🚀 日本語 👩‍💻";
+        var provider = new FakeModelProvider { Models = [CreateResponsesModel()] };
+        provider.ResponsesStreamResults.Enqueue(new ProxyStreamResult(
+            null,
+            200,
+            chunks: ToAsyncEnumerable(SplitEveryChar(ResponseSseSerializer.Serialize(CreateTextResponse(expectedText, new ResponseUsage
+            {
+                InputTokens = 8,
+                OutputTokens = 5,
+                TotalTokens = 13,
+            }))).ToArray())));
+        await using var services = SdkIntTestHost.CreateFakeApiProvider(provider);
+        var client = services.GetRequiredService<ILlmSdkClient>();
+
+        var events = await CollectAsync(client.StreamAsync(CreateContext("Return Unicode."), new CompletionOptions
+        {
+            Model = "fake-gpt",
+        }));
+
+        var text = string.Concat(events.OfType<TextDelta>().Select(static content => content.Text));
+        var done = Assert.Single(events.OfType<StreamDone>());
+        Assert.Equal(expectedText, text);
+        Assert.Equal(expectedText, Assert.IsType<TextContent>(Assert.Single(done.FinalMessage.Content)).Text);
+        Assert.DoesNotContain("\uFFFD", text, StringComparison.Ordinal);
+        var request = Assert.Single(provider.ResponsesStreamRequests);
+        Assert.True(request.Stream);
+    }
+
+    [Fact]
     public async Task StreamAsync_WithFakeApiToolCallDeltas_PopulatesParsedSoFar()
     {
         var provider = new FakeModelProvider { Models = [CreateResponsesModel()] };
@@ -247,6 +278,28 @@ public sealed class PortableContextSdkTests
 
     [Fact]
     [Trait("Category", "Smoke")]
+    public async Task StreamAsync_WithLiveApiUnicode_ReturnsUnicodeText()
+    {
+        await using var services = SdkIntTestHost.CreateAuthenticatedProvider();
+        var client = services.GetRequiredService<ILlmSdkClient>();
+
+        var events = await CollectAsync(client.StreamAsync(CreateContext("Reply with exactly: 🚀 日本語"), new CompletionOptions
+        {
+            Model = "gpt-5.4-mini",
+            Temperature = 0,
+            MaxOutputTokens = 64,
+        }));
+
+        var text = string.Concat(events.OfType<TextDelta>().Select(static content => content.Text));
+        _output.WriteLine(text);
+
+        Assert.Contains("🚀", text, StringComparison.Ordinal);
+        Assert.Contains("日本語", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("\uFFFD", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Smoke")]
     public async Task StreamAsync_WithLiveApiCancellation_ReturnsAbortedPartial()
     {
         await using var services = SdkIntTestHost.CreateAuthenticatedProvider();
@@ -397,6 +450,14 @@ public sealed class PortableContextSdkTests
         foreach (var chunk in body.Split("\n\n", StringSplitOptions.RemoveEmptyEntries))
         {
             yield return $"{chunk}\n\n";
+        }
+    }
+
+    private static IEnumerable<string> SplitEveryChar(string text)
+    {
+        foreach (var c in text)
+        {
+            yield return c.ToString();
         }
     }
 }
