@@ -52,6 +52,126 @@ public sealed class ContextTranslatorTests
     }
 
     [Fact]
+    public void ToCreateResponseRequest_WithToolContext_EmitsToolCallsAsTopLevelItems()
+    {
+        var parameters = JsonSerializer.SerializeToElement(new
+        {
+            type = "object",
+            properties = new
+            {
+                city = new { type = "string" },
+            },
+        }, JsonDefaults.Web);
+        var context = new Context
+        {
+            System = "Use tools when needed.",
+            Tools =
+            [
+                new ToolDefinition("get_weather", "Gets the weather.", parameters, Strict: true),
+            ],
+            Messages =
+            [
+                new UserMessage([new TextContent("Weather in London?")]),
+                new AssistantMessage(
+                [
+                    new TextContent("I'll check."),
+                    new ToolCallContent("call_1", "get_weather", "{\"city\":\"London\"}"),
+                ], StopReason.ToolUse),
+                new ToolMessage("call_1", [new ToolResultContent("call_1", "{\"temperature\":21}")]),
+            ],
+        };
+        var expected = new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Instructions = "Use tools when needed.",
+            Input = JsonSerializer.SerializeToElement(new object[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        new { type = "input_text", text = "Weather in London?" },
+                    },
+                },
+                new
+                {
+                    role = "assistant",
+                    content = new object[]
+                    {
+                        new { type = "input_text", text = "I'll check." },
+                    },
+                },
+                new
+                {
+                    type = "function_call",
+                    call_id = "call_1",
+                    name = "get_weather",
+                    arguments = "{\"city\":\"London\"}",
+                },
+                new
+                {
+                    type = "function_call_output",
+                    call_id = "call_1",
+                    output = "{\"temperature\":21}",
+                },
+            }, JsonDefaults.Web),
+            Tools =
+            [
+                new ResponseFunctionToolDefinition
+                {
+                    Name = "get_weather",
+                    Description = "Gets the weather.",
+                    Parameters = parameters,
+                    Strict = true,
+                },
+            ],
+            MaxOutputTokens = 64,
+            Temperature = 0.2,
+            TopP = 0.9,
+        };
+
+        var request = ContextTranslator.ToCreateResponseRequest(context, new CompletionOptions
+        {
+            Model = "gpt-5.4-mini",
+            MaxOutputTokens = 64,
+            Temperature = 0.2,
+            TopP = 0.9,
+        });
+
+        Assert.Equal(JsonSerializer.Serialize(expected, JsonDefaults.Web), JsonSerializer.Serialize(request, JsonDefaults.Web));
+    }
+
+    [Fact]
+    public void ToCreateResponseRequest_WithToolOnlyAssistantMessage_EmitsTopLevelToolCallItem()
+    {
+        var context = new Context
+        {
+            Messages =
+            [
+                new UserMessage([new TextContent("Weather in London?")]),
+                new AssistantMessage(
+                [
+                    new ToolCallContent("call_1", "get_weather", "{\"city\":\"London\"}"),
+                ], StopReason.ToolUse),
+                new ToolMessage("call_1", [new ToolResultContent("call_1", "{\"temperature\":21}")]),
+            ],
+        };
+
+        var request = ContextTranslator.ToCreateResponseRequest(context);
+        var input = request.Input;
+
+        Assert.Equal(3, input.GetArrayLength());
+        Assert.Equal("user", input[0].GetProperty("role").GetString());
+        Assert.Equal("function_call", input[1].GetProperty("type").GetString());
+        Assert.Equal("call_1", input[1].GetProperty("call_id").GetString());
+        Assert.Equal("get_weather", input[1].GetProperty("name").GetString());
+        Assert.Equal("{\"city\":\"London\"}", input[1].GetProperty("arguments").GetString());
+        Assert.Equal("function_call_output", input[2].GetProperty("type").GetString());
+        Assert.Equal("call_1", input[2].GetProperty("call_id").GetString());
+    }
+
+    [Fact]
     public void ToChatCompletionRequest_WithToolContext_MatchesEquivalentRawRequest()
     {
         var parameters = JsonSerializer.SerializeToElement(new

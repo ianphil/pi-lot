@@ -13,7 +13,7 @@ public static class ContextTranslator
         {
             Model = options?.Model,
             Instructions = context.System,
-            Input = JsonSerializer.SerializeToElement(context.Messages.Select(ToResponseInputItem).ToArray(), JsonDefaults.Web),
+            Input = JsonSerializer.SerializeToElement(context.Messages.SelectMany(ToResponseInputItems).ToArray(), JsonDefaults.Web),
             Tools = context.Tools.Select(ToResponseTool).ToArray(),
             ToolChoice = ToResponseToolChoice(options?.ToolChoice),
             MaxOutputTokens = options?.MaxOutputTokens,
@@ -124,25 +124,66 @@ public static class ContextTranslator
     public static AssistantMessage ToAssistantMessage(ChatCompletionResponse response, IReadOnlyList<ToolDefinition> tools) =>
         ValidateToolCalls(ToAssistantMessage(response), tools);
 
-    private static object ToResponseInputItem(Message message) => message switch
+    private static IEnumerable<object> ToResponseInputItems(Message message)
     {
-        UserMessage user => new
+        switch (message)
         {
-            role = "user",
-            content = user.Content.Select(ToResponseContentPart).ToArray(),
-        },
-        AssistantMessage assistant => new
-        {
-            role = "assistant",
-            content = assistant.Content.Select(ToResponseContentPart).ToArray(),
-        },
-        ToolMessage tool => new
-        {
-            type = "function_call_output",
-            call_id = tool.ToolCallId,
-            output = ContentToText(tool.Content),
-        },
-        _ => throw new InvalidOperationException($"Unsupported message type '{message.GetType().Name}'."),
+            case UserMessage user:
+                yield return new
+                {
+                    role = "user",
+                    content = user.Content.Select(ToResponseContentPart).ToArray(),
+                };
+                break;
+
+            case AssistantMessage assistant:
+                var messageContent = assistant.Content
+                    .Where(static block => block is not ToolCallContent and not ToolResultContent)
+                    .Select(ToResponseContentPart)
+                    .ToArray();
+                if (messageContent.Length > 0)
+                {
+                    yield return new
+                    {
+                        role = "assistant",
+                        content = messageContent,
+                    };
+                }
+
+                foreach (var toolCall in assistant.Content.OfType<ToolCallContent>())
+                {
+                    yield return ToResponseToolCallItem(toolCall);
+                }
+
+                foreach (var toolResult in assistant.Content.OfType<ToolResultContent>())
+                {
+                    yield return ToResponseToolResultItem(toolResult.ToolCallId, toolResult.Output);
+                }
+
+                break;
+
+            case ToolMessage tool:
+                yield return ToResponseToolResultItem(tool.ToolCallId, ContentToText(tool.Content));
+                break;
+
+            default:
+                throw new InvalidOperationException($"Unsupported message type '{message.GetType().Name}'.");
+        }
+    }
+
+    private static object ToResponseToolCallItem(ToolCallContent toolCall) => new
+    {
+        type = "function_call",
+        call_id = toolCall.Id,
+        name = toolCall.Name,
+        arguments = toolCall.ArgumentsJson,
+    };
+
+    private static object ToResponseToolResultItem(string callId, string output) => new
+    {
+        type = "function_call_output",
+        call_id = callId,
+        output,
     };
 
     private static object ToResponseContentPart(ContentBlock block) => block switch
@@ -150,8 +191,6 @@ public static class ContextTranslator
         TextContent text => new { type = "input_text", text = text.Text },
         ImageContent image => new { type = "input_image", image_url = $"data:{image.MediaType};base64,{image.Base64Data}" },
         ThinkingContent thinking => ToResponseThinkingPart(thinking),
-        ToolCallContent toolCall => new { type = "function_call", call_id = toolCall.Id, name = toolCall.Name, arguments = toolCall.ArgumentsJson },
-        ToolResultContent toolResult => new { type = "function_call_output", call_id = toolResult.ToolCallId, output = toolResult.Output },
         _ => throw new InvalidOperationException($"Unsupported content block type '{block.GetType().Name}'."),
     };
 

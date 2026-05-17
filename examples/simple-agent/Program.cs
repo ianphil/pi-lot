@@ -43,8 +43,8 @@ await foreach (var evt in AgentLoop.RunAsync(client, prompt, options))
 {
     switch (evt)
     {
-        case MessageDelta { StreamEvent: OutputTextDeltaEvent delta }:
-            Console.Write(delta.Delta);
+        case MessageDelta { StreamEvent: TextDelta delta }:
+            Console.Write(delta.Text);
             break;
 
         case ToolExecutionStarted(_, var toolName, var arguments):

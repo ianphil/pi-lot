@@ -45,8 +45,8 @@ await foreach (var evt in AgentLoop.RunAsync(client, "Read README.md and summari
 {
     switch (evt)
     {
-        case MessageDelta { StreamEvent: OutputTextDeltaEvent delta }:
-            Console.Write(delta.Delta);
+        case MessageDelta { StreamEvent: TextDelta delta }:
+            Console.Write(delta.Text);
             break;
 
         case ToolExecutionStarted(var callId, var toolName, _):
@@ -122,7 +122,8 @@ The main events are:
 - `MessageStarted` / `MessageDelta` / `MessageEnded`
 - `ToolExecutionStarted` / `ToolExecutionEnded`
 
-For text streaming, handle `MessageDelta` and look for `OutputTextDeltaEvent`.
+For text streaming, handle `MessageDelta` and look for the portable SDK
+`TextDelta` event.
 For tool progress, handle the `ToolExecution*` events.
 
 ## Tool authoring
@@ -144,30 +145,27 @@ the loop catches the exception and sends an error result back to the model as
 tool output. If the model calls an unknown tool, the loop does the same with a
 "tool not found" result.
 
-Raw streamed tool-call argument deltas remain observable through
-`MessageDelta.StreamEvent` as `FunctionCallArgumentsDeltaEvent`. `LlmAgent` does
-not currently add a separate typed argument-progress event because raw deltas do
-not always carry the final tool call id and name without additional stream state.
-Local tool progress callbacks and pre/post tool policy hooks are separate future
-agent API stories.
+Streamed tool-call argument chunks are observable through `MessageDelta` as
+portable SDK `ToolCallDelta` events. Local tool progress callbacks and pre/post
+tool policy hooks are separate future agent API stories.
 
 ## Request behavior
 
-`LlmAgent` uses the Responses streaming API underneath:
+`LlmAgent` uses the SDK portable context streaming API underneath:
 
 - the user prompt becomes the first context item
-- `AgentLoopOptions.Instructions` maps to `CreateResponseRequest.Instructions`
-- tool definitions map to `CreateResponseRequest.Tools`
-- `Headers`, `PromptCacheKey`, `OnPayload`, and `OnResponse` forward to the raw
-  `CreateResponseRequest` for every agent turn
+- `AgentLoopOptions.Instructions` maps to `Context.System`
+- tool definitions map to portable `Context.Tools`
+- `Headers`, `PromptCacheKey`, `SessionId`, `CacheRetention`, `OnPayload`, and
+  `OnResponse` forward through `CompletionOptions` for every agent turn
 - request IDs, correlation IDs, metadata, timeout, and retry options also forward
   to every agent turn
-- completed response output items are appended to context
-- tool results are appended as `function_call_output` items
+- completed assistant messages are appended to context
+- tool results are appended as portable tool messages
 
 The loop is client-side and stateless. It does not use `previous_response_id`.
-It remains raw Responses-native: portable `CacheRetention`, `ThinkingLevel`, and
-`AbortMode` semantics are not part of the current agent API.
+Raw Responses details are an advanced/debug escape hatch rather than the primary
+agent harness surface.
 
 `OnPayload` and `OnResponse` are per-turn hooks. A tool-using run may invoke
 them multiple times because each follow-up turn sends another Responses request.

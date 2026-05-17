@@ -19,5 +19,5 @@ The example uses `gpt-5.4-mini` and real Copilot credentials. Set
 
 - `services.AddLlmSdk(...)` plus `ILlmSdkClient`
 - `AgentLoopOptions` with a schema-backed `IAgentTool`
-- streamed assistant text via `MessageDelta`
+- streamed assistant text via portable `MessageDelta` / `TextDelta` events
 - tool lifecycle events via `ToolExecutionStarted` and `ToolExecutionEnded`

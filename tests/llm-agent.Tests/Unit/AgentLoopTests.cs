@@ -28,18 +28,18 @@ public sealed class AgentLoopTests
             messageDelta =>
             {
                 var delta = Assert.IsType<MessageDelta>(messageDelta);
-                var streamEvent = Assert.IsType<OutputTextDeltaEvent>(delta.StreamEvent);
-                Assert.Equal("Done.", streamEvent.Delta);
+                var streamEvent = Assert.IsType<TextDelta>(delta.StreamEvent);
+                Assert.Equal("Done.", streamEvent.Text);
             },
             messageEnded =>
             {
                 var ended = Assert.IsType<MessageEnded>(messageEnded);
-                Assert.Same(response, ended.Response);
+                Assert.Equal("Done.", Assert.IsType<TextContent>(ended.Message.Content.Single()).Text);
             },
             turnEnded =>
             {
                 var ended = Assert.IsType<TurnEnded>(turnEnded);
-                Assert.Same(response, ended.Response);
+                Assert.Equal(StopReason.Stop, ended.Message.StopReason);
                 Assert.Empty(ended.ToolResults);
             },
             agentEnded =>
@@ -50,8 +50,8 @@ public sealed class AgentLoopTests
                     item => Assert.IsType<UserMessageContextItem>(item),
                     item =>
                     {
-                        var output = Assert.IsType<ResponseOutputContextItem>(item);
-                        Assert.Same(response.Output[0], output.Item);
+                        var output = Assert.IsType<AssistantResponseContextItem>(item);
+                        Assert.Equal("Done.", Assert.IsType<TextContent>(output.Message.Content.Single()).Text);
                     });
             });
     }
@@ -69,7 +69,8 @@ public sealed class AgentLoopTests
         var events = await CollectEventsAsync(AgentLoop.RunAsync(client, "Hello", CreateOptions()));
 
         var messageDelta = Assert.IsType<MessageDelta>(events.Single(evt => evt is MessageDelta));
-        Assert.Same(streamEvent, messageDelta.StreamEvent);
+        var textDelta = Assert.IsType<TextDelta>(messageDelta.StreamEvent);
+        Assert.Equal(streamEvent.Delta, textDelta.Text);
     }
 
     [Fact]
@@ -83,7 +84,7 @@ public sealed class AgentLoopTests
         var events = await CollectEventsAsync(AgentLoop.RunAsync(client, "Hello", CreateOptions()));
 
         var messageEnded = Assert.IsType<MessageEnded>(events.Single(evt => evt is MessageEnded));
-        Assert.Same(response, messageEnded.Response);
+        Assert.Equal("Done.", Assert.IsType<TextContent>(messageEnded.Message.Content.Single()).Text);
     }
 
     [Fact]
@@ -106,8 +107,8 @@ public sealed class AgentLoopTests
             },
             item =>
             {
-                var output = Assert.IsType<ResponseOutputContextItem>(item);
-                Assert.IsType<ResponseMessageItem>(output.Item);
+                var output = Assert.IsType<AssistantResponseContextItem>(item);
+                Assert.IsType<TextContent>(output.Message.Content.Single());
             });
     }
 
@@ -221,30 +222,15 @@ public sealed class AgentLoopTests
         var events = await CollectEventsAsync(AgentLoop.RunAsync(client, "Read test.txt", CreateOptions([tool])));
 
         Assert.Equal(0, tool.ExecuteCallCount);
-        Assert.Collection(
-            events.Where(static evt => evt is ToolExecutionStarted or ToolExecutionEnded),
-            toolStarted =>
-            {
-                var started = Assert.IsType<ToolExecutionStarted>(toolStarted);
-                Assert.Equal("call_1", started.CallId);
-                Assert.Equal("read_file", started.ToolName);
-                Assert.Equal("{\"path\":42,\"extra\":true}", started.Arguments);
-            },
-            toolEnded =>
-            {
-                var ended = Assert.IsType<ToolExecutionEnded>(toolEnded);
-                Assert.Equal("call_1", ended.CallId);
-                Assert.Equal("read_file", ended.ToolName);
-                Assert.True(ended.Result.IsError);
-                Assert.Contains("Tool argument validation failed", ended.Result.Content, StringComparison.Ordinal);
-                Assert.Contains("path must be string", ended.Result.Content, StringComparison.Ordinal);
-                Assert.Contains("extra is not allowed", ended.Result.Content, StringComparison.Ordinal);
-            });
-
-        var toolOutput = requests[1].Input[requests[1].Input.GetArrayLength() - 1];
-        Assert.Equal("function_call_output", toolOutput.GetProperty("type").GetString());
-        Assert.Equal("call_1", toolOutput.GetProperty("call_id").GetString());
-        Assert.Contains("Tool argument validation failed", toolOutput.GetProperty("output").GetString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(events, static evt => evt is ToolExecutionStarted or ToolExecutionEnded);
+        Assert.Single(requests);
+        var messageEnded = Assert.IsType<MessageEnded>(events.Single(static evt => evt is MessageEnded));
+        var toolOutput = Assert.IsType<ToolResultContent>(messageEnded.Message.Content.Single());
+        Assert.Equal("call_1", toolOutput.ToolCallId);
+        Assert.True(toolOutput.IsError);
+        Assert.Contains("Tool argument validation failed", toolOutput.Output, StringComparison.Ordinal);
+        Assert.Contains("path must be string", toolOutput.Output, StringComparison.Ordinal);
+        Assert.Contains("extra is not allowed", toolOutput.Output, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -309,10 +295,9 @@ public sealed class AgentLoopTests
         Assert.Equal(2, requests.Count);
         var secondInput = requests[1].Input;
         Assert.Equal(4, secondInput.GetArrayLength());
-        Assert.Equal("message", secondInput[0].GetProperty("type").GetString());
-        Assert.Equal("message", secondInput[1].GetProperty("type").GetString());
+        Assert.Equal("user", secondInput[0].GetProperty("role").GetString());
+        Assert.Equal("assistant", secondInput[1].GetProperty("role").GetString());
         Assert.Equal("function_call", secondInput[2].GetProperty("type").GetString());
-        Assert.Equal("read_file", secondInput[2].GetProperty("name").GetString());
         Assert.Equal("function_call_output", secondInput[3].GetProperty("type").GetString());
     }
 
@@ -360,6 +345,8 @@ public sealed class AgentLoopTests
 
         Assert.Equal(["read_file", "summarize"], executionOrder);
         var secondInput = requests[1].Input;
+        Assert.Equal("call_1", secondInput[1].GetProperty("call_id").GetString());
+        Assert.Equal("call_2", secondInput[2].GetProperty("call_id").GetString());
         Assert.Equal("call_1", secondInput[3].GetProperty("call_id").GetString());
         Assert.Equal("call_2", secondInput[4].GetProperty("call_id").GetString());
     }
@@ -451,18 +438,12 @@ public sealed class AgentLoopTests
 
         var events = await CollectEventsAsync(AgentLoop.RunAsync(client, "Read test.txt", CreateOptions([tool])));
 
-        Assert.Collection(
-            events.Where(static evt => evt is ToolExecutionStarted or ToolExecutionEnded),
-            toolStarted => Assert.IsType<ToolExecutionStarted>(toolStarted),
-            toolEnded =>
-            {
-                var ended = Assert.IsType<ToolExecutionEnded>(toolEnded);
-                Assert.Equal("call_1", ended.CallId);
-                Assert.Equal("read_file", ended.ToolName);
-                Assert.StartsWith("Tool argument validation failed:", ended.Result.Content, StringComparison.Ordinal);
-                Assert.Contains("arguments must be valid JSON", ended.Result.Content, StringComparison.Ordinal);
-                Assert.True(ended.Result.IsError);
-            });
+        Assert.DoesNotContain(events, static evt => evt is ToolExecutionStarted or ToolExecutionEnded);
+        var messageEnded = Assert.IsType<MessageEnded>(events.Single(static evt => evt is MessageEnded));
+        var toolOutput = Assert.IsType<ToolResultContent>(messageEnded.Message.Content.Single());
+        Assert.Equal("call_1", toolOutput.ToolCallId);
+        Assert.True(toolOutput.IsError);
+        Assert.Contains("arguments must be valid JSON", toolOutput.Output, StringComparison.Ordinal);
         Assert.Equal(0, tool.ExecuteCallCount);
     }
 
@@ -481,12 +462,12 @@ public sealed class AgentLoopTests
 
         var deltas = events.OfType<MessageDelta>()
             .Select(static evt => evt.StreamEvent)
-            .OfType<FunctionCallArgumentsDeltaEvent>()
+            .OfType<ToolCallDelta>()
             .ToArray();
         Assert.Collection(
             deltas,
-            delta => Assert.Equal("{\"path\":\"", delta.Delta),
-            delta => Assert.Equal("test.txt\"}", delta.Delta));
+            delta => Assert.Equal("{\"path\":\"", delta.ArgumentsJsonChunk),
+            delta => Assert.Equal("test.txt\"}", delta.ArgumentsJsonChunk));
     }
 
     [Fact]
@@ -507,12 +488,12 @@ public sealed class AgentLoopTests
             messageEnded =>
             {
                 var ended = Assert.IsType<MessageEnded>(messageEnded);
-                Assert.Same(failedResponse, ended.Response);
+                Assert.Equal(StopReason.Error, ended.Message.StopReason);
             },
             turnEnded =>
             {
                 var ended = Assert.IsType<TurnEnded>(turnEnded);
-                Assert.Same(failedResponse, ended.Response);
+                Assert.Equal(StopReason.Error, ended.Message.StopReason);
                 Assert.Empty(ended.ToolResults);
             },
             agentEnded => Assert.IsType<AgentEnded>(agentEnded));
@@ -536,12 +517,12 @@ public sealed class AgentLoopTests
             messageEnded =>
             {
                 var ended = Assert.IsType<MessageEnded>(messageEnded);
-                Assert.Same(incompleteResponse, ended.Response);
+                Assert.Equal("Incomplete.", Assert.IsType<TextContent>(ended.Message.Content.Single()).Text);
             },
             turnEnded =>
             {
                 var ended = Assert.IsType<TurnEnded>(turnEnded);
-                Assert.Same(incompleteResponse, ended.Response);
+                Assert.Equal(StopReason.Stop, ended.Message.StopReason);
                 Assert.Empty(ended.ToolResults);
             },
             agentEnded => Assert.IsType<AgentEnded>(agentEnded));
@@ -630,7 +611,20 @@ public sealed class AgentLoopTests
         using var cancellationTokenSource = new CancellationTokenSource();
         var client = new FakeLlmSdkClient(
             createResponseStreamAsync: (_, _) => StreamHelpers.ToAsyncEnumerable(
-                StreamHelpers.Completed(StreamHelpers.CreateResponse(StreamHelpers.AssistantMessage("Done.")), sequenceNumber: 1)));
+                StreamHelpers.Completed(StreamHelpers.CreateResponse(StreamHelpers.AssistantMessage("Done.")), sequenceNumber: 1)))
+        {
+            Models =
+            [
+                new ModelInfo
+                {
+                    Id = "gpt-4.1",
+                    Capabilities = new ModelCapabilities
+                    {
+                        Supports = new ModelSupports { ReasoningEffort = ["high"] },
+                    },
+                },
+            ],
+        };
 
         await using var enumerator = AgentLoop.RunAsync(
             client,
@@ -692,14 +686,14 @@ public sealed class AgentLoopTests
         Assert.Equal("gpt-4.1", request.Model);
         Assert.Equal("You are helpful.", request.Instructions);
         Assert.Equal(0.25, request.Temperature);
-        Assert.Same(reasoning, request.Reasoning);
-        Assert.True(request.Stream);
+        Assert.Null(request.Reasoning);
+        Assert.Null(request.Stream);
         Assert.NotNull(request.Tools);
         Assert.Single(request.Tools);
         Assert.Equal("read_file", request.Tools[0].Name);
         Assert.Equal("Read a file.", request.Tools[0].Description);
         Assert.True(request.Tools[0].Strict);
-        Assert.Equal("message", request.Input[0].GetProperty("type").GetString());
+        Assert.Equal("user", request.Input[0].GetProperty("role").GetString());
         Assert.Equal("Hello", request.Input[0].GetProperty("content")[0].GetProperty("text").GetString());
     }
 
@@ -864,6 +858,7 @@ public sealed class AgentLoopTests
 
         Assert.Equal(2, requests.Count);
         Assert.Equal(4, requests[1].Input.GetArrayLength());
+        Assert.Equal("function_call", requests[1].Input[2].GetProperty("type").GetString());
         Assert.Equal("function_call_output", requests[1].Input[3].GetProperty("type").GetString());
         Assert.Equal("hello from file", requests[1].Input[3].GetProperty("output").GetString());
 
@@ -877,13 +872,9 @@ public sealed class AgentLoopTests
             },
             item =>
             {
-                var output = Assert.IsType<ResponseOutputContextItem>(item);
-                Assert.Same(firstResponse.Output[0], output.Item);
-            },
-            item =>
-            {
-                var output = Assert.IsType<ResponseOutputContextItem>(item);
-                Assert.Same(firstResponse.Output[1], output.Item);
+                var output = Assert.IsType<AssistantResponseContextItem>(item);
+                Assert.Contains(output.Message.Content, static block => block is TextContent { Text: "I'll read it." });
+                Assert.Contains(output.Message.Content, static block => block is ToolCallContent { Id: "call_1" });
             },
             item =>
             {
@@ -893,8 +884,8 @@ public sealed class AgentLoopTests
             },
             item =>
             {
-                var output = Assert.IsType<ResponseOutputContextItem>(item);
-                Assert.Same(secondResponse.Output[0], output.Item);
+                var output = Assert.IsType<AssistantResponseContextItem>(item);
+                Assert.Contains(output.Message.Content, static block => block is TextContent { Text: "The file says hello." });
             });
     }
 
@@ -952,10 +943,11 @@ public sealed class AgentLoopTests
         var thirdInput = requests[2].Input;
         Assert.Equal(5, thirdInput.GetArrayLength());
         Assert.Equal("function_call", thirdInput[1].GetProperty("type").GetString());
+        Assert.Equal("call_1", thirdInput[1].GetProperty("call_id").GetString());
         Assert.Equal("function_call_output", thirdInput[2].GetProperty("type").GetString());
         Assert.Equal("hello from file", thirdInput[2].GetProperty("output").GetString());
         Assert.Equal("function_call", thirdInput[3].GetProperty("type").GetString());
-        Assert.Equal("summarize", thirdInput[3].GetProperty("name").GetString());
+        Assert.Equal("call_2", thirdInput[3].GetProperty("call_id").GetString());
         Assert.Equal("function_call_output", thirdInput[4].GetProperty("type").GetString());
         Assert.Equal("hello summary", thirdInput[4].GetProperty("output").GetString());
 
@@ -969,8 +961,8 @@ public sealed class AgentLoopTests
             },
             item =>
             {
-                var output = Assert.IsType<ResponseOutputContextItem>(item);
-                Assert.Same(firstResponse.Output[0], output.Item);
+                var output = Assert.IsType<AssistantResponseContextItem>(item);
+                Assert.Contains(output.Message.Content, static block => block is ToolCallContent { Id: "call_1" });
             },
             item =>
             {
@@ -980,8 +972,8 @@ public sealed class AgentLoopTests
             },
             item =>
             {
-                var output = Assert.IsType<ResponseOutputContextItem>(item);
-                Assert.Same(secondResponse.Output[0], output.Item);
+                var output = Assert.IsType<AssistantResponseContextItem>(item);
+                Assert.Contains(output.Message.Content, static block => block is ToolCallContent { Id: "call_2" });
             },
             item =>
             {
@@ -991,8 +983,8 @@ public sealed class AgentLoopTests
             },
             item =>
             {
-                var output = Assert.IsType<ResponseOutputContextItem>(item);
-                Assert.Same(thirdResponse.Output[0], output.Item);
+                var output = Assert.IsType<AssistantResponseContextItem>(item);
+                Assert.Contains(output.Message.Content, static block => block is TextContent { Text: "Summary ready." });
             });
     }
 
