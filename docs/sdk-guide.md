@@ -341,6 +341,11 @@ tool-call arguments against the matching `Context.Tools` schema before returning
 tool calls to the consumer. Invalid arguments are converted to an error
 `ToolResultContent` so local tool code does not execute with malformed input.
 
+The portable `ILlmSdkClient.StreamAsync(Context, ...)` surface emits
+`ToolCallDelta.ParsedSoFar` for tool-call argument chunks when the accumulated
+partial JSON can be repaired into a valid JSON document. This lets callers show
+progressive tool UI state before the final arguments are complete.
+
 For lower-level raw stream handling, use `ToolValidator` directly before
 invoking local code:
 

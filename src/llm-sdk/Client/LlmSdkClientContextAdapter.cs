@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
 using LlmSdk.Core.Models;
 using LlmSdk.Core.Services;
 
@@ -108,6 +109,7 @@ internal static class LlmSdkClientContextAdapter
     private sealed class ResponseStreamState(string? fallbackModel, IReadOnlyList<ToolDefinition> tools)
     {
         private readonly Dictionary<string, ResponseFunctionCallItem> _toolCallsByItemId = [];
+        private readonly Dictionary<string, StringBuilder> _toolCallArgumentsByItemId = [];
         private readonly List<ContentBlock> _partialContent = [];
         private bool _terminal;
         private bool _started;
@@ -192,12 +194,26 @@ internal static class LlmSdkClientContextAdapter
 
         private ToolCallDelta ToToolCallDelta(FunctionCallArgumentsDeltaEvent toolDelta)
         {
+            var itemId = toolDelta.ItemId ?? string.Empty;
+            var parsed = ApplyToolCallArguments(itemId, toolDelta.Delta);
             if (toolDelta.ItemId is not null && _toolCallsByItemId.TryGetValue(toolDelta.ItemId, out var toolCall))
             {
-                return new ToolCallDelta(toolCall.CallId, toolCall.Name, toolDelta.Delta);
+                return new ToolCallDelta(toolCall.CallId, toolCall.Name, toolDelta.Delta, parsed);
             }
 
-            return new ToolCallDelta(toolDelta.ItemId ?? string.Empty, string.Empty, toolDelta.Delta);
+            return new ToolCallDelta(itemId, string.Empty, toolDelta.Delta, parsed);
+        }
+
+        private JsonElement? ApplyToolCallArguments(string itemId, string delta)
+        {
+            if (!_toolCallArgumentsByItemId.TryGetValue(itemId, out var arguments))
+            {
+                arguments = new StringBuilder();
+                _toolCallArgumentsByItemId[itemId] = arguments;
+            }
+
+            arguments.Append(delta);
+            return PartialJsonParser.TryParse(arguments.ToString());
         }
 
         private void AddTerminalEvents(List<AssistantStreamEvent> events, Response response)
@@ -306,7 +322,11 @@ internal static class LlmSdkClientContextAdapter
             }
 
             accumulator.Apply(toolCall);
-            return new ToolCallDelta(accumulator.Id, accumulator.Name, toolCall.Function?.Arguments ?? string.Empty);
+            return new ToolCallDelta(
+                accumulator.Id,
+                accumulator.Name,
+                toolCall.Function?.Arguments ?? string.Empty,
+                accumulator.ParsedArguments);
         }
     }
 
@@ -336,6 +356,8 @@ internal static class LlmSdkClientContextAdapter
         }
 
         public ToolCallContent ToContent() => new(Id, Name, _arguments.ToString());
+
+        public JsonElement? ParsedArguments => PartialJsonParser.TryParse(_arguments.ToString());
     }
 
     private static StopReason ToStopReason(string? finishReason) => finishReason switch

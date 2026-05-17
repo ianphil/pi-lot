@@ -80,6 +80,69 @@ public sealed class PortableContextSdkTests
     }
 
     [Fact]
+    public async Task StreamAsync_WithFakeApiToolCallDeltas_PopulatesParsedSoFar()
+    {
+        var provider = new FakeModelProvider { Models = [CreateResponsesModel()] };
+        provider.ResponsesStreamResults.Enqueue(new ProxyStreamResult(
+            null,
+            200,
+            chunks: ToAsyncEnumerable(
+                ResponseSseSerializer.SerializeEvent("response.output_item.added", new
+                {
+                    type = "response.output_item.added",
+                    sequence_number = 1,
+                    output_index = 0,
+                    item = new
+                    {
+                        id = "fc_1",
+                        type = "function_call",
+                        call_id = "call_1",
+                        name = "get_weather",
+                        arguments = "",
+                    },
+                }),
+                ResponseSseSerializer.SerializeEvent("response.function_call_arguments.delta", new
+                {
+                    type = "response.function_call_arguments.delta",
+                    sequence_number = 2,
+                    item_id = "fc_1",
+                    output_index = 0,
+                    delta = """{"city":"Sea""",
+                }),
+                ResponseSseSerializer.SerializeEvent("response.function_call_arguments.delta", new
+                {
+                    type = "response.function_call_arguments.delta",
+                    sequence_number = 3,
+                    item_id = "fc_1",
+                    output_index = 0,
+                    delta = """ttle"}""",
+                }),
+                ResponseSseSerializer.SerializeDone())));
+        await using var services = SdkIntTestHost.CreateFakeApiProvider(provider);
+        var client = services.GetRequiredService<ILlmSdkClient>();
+
+        var events = await CollectAsync(client.StreamAsync(CreateWeatherContext(), new CompletionOptions
+        {
+            Model = "fake-gpt",
+            ToolChoice = ToolChoice.Function("get_weather"),
+        }));
+
+        var deltas = events.OfType<ToolCallDelta>().ToArray();
+        Assert.Equal(2, deltas.Length);
+        Assert.Equal("get_weather", deltas[0].Name);
+        Assert.True(deltas[0].ParsedSoFar.HasValue);
+        Assert.Equal("Sea", deltas[0].ParsedSoFar.GetValueOrDefault().GetProperty("city").GetString());
+        Assert.True(deltas[1].ParsedSoFar.HasValue);
+        var parsed = deltas[1].ParsedSoFar.GetValueOrDefault();
+        Assert.Equal("Seattle", parsed.GetProperty("city").GetString());
+
+        var request = Assert.Single(provider.ResponsesStreamRequests);
+        Assert.True(request.Stream);
+        Assert.Single(request.Tools ?? []);
+        Assert.Equal("get_weather", request.Tools?[0].Name);
+    }
+
+    [Fact]
     [Trait("Category", "Smoke")]
     public async Task CompleteAsync_WithLiveApi_ReturnsAssistantMessageWithUsage()
     {
@@ -130,11 +193,55 @@ public sealed class PortableContextSdkTests
         Assert.True(done.FinalMessage.Usage.OutputTokens > 0);
     }
 
+    [Fact]
+    [Trait("Category", "Smoke")]
+    public async Task StreamAsync_WithLiveApiToolCallDeltas_PopulatesParsedSoFar()
+    {
+        await using var services = SdkIntTestHost.CreateAuthenticatedProvider();
+        var client = services.GetRequiredService<ILlmSdkClient>();
+
+        var events = await CollectAsync(client.StreamAsync(CreateWeatherContext(), new CompletionOptions
+        {
+            Model = "gpt-5.4-mini",
+            ToolChoice = ToolChoice.Function("get_weather"),
+            Temperature = 0,
+            MaxOutputTokens = 128,
+        }));
+
+        _output.WriteLine(string.Join(Environment.NewLine, events.Select(static item => item.GetType().Name)));
+        var deltas = events.OfType<ToolCallDelta>().ToArray();
+        Assert.NotEmpty(deltas);
+        Assert.Contains(deltas, static delta => delta.ParsedSoFar.HasValue);
+    }
+
     private static Context CreateContext(string prompt) => new()
     {
         System = "Be concise.",
         Messages = [new UserMessage([new TextContent(prompt)])],
     };
+
+    private static Context CreateWeatherContext() => new()
+    {
+        System = "Use tools when asked for weather.",
+        Messages = [new UserMessage([new TextContent("Use get_weather for Seattle.")])],
+        Tools = [CreateWeatherTool()],
+    };
+
+    private static ToolDefinition CreateWeatherTool()
+    {
+        var schema = JsonSerializer.SerializeToElement(new
+        {
+            type = "object",
+            required = new[] { "city" },
+            additionalProperties = false,
+            properties = new
+            {
+                city = new { type = "string" },
+            },
+        }, JsonDefaults.Web);
+
+        return new ToolDefinition("get_weather", "Get current weather for a city.", schema, Strict: true);
+    }
 
     private static ModelInfo CreateResponsesModel() => new()
     {
