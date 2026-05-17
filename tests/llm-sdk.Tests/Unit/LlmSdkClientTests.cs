@@ -25,11 +25,15 @@ public sealed class LlmSdkClientTests
             "application/json"));
         var client = CreateClient(responsesService: service);
 
-        var response = await client.CreateResponseAsync(CreateResponseRequest());
+        var response = await client.CreateResponseAsync(CreateResponseRequest() with
+        {
+            PromptCacheKey = "session-123",
+        });
 
         Assert.Equal(expected.Id, response.Id);
         Assert.Equal("Hello from Copilot", response.GetOutputText());
         Assert.Equal("gpt-5.4-mini", service.LastRequest?.Model);
+        Assert.Equal("session-123", service.LastRequest?.PromptCacheKey);
     }
 
     [Fact]
@@ -235,11 +239,15 @@ public sealed class LlmSdkClientTests
             "application/json"));
         var client = CreateClient(chatService: service);
 
-        var response = await client.CreateChatCompletionAsync(CreateChatCompletionRequest());
+        var response = await client.CreateChatCompletionAsync(CreateChatCompletionRequest() with
+        {
+            User = "session-123",
+        });
 
         Assert.Equal(expected.Id, response.Id);
         Assert.Equal("Hello from chat", response.GetMessageText());
         Assert.Equal("gpt-5.4-mini", service.LastRequest?.Model);
+        Assert.Equal("session-123", service.LastRequest?.User);
     }
 
     [Fact]

@@ -146,6 +146,7 @@ public sealed class ChatCompletionsService : IChatCompletionsService
             ToolChoice = request.ToolChoice is not null
                 ? JsonDocument.Parse(JsonSerializer.Serialize(request.ToolChoice, JsonDefaults.Web)).RootElement.Clone()
                 : null,
+            PromptCacheKey = request.User,
             Headers = request.Headers,
             RequestId = request.RequestId,
             CorrelationId = request.CorrelationId,
@@ -273,6 +274,7 @@ public sealed class ChatCompletionsService : IChatCompletionsService
         Model = request.Model,
         Messages = request.Messages,
         Stream = false,
+        User = request.User,
         MaxCompletionTokens = request.MaxCompletionTokens,
         MaxTokens = request.MaxTokens,
         Temperature = request.Temperature,
@@ -295,6 +297,7 @@ public sealed class ChatCompletionsService : IChatCompletionsService
         Model = request.Model,
         Messages = request.Messages,
         Stream = true,
+        User = request.User,
         MaxCompletionTokens = request.MaxCompletionTokens,
         MaxTokens = request.MaxTokens,
         Temperature = request.Temperature,

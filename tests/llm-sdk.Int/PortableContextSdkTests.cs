@@ -39,6 +39,8 @@ public sealed class PortableContextSdkTests
             Model = "fake-gpt",
             MaxOutputTokens = 32,
             AbortMode = AbortMode.Throw,
+            Cache = CacheRetention.Short,
+            SessionId = "sdk-int-cache-session",
         });
 
         Assert.Equal("Hello from fake.", Assert.IsType<TextContent>(Assert.Single(message.Content)).Text);
@@ -47,6 +49,7 @@ public sealed class PortableContextSdkTests
         Assert.Equal("fake-gpt", request.Model);
         Assert.Equal("Be concise.", request.Instructions);
         Assert.Equal(32, request.MaxOutputTokens);
+        Assert.Equal("sdk-int-cache-session", request.PromptCacheKey);
     }
 
     [Fact]
@@ -276,6 +279,8 @@ public sealed class PortableContextSdkTests
         {
             Model = "gpt-5.4-mini",
             MaxOutputTokens = 32,
+            Cache = CacheRetention.Short,
+            SessionId = "sdk-int-live-cache-session",
         });
 
         var text = string.Concat(message.Content.OfType<TextContent>().Select(static content => content.Text)).Trim();
