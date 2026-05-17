@@ -9,7 +9,8 @@
     <RepositoryUrl>https://github.com/ianphil/pi-lot</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <IsPackable>true</IsPackable>
-    <NoWarn>CA1416</NoWarn>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>CA1416;1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

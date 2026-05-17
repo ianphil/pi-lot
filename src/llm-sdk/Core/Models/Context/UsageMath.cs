@@ -1,7 +1,13 @@
 namespace LlmSdk.Core.Models;
 
+/// <summary>
+/// Helpers for combining usage values and calculating model costs.
+/// </summary>
 public static class UsageMath
 {
+    /// <summary>
+    /// Adds token counts for two usage values and preserves cost only when both inputs include cost.
+    /// </summary>
     public static Usage Add(Usage a, Usage b)
     {
         ArgumentNullException.ThrowIfNull(a);
@@ -15,6 +21,10 @@ public static class UsageMath
             a.Cost is not null && b.Cost is not null ? a.Cost + b.Cost : null);
     }
 
+    /// <summary>
+    /// Calculates the usage cost with pricing metadata from a model.
+    /// </summary>
+    /// <returns>The calculated cost, or null when the model has no pricing metadata.</returns>
     public static decimal? CalculateCost(Usage usage, ModelInfo model)
     {
         ArgumentNullException.ThrowIfNull(usage);
@@ -23,6 +33,9 @@ public static class UsageMath
         return CalculateCost(usage, model.Pricing);
     }
 
+    /// <summary>
+    /// Converts raw Responses API usage into portable usage.
+    /// </summary>
     public static Usage? FromResponseUsage(ResponseUsage? usage) =>
         usage is null
             ? null
@@ -31,6 +44,9 @@ public static class UsageMath
                 usage.OutputTokens,
                 usage.InputTokensDetails.CachedTokens);
 
+    /// <summary>
+    /// Converts raw Chat Completions usage into portable usage.
+    /// </summary>
     public static Usage? FromUsageInfo(UsageInfo? usage) =>
         usage is null
             ? null

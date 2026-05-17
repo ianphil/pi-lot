@@ -2,8 +2,14 @@ using LlmSdk.Core.Models;
 
 namespace LlmSdk.Client;
 
+/// <summary>
+/// Base exception for SDK failures returned by the Copilot API or SDK transport.
+/// </summary>
 public class LlmSdkException : Exception
 {
+    /// <summary>
+    /// Initializes a new SDK exception.
+    /// </summary>
     public LlmSdkException(
         string message,
         string? errorCode,
@@ -19,15 +25,30 @@ public class LlmSdkException : Exception
         StatusCode = statusCode;
     }
 
+    /// <summary>
+    /// Provider or SDK error code, when available.
+    /// </summary>
     public string? ErrorCode { get; }
 
+    /// <summary>
+    /// Provider error type, when available.
+    /// </summary>
     public string? ErrorType { get; }
 
+    /// <summary>
+    /// Request parameter associated with the error, when available.
+    /// </summary>
     public string? Param { get; }
 
+    /// <summary>
+    /// HTTP status code associated with the failure.
+    /// </summary>
     public int StatusCode { get; }
 }
 
+/// <summary>
+/// Exception thrown when a requested model is not available.
+/// </summary>
 public sealed class ModelNotFoundException : LlmSdkException
 {
     public ModelNotFoundException(
@@ -39,6 +60,9 @@ public sealed class ModelNotFoundException : LlmSdkException
     }
 }
 
+/// <summary>
+/// Exception thrown when Copilot authentication fails.
+/// </summary>
 public sealed class AuthenticationException : LlmSdkException
 {
     public AuthenticationException(
@@ -52,6 +76,9 @@ public sealed class AuthenticationException : LlmSdkException
     }
 }
 
+/// <summary>
+/// Exception thrown when a request is rate limited.
+/// </summary>
 public sealed class RateLimitException : LlmSdkException
 {
     public RateLimitException(
@@ -66,9 +93,15 @@ public sealed class RateLimitException : LlmSdkException
         RetryAfter = retryAfter;
     }
 
+    /// <summary>
+    /// Suggested delay before retrying, when provided by the upstream service.
+    /// </summary>
     public TimeSpan? RetryAfter { get; }
 }
 
+/// <summary>
+/// Exception thrown when a request exceeds the selected model's context window.
+/// </summary>
 public sealed class ContextOverflowException : LlmSdkException
 {
     public ContextOverflowException(
@@ -86,7 +119,13 @@ public sealed class ContextOverflowException : LlmSdkException
         InputTokens = inputTokens;
     }
 
+    /// <summary>
+    /// Detected context-window size in tokens, when available.
+    /// </summary>
     public int? ContextWindow { get; }
 
+    /// <summary>
+    /// Detected input-token count in tokens, when available.
+    /// </summary>
     public int? InputTokens { get; }
 }

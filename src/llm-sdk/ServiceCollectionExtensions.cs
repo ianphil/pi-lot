@@ -7,13 +7,30 @@ using Microsoft.Extensions.Options;
 
 namespace LlmSdk;
 
+/// <summary>
+/// Registers the Copilot-backed LlmSdk services with a dependency injection container.
+/// </summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Adds LlmSdk services using default options.
+    /// </summary>
+    /// <param name="services">The service collection to register SDK services in.</param>
+    /// <returns>The same service collection for chaining.</returns>
     public static IServiceCollection AddLlmSdk(this IServiceCollection services)
     {
         return services.AddLlmSdk(static _ => { });
     }
 
+    /// <summary>
+    /// Adds LlmSdk services and configures client-wide options.
+    /// </summary>
+    /// <param name="services">The service collection to register SDK services in.</param>
+    /// <param name="configure">An action that configures SDK options before services are registered.</param>
+    /// <returns>The same service collection for chaining.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="services"/> or <paramref name="configure"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when a configured option is invalid.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when a configured timeout is not positive.</exception>
     public static IServiceCollection AddLlmSdk(
         this IServiceCollection services,
         Action<LlmSdkOptions> configure)

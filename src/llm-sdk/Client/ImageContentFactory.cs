@@ -2,8 +2,14 @@ using LlmSdk.Core.Models;
 
 namespace LlmSdk.Client;
 
+/// <summary>
+/// Creates validated image content blocks for portable context requests.
+/// </summary>
 public static class ImageContentFactory
 {
+    /// <summary>
+    /// The default maximum image payload size, in bytes.
+    /// </summary>
     public const long DefaultMaxBytes = 20L * 1024 * 1024;
 
     private static readonly IReadOnlyDictionary<string, string> MediaTypesByExtension =
@@ -24,6 +30,15 @@ public static class ImageContentFactory
         "image/webp",
     };
 
+    /// <summary>
+    /// Reads an image file and creates an <see cref="ImageContent"/> block.
+    /// </summary>
+    /// <param name="path">Path to a PNG, JPEG, GIF, or WebP image.</param>
+    /// <param name="maxBytes">Maximum allowed file size in bytes.</param>
+    /// <returns>An image content block with base64-encoded data.</returns>
+    /// <exception cref="FileNotFoundException">Thrown when <paramref name="path"/> does not exist.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the extension or file size is unsupported.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxBytes"/> is not positive.</exception>
     public static ImageContent FromFile(string path, long maxBytes = DefaultMaxBytes)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
@@ -44,6 +59,15 @@ public static class ImageContentFactory
         return FromBytes(File.ReadAllBytes(path), mediaType, maxBytes);
     }
 
+    /// <summary>
+    /// Creates an <see cref="ImageContent"/> block from image bytes.
+    /// </summary>
+    /// <param name="bytes">The raw image bytes.</param>
+    /// <param name="mediaType">The media type. Supported values are image/png, image/jpeg, image/gif, and image/webp.</param>
+    /// <param name="maxBytes">Maximum allowed content size in bytes.</param>
+    /// <returns>An image content block with base64-encoded data.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the media type or size is unsupported.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxBytes"/> is not positive.</exception>
     public static ImageContent FromBytes(ReadOnlySpan<byte> bytes, string mediaType, long maxBytes = DefaultMaxBytes)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(mediaType);

@@ -2,6 +2,9 @@ using System.Text.Json.Serialization;
 
 namespace LlmSdk.Core.Models;
 
+/// <summary>
+/// Structured diagnostics attached to an assistant message when the SDK detects non-fatal behavior worth surfacing.
+/// </summary>
 public sealed record Diagnostics(
     [property: JsonPropertyName("entries")] IReadOnlyList<DiagnosticEntry> Entries)
 {
@@ -11,6 +14,9 @@ public sealed record Diagnostics(
     public override int GetHashCode() => StructuralHash.GetSequenceHash(Entries);
 }
 
+/// <summary>
+/// A single diagnostic entry with a stable code, severity, message, and optional sanitized details.
+/// </summary>
 public sealed record DiagnosticEntry(
     [property: JsonPropertyName("severity")] DiagnosticSeverity Severity,
     [property: JsonPropertyName("code")] string Code,
@@ -60,6 +66,9 @@ public sealed record DiagnosticEntry(
     }
 }
 
+/// <summary>
+/// Severity of a diagnostic entry.
+/// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter<DiagnosticSeverity>))]
 public enum DiagnosticSeverity
 {
