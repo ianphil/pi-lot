@@ -14,7 +14,7 @@ exclude `Smoke` and `UpstreamCapture` tests unless the workflow explicitly has
 live credentials and network assumptions.
 
 When changing solution membership, keep the PR validation solution coverage
-check in sync so every `src` and `tests` project remains in `copilot-llm.sln`.
+check in sync so every `src` and `tests` project remains in `pi-lot.sln`.
 
 Publishing workflows should verify tag/version alignment before pushing
 packages.

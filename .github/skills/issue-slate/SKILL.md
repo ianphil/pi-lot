@@ -202,9 +202,9 @@ Run focused tests during development, then run the appropriate unit, integration
 Before pushing a PR, run the full PR validation shape when practical:
 
 ```powershell
-dotnet restore copilot-llm.sln
-dotnet build copilot-llm.sln --configuration Release --no-restore --disable-build-servers -m:1 --no-incremental
-dotnet test copilot-llm.sln --configuration Release --no-build --filter "Category!=Smoke"
+dotnet restore pi-lot.sln
+dotnet build pi-lot.sln --configuration Release --no-restore --disable-build-servers -m:1 --no-incremental
+dotnet test pi-lot.sln --configuration Release --no-build --filter "Category!=Smoke"
 ```
 
 ### 8. Commit

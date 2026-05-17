@@ -1,4 +1,4 @@
-name: PR validation
+name: pi-lot PR validation
 
 on:
   pull_request:
@@ -22,7 +22,7 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore solution
-        run: dotnet restore copilot-llm.sln
+        run: dotnet restore pi-lot.sln
 
       - name: Verify solution project coverage
         shell: bash
@@ -31,14 +31,14 @@ jobs:
           actual="$(mktemp)"
 
           find src tests -name '*.csproj' | sort > "$expected"
-          dotnet sln copilot-llm.sln list \
+          dotnet sln pi-lot.sln list \
             | awk 'NR > 2 { gsub("\\\\", "/"); print }' \
             | sort > "$actual"
 
           diff -u "$expected" "$actual"
 
       - name: Build solution
-        run: dotnet build copilot-llm.sln --configuration Release --no-restore --disable-build-servers -m:1 --no-incremental
+        run: dotnet build pi-lot.sln --configuration Release --no-restore --disable-build-servers -m:1 --no-incremental
 
       - name: Run tests
-        run: dotnet test copilot-llm.sln --configuration Release --no-build --filter "Category!=Smoke&Category!=UpstreamCapture"
+        run: dotnet test pi-lot.sln --configuration Release --no-build --filter "Category!=Smoke&Category!=UpstreamCapture"
