@@ -10,6 +10,9 @@ using Microsoft.Extensions.Options;
 
 namespace LlmSdk.Client;
 
+/// <summary>
+/// Default implementation of <see cref="ILlmSdkClient"/>.
+/// </summary>
 public sealed class LlmSdkClient : ILlmSdkClient
 {
     private readonly IResponsesService _responsesService;
@@ -18,6 +21,9 @@ public sealed class LlmSdkClient : ILlmSdkClient
     private readonly ILogger<LlmSdkClient> _logger;
     private readonly LlmSdkOptions _options;
 
+    /// <summary>
+    /// Initializes a new SDK client from the raw API services and model catalogue.
+    /// </summary>
     public LlmSdkClient(
         IResponsesService responsesService,
         IChatCompletionsService chatCompletionsService,

@@ -2,6 +2,9 @@ using System.Text.Json.Serialization;
 
 namespace LlmSdk.Core.Models;
 
+/// <summary>
+/// Copilot model metadata and derived capabilities.
+/// </summary>
 public sealed record class ModelInfo
 {
     [JsonPropertyName("id")]
@@ -52,20 +55,35 @@ public sealed record class ModelInfo
     [JsonPropertyName("pricing")]
     public ModelPricing? Pricing { get; init; }
 
+    /// <summary>
+    /// Maximum context window in tokens, when advertised by Copilot metadata.
+    /// </summary>
     [JsonIgnore]
     public int? ContextWindow => TokenLimits?.MaxContextWindowTokens ?? Capabilities?.Limits?.MaxContextWindowTokens;
 
+    /// <summary>
+    /// Maximum output tokens, when advertised by Copilot metadata.
+    /// </summary>
     [JsonIgnore]
     public int? MaxOutputTokens => TokenLimits?.MaxOutputTokens ?? Capabilities?.Limits?.MaxOutputTokens;
 
+    /// <summary>
+    /// Whether the model advertises image input support.
+    /// </summary>
     [JsonIgnore]
     public bool SupportsVision => Capabilities?.Supports?.Vision ?? false;
 
+    /// <summary>
+    /// Whether the model advertises reasoning or adaptive-thinking support.
+    /// </summary>
     [JsonIgnore]
     public bool SupportsReasoning =>
         Capabilities?.Supports?.AdaptiveThinking == true ||
         Capabilities?.Supports?.ReasoningEffort is { Length: > 0 };
 
+    /// <summary>
+    /// Supported reasoning-effort levels parsed from Copilot metadata.
+    /// </summary>
     [JsonIgnore]
     public IReadOnlyList<ThinkingLevel> SupportedThinkingLevels =>
         Capabilities?.Supports?.ReasoningEffort?
@@ -74,12 +92,21 @@ public sealed record class ModelInfo
             .Select(static level => level!.Value)
             .ToArray() ?? [];
 
+    /// <summary>
+    /// Whether the model advertises Responses API support.
+    /// </summary>
     [JsonIgnore]
     public bool SupportsResponses => SupportedEndpoints.Contains("/responses", StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Whether the model advertises Chat Completions API support.
+    /// </summary>
     [JsonIgnore]
     public bool SupportsChatCompletions => SupportedEndpoints.Contains("/chat/completions", StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Creates placeholder metadata for an id not found in the local model catalogue.
+    /// </summary>
     public static ModelInfo Unknown(string id) => new()
     {
         Id = id,
@@ -88,6 +115,9 @@ public sealed record class ModelInfo
     };
 }
 
+/// <summary>
+/// Requested model reasoning effort.
+/// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter<ThinkingLevel>))]
 public enum ThinkingLevel
 {
@@ -98,6 +128,9 @@ public enum ThinkingLevel
     XHigh,
 }
 
+/// <summary>
+/// Per-million-token pricing metadata.
+/// </summary>
 public record ModelPricing
 {
     [JsonPropertyName("input_per_million_tokens")]
@@ -113,4 +146,7 @@ public record ModelPricing
     public decimal CacheWritePerMillionTokens { get; init; }
 }
 
+/// <summary>
+/// Pricing metadata returned alongside usage values.
+/// </summary>
 public sealed record UsagePricing : ModelPricing;
