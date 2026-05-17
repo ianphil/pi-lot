@@ -118,45 +118,42 @@ For implementation-specific testing rules, see
 `.github/instructions/testing.instructions.md` and
 `.github/instructions/integration-tests.instructions.md`.
 
-## Versioning
+## Versioning and Releases
 
-The library, service, and CLI are versioned independently in their respective
-`.csproj` files:
+`LlmSdk` and `LlmAgent` are the only released packages today. `llm-svc`,
+`llm-cli`, and `llm-ui` are local/reference projects until a separate release
+decision is made.
+
+Package versions are managed at release time. Feature PRs should not bump
+`.csproj` versions; those versions represent the last shipped stable package
+version.
 
 ```xml
 <!-- src/llm-sdk/llm-sdk.csproj -->
-<Version>0.3.1</Version>
+<Version>0.7.0</Version>
 
-<!-- src/llm-svc/llm-svc.csproj -->
-<Version>0.6.1</Version>
-
-<!-- src/llm-cli/llm-cli.csproj -->
-<Version>0.4.0</Version>
+<!-- src/llm-agent/llm-agent.csproj -->
+<Version>0.1.0</Version>
 ```
 
-All three follow [SemVer 2.0](https://semver.org/). Bump the relevant version
-when shipping a meaningful change.
+Both released packages follow [SemVer 2.0](https://semver.org/). Releases are
+manual and package-specific.
 
-| Component | Tag format | Example |
+| Package | Tag format | Example |
 |---|---|---|
-| Service | `svc-v{version}` | `svc-v0.6.1` |
-| Library | `lib-v{version}` | `lib-v0.3.1` |
-| CLI | `cli-v{version}` | `cli-v0.4.0` |
+| `LlmSdk` | `sdk-v{version}` | `sdk-v0.7.0` |
+| `LlmAgent` | `agent-v{version}` | `agent-v0.1.0` |
 
-Use patch versions for fixes and small tweaks, minor versions for new features,
-endpoints, or capabilities, and major versions for breaking API changes. A PR
-that changes multiple released components may bump multiple versions and release
-with multiple tags. Legacy bare `v{version}` tags refer to service releases; new
-service releases use `svc-v{version}`.
+See `docs/release-channels.md` for the release-channel model and deferred
+surfaces.
 
-### Library Publishing
+### Package Publishing
 
-`LlmSdk` publishes to GitHub Packages using `.github/workflows/publish-llm-sdk.yml`.
+`LlmSdk` currently publishes to GitHub Packages using
+`.github/workflows/publish-llm-sdk.yml`. `LlmAgent` publishing is planned but not
+implemented yet.
 
-- Push a tag matching the library version, such as `lib-v0.3.1`, to publish
-  automatically.
-- Or run the workflow manually with `workflow_dispatch` to publish the current
-  library version.
+- Run publishing workflows manually with `workflow_dispatch`.
 - The workflow publishes to `https://nuget.pkg.github.com/{owner}/index.json`
   using `GITHUB_TOKEN`.
 
