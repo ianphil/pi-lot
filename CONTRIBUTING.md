@@ -246,4 +246,7 @@ compatible AI tools.
 | Agent | `doublecheck` | Verification and adversarial review |
 | Hook | `secrets-scanner` | Scans modified files for secret-like values at session end |
 | Skill | `csharp-xunit` | XUnit best practices |
+| Skill | `fake-live-int-tests` | Paired fake/live `.Int` test workflow |
 | Skill | `issue-slate` | Batch workflow for grouped GitHub issues |
+| Skill | `sdk-change` | SDK layer decision, implementation, and validation workflow |
+| Skill | `skill-creator` | Create and improve reusable skills |
