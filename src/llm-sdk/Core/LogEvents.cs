@@ -21,6 +21,7 @@ public static class LogEvents
     public static readonly EventId ModelsFetched = new(3000, "ModelsFetched");
     public static readonly EventId RequestProxied = new(3001, "RequestProxied");
     public static readonly EventId RequestFailed = new(3002, "RequestFailed");
+    public static readonly EventId SilentTruncationSuspected = new(3003, "SilentTruncationSuspected");
 
     // ── Errors (4xxx) ────────────────────────────────────────────────────────
     public static readonly EventId UnexpectedError = new(4000, "UnexpectedError");

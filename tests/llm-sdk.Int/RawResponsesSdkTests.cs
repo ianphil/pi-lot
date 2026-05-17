@@ -65,6 +65,55 @@ public sealed class RawResponsesSdkTests
     }
 
     [Fact]
+    public async Task CreateResponseAsync_WithFakeContextOverflow_ThrowsContextOverflowException()
+    {
+        var provider = new FakeModelProvider { Models = [CreateResponsesModel()] };
+        provider.ResponsesResults.Enqueue(new ProxyHttpResult(
+            """
+            {
+              "error": {
+                "message": "This model's maximum context length is 128000 tokens. However, you requested 131250 tokens.",
+                "type": "invalid_request_error",
+                "code": "context_length_exceeded",
+                "param": "input"
+              }
+            }
+            """,
+            400));
+        await using var services = SdkIntTestHost.CreateFakeApiProvider(provider);
+        var client = services.GetRequiredService<ILlmSdkClient>();
+
+        var exception = await Assert.ThrowsAsync<ContextOverflowException>(() =>
+            client.CreateResponseAsync(CreateTextRequest("fake-gpt", "Summarize this oversized prompt.")));
+
+        Assert.Equal("context_length_exceeded", exception.ErrorCode);
+        Assert.Equal("invalid_request_error", exception.ErrorType);
+        Assert.Equal("input", exception.Param);
+        Assert.Equal(400, exception.StatusCode);
+        Assert.Equal(128000, exception.ContextWindow);
+        Assert.Equal(131250, exception.InputTokens);
+        var request = Assert.Single(provider.ResponsesRequests);
+        Assert.Equal("fake-gpt", request.Model);
+    }
+
+    [Fact]
+    [Trait("Category", "Smoke")]
+    public async Task CreateResponseAsync_WithLiveApiSmallPrompt_ReturnsText()
+    {
+        await using var services = SdkIntTestHost.CreateAuthenticatedProvider();
+        var client = services.GetRequiredService<ILlmSdkClient>();
+
+        var response = await client.CreateResponseAsync(CreateTextRequest("gpt-5.4-mini", "Reply with exactly: hello"));
+        var text = response.GetOutputText();
+        _output.WriteLine(JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonDefaults.Web)
+        {
+            WriteIndented = true,
+        }));
+
+        Assert.Contains("hello", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     [Trait("Category", "Smoke")]
     public async Task CreateResponseAsync_WithLiveApiTools_ReturnsFunctionCall()
     {
@@ -111,6 +160,13 @@ public sealed class RawResponsesSdkTests
             name = "get_weather",
         }, JsonDefaults.Web),
         MaxOutputTokens = 128,
+    };
+
+    private static CreateResponseRequest CreateTextRequest(string model, string input) => new()
+    {
+        Model = model,
+        Input = JsonSerializer.SerializeToElement(input, JsonDefaults.Web),
+        MaxOutputTokens = 32,
     };
 
     private static ResponseFunctionToolDefinition CreateWeatherTool()

@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
+using LlmSdk.Core.Models;
+using LlmSdk.Core.Services;
 
 namespace LlmSdk.Client;
 
@@ -8,6 +10,19 @@ internal static class LlmSdkExceptionFactory
     public static LlmSdkException Create(int statusCode, string? body)
     {
         var error = Parse(body);
+
+        if (OverflowDetector.IsOverflow(statusCode, error.Message, error.Code))
+        {
+            var (window, input) = OverflowDetector.TryExtractTokens(error.Message);
+            return new ContextOverflowException(
+                error.Message,
+                window,
+                input,
+                error.Code ?? ErrorCodes.ContextLengthExceeded,
+                error.Type,
+                error.Param,
+                statusCode);
+        }
 
         return statusCode switch
         {

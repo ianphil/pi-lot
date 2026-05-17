@@ -63,6 +63,21 @@ public sealed class LlmSdkExceptionTests
     }
 
     [Fact]
+    public void ContextOverflowException_CarriesTokenDetails()
+    {
+        var exception = new ContextOverflowException(
+            "Context length exceeded.",
+            contextWindow: 128000,
+            inputTokens: 131250,
+            statusCode: 400);
+
+        Assert.Equal(ErrorCodes.ContextLengthExceeded, exception.ErrorCode);
+        Assert.Equal(400, exception.StatusCode);
+        Assert.Equal(128000, exception.ContextWindow);
+        Assert.Equal(131250, exception.InputTokens);
+    }
+
+    [Fact]
     public void Create_WhenErrorCodeIsModelNotFound_ReturnsModelNotFoundException()
     {
         var body = JsonSerializer.Serialize(new ResponseErrorEnvelope
@@ -125,6 +140,27 @@ public sealed class LlmSdkExceptionTests
         Assert.Equal(TimeSpan.FromSeconds(12), typed.RetryAfter);
         Assert.Equal("rate_limited", typed.ErrorCode);
         Assert.Equal("too_many_requests", typed.ErrorType);
+    }
+
+    [Fact]
+    public void Create_WhenErrorIsContextOverflow_ReturnsContextOverflowException()
+    {
+        const string body = """
+            {
+              "error": {
+                "message": "This model's maximum context length is 128,000 tokens. However, you requested 131,250 tokens.",
+                "type": "invalid_request_error",
+                "code": "context_length_exceeded"
+              }
+            }
+            """;
+
+        var exception = LlmSdkExceptionFactory.Create(400, body);
+
+        var typed = Assert.IsType<ContextOverflowException>(exception);
+        Assert.Equal(128000, typed.ContextWindow);
+        Assert.Equal(131250, typed.InputTokens);
+        Assert.Equal(ErrorTypes.InvalidRequestError, typed.ErrorType);
     }
 
     [Fact]

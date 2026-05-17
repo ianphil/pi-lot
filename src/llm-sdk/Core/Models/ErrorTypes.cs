@@ -23,4 +23,5 @@ public static class ErrorCodes
     public const string InvalidInputFormat = "invalid_input_format";
     public const string StreamError = "stream_error";
     public const string AuthError = "auth_error";
+    public const string ContextLengthExceeded = "context_length_exceeded";
 }
