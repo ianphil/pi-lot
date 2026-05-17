@@ -15,62 +15,67 @@ public abstract record ResponseStreamEvent(string Type, int SequenceNumber)
             return null;
         }
 
-        if (string.Equals(parsed.Value.Data, "[DONE]", StringComparison.Ordinal))
+        return Parse(parsed.Value);
+    }
+
+    internal static ResponseStreamEvent? Parse(ParsedSseChunk parsed)
+    {
+        if (string.Equals(parsed.Data, "[DONE]", StringComparison.Ordinal))
         {
             return null;
         }
 
-        return parsed.Value.EventName switch
+        return parsed.EventName switch
         {
-            "response.created" => CreateResponseEvent<ResponseCreatedEvent, ResponsePayload>(parsed.Value.Data,
+            "response.created" => CreateResponseEvent<ResponseCreatedEvent, ResponsePayload>(parsed.Data,
                 static payload => new ResponseCreatedEvent(payload.Type, payload.SequenceNumber, payload.Response)),
-            "response.in_progress" => CreateResponseEvent<ResponseInProgressEvent, ResponsePayload>(parsed.Value.Data,
+            "response.in_progress" => CreateResponseEvent<ResponseInProgressEvent, ResponsePayload>(parsed.Data,
                 static payload => new ResponseInProgressEvent(payload.Type, payload.SequenceNumber, payload.Response)),
-            "response.completed" => CreateResponseEvent<ResponseCompletedEvent, ResponsePayload>(parsed.Value.Data,
+            "response.completed" => CreateResponseEvent<ResponseCompletedEvent, ResponsePayload>(parsed.Data,
                 static payload => new ResponseCompletedEvent(payload.Type, payload.SequenceNumber, payload.Response)),
-            "response.failed" => CreateResponseEvent<ResponseFailedEvent, ResponsePayload>(parsed.Value.Data,
+            "response.failed" => CreateResponseEvent<ResponseFailedEvent, ResponsePayload>(parsed.Data,
                 static payload => new ResponseFailedEvent(payload.Type, payload.SequenceNumber, payload.Response)),
-            "response.incomplete" => CreateResponseEvent<ResponseIncompleteEvent, ResponsePayload>(parsed.Value.Data,
+            "response.incomplete" => CreateResponseEvent<ResponseIncompleteEvent, ResponsePayload>(parsed.Data,
                 static payload => new ResponseIncompleteEvent(payload.Type, payload.SequenceNumber, payload.Response)),
-            "response.output_item.added" => CreateResponseEvent<OutputItemAddedEvent, OutputItemPayload>(parsed.Value.Data,
+            "response.output_item.added" => CreateResponseEvent<OutputItemAddedEvent, OutputItemPayload>(parsed.Data,
                 static payload => new OutputItemAddedEvent(payload.Type, payload.SequenceNumber, payload.Item, payload.OutputIndex)),
-            "response.output_item.done" => CreateResponseEvent<OutputItemDoneEvent, OutputItemPayload>(parsed.Value.Data,
+            "response.output_item.done" => CreateResponseEvent<OutputItemDoneEvent, OutputItemPayload>(parsed.Data,
                 static payload => new OutputItemDoneEvent(payload.Type, payload.SequenceNumber, payload.Item, payload.OutputIndex)),
-            "response.content_part.added" => CreateResponseEvent<ContentPartAddedEvent, ContentPartPayload>(parsed.Value.Data,
+            "response.content_part.added" => CreateResponseEvent<ContentPartAddedEvent, ContentPartPayload>(parsed.Data,
                 static payload => new ContentPartAddedEvent(payload.Type, payload.SequenceNumber, payload.Part, payload.OutputIndex, payload.ContentIndex, payload.ItemId)),
-            "response.content_part.done" => CreateResponseEvent<ContentPartDoneEvent, ContentPartPayload>(parsed.Value.Data,
+            "response.content_part.done" => CreateResponseEvent<ContentPartDoneEvent, ContentPartPayload>(parsed.Data,
                 static payload => new ContentPartDoneEvent(payload.Type, payload.SequenceNumber, payload.Part, payload.OutputIndex, payload.ContentIndex, payload.ItemId)),
-            "response.output_text.delta" => CreateResponseEvent<OutputTextDeltaEvent, OutputTextDeltaPayload>(parsed.Value.Data,
+            "response.output_text.delta" => CreateResponseEvent<OutputTextDeltaEvent, OutputTextDeltaPayload>(parsed.Data,
                 static payload => new OutputTextDeltaEvent(payload.Type, payload.SequenceNumber, payload.Delta, payload.OutputIndex, payload.ContentIndex, payload.ItemId)),
-            "response.output_text.done" => CreateResponseEvent<OutputTextDoneEvent, OutputTextDonePayload>(parsed.Value.Data,
+            "response.output_text.done" => CreateResponseEvent<OutputTextDoneEvent, OutputTextDonePayload>(parsed.Data,
                 static payload => new OutputTextDoneEvent(payload.Type, payload.SequenceNumber, payload.Text, payload.OutputIndex, payload.ContentIndex, payload.ItemId)),
-            "response.function_call_arguments.delta" => CreateResponseEvent<FunctionCallArgumentsDeltaEvent, FunctionCallArgumentsDeltaPayload>(parsed.Value.Data,
+            "response.function_call_arguments.delta" => CreateResponseEvent<FunctionCallArgumentsDeltaEvent, FunctionCallArgumentsDeltaPayload>(parsed.Data,
                 static payload => new FunctionCallArgumentsDeltaEvent(payload.Type, payload.SequenceNumber, payload.Delta, payload.OutputIndex, payload.ItemId)),
-            "response.function_call_arguments.done" => CreateResponseEvent<FunctionCallArgumentsDoneEvent, FunctionCallArgumentsDonePayload>(parsed.Value.Data,
+            "response.function_call_arguments.done" => CreateResponseEvent<FunctionCallArgumentsDoneEvent, FunctionCallArgumentsDonePayload>(parsed.Data,
                 static payload => new FunctionCallArgumentsDoneEvent(payload.Type, payload.SequenceNumber, payload.Arguments, payload.OutputIndex, payload.ItemId)),
-            "response.queued" => CreateResponseEvent<ResponseQueuedEvent, ResponsePayload>(parsed.Value.Data,
+            "response.queued" => CreateResponseEvent<ResponseQueuedEvent, ResponsePayload>(parsed.Data,
                 static payload => new ResponseQueuedEvent(payload.Type, payload.SequenceNumber, payload.Response)),
-            "response.refusal.delta" => CreateResponseEvent<RefusalDeltaEvent, RefusalDeltaPayload>(parsed.Value.Data,
+            "response.refusal.delta" => CreateResponseEvent<RefusalDeltaEvent, RefusalDeltaPayload>(parsed.Data,
                 static payload => new RefusalDeltaEvent(payload.Type, payload.SequenceNumber, payload.Delta, payload.OutputIndex, payload.ContentIndex, payload.ItemId)),
-            "response.refusal.done" => CreateResponseEvent<RefusalDoneEvent, RefusalDonePayload>(parsed.Value.Data,
+            "response.refusal.done" => CreateResponseEvent<RefusalDoneEvent, RefusalDonePayload>(parsed.Data,
                 static payload => new RefusalDoneEvent(payload.Type, payload.SequenceNumber, payload.Refusal, payload.OutputIndex, payload.ContentIndex, payload.ItemId)),
-            "response.reasoning.delta" => CreateResponseEvent<ReasoningDeltaEvent, ReasoningDeltaPayload>(parsed.Value.Data,
+            "response.reasoning.delta" => CreateResponseEvent<ReasoningDeltaEvent, ReasoningDeltaPayload>(parsed.Data,
                 static payload => new ReasoningDeltaEvent(payload.Type, payload.SequenceNumber, payload.Delta, payload.OutputIndex, payload.ContentIndex, payload.ItemId)),
-            "response.reasoning.done" => CreateResponseEvent<ReasoningDoneEvent, ReasoningDonePayload>(parsed.Value.Data,
+            "response.reasoning.done" => CreateResponseEvent<ReasoningDoneEvent, ReasoningDonePayload>(parsed.Data,
                 static payload => new ReasoningDoneEvent(payload.Type, payload.SequenceNumber, payload.OutputIndex, payload.ContentIndex, payload.ItemId)),
-            "response.reasoning_summary_part.added" => CreateResponseEvent<ReasoningSummaryPartAddedEvent, ReasoningSummaryPartPayload>(parsed.Value.Data,
+            "response.reasoning_summary_part.added" => CreateResponseEvent<ReasoningSummaryPartAddedEvent, ReasoningSummaryPartPayload>(parsed.Data,
                 static payload => new ReasoningSummaryPartAddedEvent(payload.Type, payload.SequenceNumber, payload.Part, payload.OutputIndex, payload.SummaryIndex, payload.ItemId)),
-            "response.reasoning_summary_part.done" => CreateResponseEvent<ReasoningSummaryPartDoneEvent, ReasoningSummaryPartPayload>(parsed.Value.Data,
+            "response.reasoning_summary_part.done" => CreateResponseEvent<ReasoningSummaryPartDoneEvent, ReasoningSummaryPartPayload>(parsed.Data,
                 static payload => new ReasoningSummaryPartDoneEvent(payload.Type, payload.SequenceNumber, payload.Part, payload.OutputIndex, payload.SummaryIndex, payload.ItemId)),
-            "response.reasoning_summary_text.delta" => CreateResponseEvent<ReasoningSummaryDeltaEvent, ReasoningSummaryDeltaPayload>(parsed.Value.Data,
+            "response.reasoning_summary_text.delta" => CreateResponseEvent<ReasoningSummaryDeltaEvent, ReasoningSummaryDeltaPayload>(parsed.Data,
                 static payload => new ReasoningSummaryDeltaEvent(payload.Type, payload.SequenceNumber, payload.Delta, payload.OutputIndex, payload.SummaryIndex, payload.ItemId)),
-            "response.reasoning_summary_text.done" => CreateResponseEvent<ReasoningSummaryDoneEvent, ReasoningSummaryDonePayload>(parsed.Value.Data,
+            "response.reasoning_summary_text.done" => CreateResponseEvent<ReasoningSummaryDoneEvent, ReasoningSummaryDonePayload>(parsed.Data,
                 static payload => new ReasoningSummaryDoneEvent(payload.Type, payload.SequenceNumber, payload.Text, payload.OutputIndex, payload.SummaryIndex, payload.ItemId)),
-            "response.output_text.annotation.added" => CreateResponseEvent<OutputTextAnnotationAddedEvent, OutputTextAnnotationAddedPayload>(parsed.Value.Data,
+            "response.output_text.annotation.added" => CreateResponseEvent<OutputTextAnnotationAddedEvent, OutputTextAnnotationAddedPayload>(parsed.Data,
                 static payload => new OutputTextAnnotationAddedEvent(payload.Type, payload.SequenceNumber, payload.Annotation, payload.OutputIndex, payload.ContentIndex, payload.AnnotationIndex, payload.ItemId)),
-            "error" => CreateResponseEvent<ErrorEvent, ErrorPayload>(parsed.Value.Data,
+            "error" => CreateResponseEvent<ErrorEvent, ErrorPayload>(parsed.Data,
                 static payload => new ErrorEvent(payload.Type, payload.SequenceNumber, payload.ToResponseError())),
-            _ => CreateUnknownEvent(parsed.Value.EventName, parsed.Value.Data),
+            _ => CreateUnknownEvent(parsed.EventName ?? string.Empty, parsed.Data),
         };
     }
 

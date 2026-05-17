@@ -71,9 +71,16 @@ public sealed class LlmSdkClient : ILlmSdkClient
             throw new InvalidOperationException("The response stream did not contain any chunks.");
         }
 
+        var parser = new SseChunkParser();
         await foreach (var chunk in result.Chunks.WithCancellation(cancellationToken))
         {
-            var streamEvent = ResponseStreamEvent.Parse(chunk);
+            var parsed = parser.ParseChunk(chunk);
+            if (parsed is null)
+            {
+                continue;
+            }
+
+            var streamEvent = ResponseStreamEvent.Parse(parsed.Value);
             if (streamEvent is not null)
             {
                 yield return streamEvent;
@@ -158,9 +165,10 @@ public sealed class LlmSdkClient : ILlmSdkClient
             throw new InvalidOperationException("The chat completion stream did not contain any chunks.");
         }
 
+        var parser = new SseChunkParser();
         await foreach (var chunk in result.Chunks.WithCancellation(cancellationToken))
         {
-            var envelope = SseChunkParser.Parse(chunk);
+            var envelope = parser.ParseChunk(chunk);
             if (envelope is null)
             {
                 continue;
