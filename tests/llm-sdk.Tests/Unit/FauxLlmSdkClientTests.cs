@@ -53,6 +53,27 @@ public sealed class FauxLlmSdkClientTests
     }
 
     [Fact]
+    public async Task CompleteAsync_WithRepeatedCacheSession_SimulatesCacheHitUsage()
+    {
+        var client = new FauxLlmSdkClient(
+        [
+            FauxResponse.Text("First", new Usage(10, 2)),
+            FauxResponse.Text("Second", new Usage(10, 2)),
+        ]);
+        var options = new CompletionOptions
+        {
+            Cache = CacheRetention.Short,
+            SessionId = "session-123",
+        };
+
+        var first = await client.CompleteAsync(new Context(), options);
+        var second = await client.CompleteAsync(new Context(), options);
+
+        Assert.Equal(0, first.Usage?.CacheReadTokens);
+        Assert.Equal(10, second.Usage?.CacheReadTokens);
+    }
+
+    [Fact]
     public async Task StreamAsync_WithScriptedResponse_YieldsEventsInOrderAndRecordsRequest()
     {
         var scripted = FauxResponse.Text("Hello", new Usage(3, 2));

@@ -26,6 +26,7 @@ public static class ContextTranslator
             TimeoutMs = options?.TimeoutMs,
             MaxRetries = options?.MaxRetries,
             MaxRetryDelayMs = options?.MaxRetryDelayMs,
+            PromptCacheKey = options?.SessionId,
             OnPayload = options?.OnPayload,
             OnResponse = options?.OnResponse,
         };
@@ -47,6 +48,7 @@ public static class ContextTranslator
         {
             Model = options?.Model,
             Messages = messages.ToArray(),
+            User = options?.SessionId,
             Tools = context.Tools.Select(ToChatTool).ToArray(),
             ToolChoice = ToChatToolChoice(options?.ToolChoice),
             MaxCompletionTokens = options?.MaxOutputTokens,

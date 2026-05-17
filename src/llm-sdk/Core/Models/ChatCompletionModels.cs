@@ -17,6 +17,9 @@ public sealed record class ChatCompletionRequest
     [JsonPropertyName("stream")]
     public bool? Stream { get; init; }
 
+    [JsonPropertyName("user")]
+    public string? User { get; init; }
+
     [JsonPropertyName("max_completion_tokens")]
     public int? MaxCompletionTokens { get; init; }
 

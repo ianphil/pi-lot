@@ -65,6 +65,9 @@ public sealed record class CreateResponseRequest
     [JsonPropertyName("previous_response_id")]
     public string? PreviousResponseId { get; init; }
 
+    [JsonPropertyName("prompt_cache_key")]
+    public string? PromptCacheKey { get; init; }
+
     [JsonPropertyName("truncation")]
     public string? Truncation { get; init; }
 

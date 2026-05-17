@@ -97,6 +97,8 @@ var message = await client.CompleteAsync(context, new CompletionOptions
     TimeoutMs = 30_000,
     MaxRetries = 2,
     MaxRetryDelayMs = 1_000,
+    Cache = CacheRetention.Short,
+    SessionId = "shared-system-prompt",
     Metadata = new Dictionary<string, string> { ["traceId"] = "abc123" },
     OnPayload = payload =>
     {
@@ -115,6 +117,11 @@ upstream. `OnPayload` receives the serialized outbound JSON as a mutable
 original payload unchanged. `OnResponse` runs once after final response headers
 arrive and before the body is read or streamed. Throwing hooks are logged and do
 not fail the request.
+
+`Cache` is an advisory prompt-cache preference. `SessionId` is forwarded as
+Responses `prompt_cache_key` and Chat Completions `user` for upstream cache
+affinity when the selected surface supports it; unsupported providers may ignore
+the hint. Reported cache-read/write token counts still flow through `Usage`.
 
 `CompleteAsync` and `StreamAsync` default to `AbortMode.ReturnPartial`: once
 streaming has started, cancellation returns a partial assistant message with

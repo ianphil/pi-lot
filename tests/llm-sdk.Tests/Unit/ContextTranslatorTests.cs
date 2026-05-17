@@ -133,4 +133,44 @@ public sealed class ContextTranslatorTests
 
         Assert.Equal(JsonSerializer.Serialize(expected, JsonDefaults.Web), JsonSerializer.Serialize(request, JsonDefaults.Web));
     }
+
+    [Fact]
+    public void ToCreateResponseRequest_WithSessionId_PropagatesPromptCacheKey()
+    {
+        var context = new Context
+        {
+            Messages = [new UserMessage([new TextContent("Hello!")])],
+        };
+
+        var request = ContextTranslator.ToCreateResponseRequest(context, new CompletionOptions
+        {
+            Model = "gpt-5.4-mini",
+            Cache = CacheRetention.Short,
+            SessionId = "session-123",
+        });
+
+        Assert.Equal("session-123", request.PromptCacheKey);
+        var json = JsonSerializer.Serialize(request, JsonDefaults.Web);
+        Assert.Contains("\"prompt_cache_key\":\"session-123\"", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ToChatCompletionRequest_WithSessionId_PropagatesUser()
+    {
+        var context = new Context
+        {
+            Messages = [new UserMessage([new TextContent("Hello!")])],
+        };
+
+        var request = ContextTranslator.ToChatCompletionRequest(context, new CompletionOptions
+        {
+            Model = "gpt-5.4-mini",
+            Cache = CacheRetention.Long,
+            SessionId = "session-123",
+        });
+
+        Assert.Equal("session-123", request.User);
+        var json = JsonSerializer.Serialize(request, JsonDefaults.Web);
+        Assert.Contains("\"user\":\"session-123\"", json, StringComparison.Ordinal);
+    }
 }
