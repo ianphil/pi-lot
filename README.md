@@ -1,4 +1,4 @@
-# LlmSdk
+# pi-lot
 
 A .NET library for accessing GitHub Copilot's LLM API with OpenAI-compatible Responses and Chat Completions services. This repository also ships `llm-svc`, a local OpenAI-compatible proxy, `llm`, a CLI reference client for the proxy, and `llm-ui`, an experimental editable-context chat UI.
 
@@ -320,7 +320,7 @@ localhost:5100/v1/responses
 ## Project structure
 
 ```
-llm-svc/
+pi-lot/
 ├── src/
 │   ├── llm-sdk/               Reusable library for translation, auth, and upstream access
 │   │   ├── ServiceCollectionExtensions.cs
@@ -339,7 +339,7 @@ llm-svc/
 │   ├── llm-svc.Tests/            Host integration + smoke tests
 │   └── llm-cli.Tests/            CLI tests
 ├── Directory.Build.props          Shared build properties
-└── copilot-llm.sln
+└── pi-lot.sln
 ```
 
 ## Testing
@@ -358,7 +358,7 @@ dotnet test tests/llm-cli.Tests/llm-cli.Tests.csproj --filter "Category!=Smoke"
 dotnet test tests/llm-ui.Tests/llm-ui.Tests.csproj --filter "Category!=Smoke"
 
 # Whole-solution CI-safe run excludes live product smoke and upstream captures.
-dotnet test copilot-llm.sln --filter "Category!=Smoke&Category!=UpstreamCapture"
+dotnet test pi-lot.sln --filter "Category!=Smoke&Category!=UpstreamCapture"
 
 # Live smoke tests require Copilot credentials and may require a running proxy.
 dotnet test --filter "Category=Smoke"

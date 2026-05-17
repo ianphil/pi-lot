@@ -1,4 +1,4 @@
-# Contributing to llm-svc
+# Contributing to pi-lot
 
 This guide is the contributor-facing source for repository workflow, build and
 test commands, releases, and documentation. Code-generation and review guidance
@@ -18,7 +18,7 @@ This repository ships five related components:
 
 Source projects live under `src/`, test projects under `tests/`, shared build
 settings live in `Directory.Build.props`, and the root solution is
-`copilot-llm.sln`.
+`pi-lot.sln`.
 
 ## Build and Test
 
@@ -31,7 +31,7 @@ Target library, CLI, agent, or UI projects directly when the service is running.
 
 ```powershell
 # WRONG if the proxy scheduled task is running
-dotnet test copilot-llm.sln
+dotnet test pi-lot.sln
 
 # RIGHT for library-only changes
 dotnet test tests\llm-sdk.Tests\llm-sdk.Tests.csproj --no-restore
@@ -73,7 +73,7 @@ For a whole-solution CI-safe run, exclude live product smoke tests and direct
 upstream capture drift checks:
 
 ```powershell
-dotnet test copilot-llm.sln --filter "Category!=Smoke&Category!=UpstreamCapture" --no-restore
+dotnet test pi-lot.sln --filter "Category!=Smoke&Category!=UpstreamCapture" --no-restore
 ```
 
 Run smoke tests only when credentials, internet access, and any required local
