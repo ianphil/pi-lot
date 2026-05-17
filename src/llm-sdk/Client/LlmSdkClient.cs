@@ -1,8 +1,10 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using LlmSdk.Core;
 using LlmSdk.Core.Models;
 using LlmSdk.Core.Services;
 using LlmSdk.Proxy;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace LlmSdk.Client;
@@ -12,13 +14,15 @@ public sealed class LlmSdkClient : ILlmSdkClient
     private readonly IResponsesService _responsesService;
     private readonly IChatCompletionsService _chatCompletionsService;
     private readonly ModelListService _modelListService;
+    private readonly ILogger<LlmSdkClient> _logger;
     private readonly LlmSdkOptions _options;
 
     public LlmSdkClient(
         IResponsesService responsesService,
         IChatCompletionsService chatCompletionsService,
         ModelListService modelListService,
-        IOptions<LlmSdkOptions> options)
+        IOptions<LlmSdkOptions> options,
+        ILogger<LlmSdkClient>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(responsesService);
         ArgumentNullException.ThrowIfNull(chatCompletionsService);
@@ -28,6 +32,7 @@ public sealed class LlmSdkClient : ILlmSdkClient
         _responsesService = responsesService;
         _chatCompletionsService = chatCompletionsService;
         _modelListService = modelListService;
+        _logger = logger ?? NullLogger<LlmSdkClient>.Instance;
         _options = options.Value;
     }
 
@@ -300,7 +305,7 @@ public sealed class LlmSdkClient : ILlmSdkClient
         throw LlmSdkExceptionFactory.Create(result.StatusCode, body);
     }
 
-    private static async Task<T> DeserializeAsync<T>(
+    private async Task<T> DeserializeAsync<T>(
         ResponseHttpResult result,
         CancellationToken cancellationToken)
         where T : class
@@ -312,7 +317,59 @@ public sealed class LlmSdkClient : ILlmSdkClient
             throw LlmSdkExceptionFactory.Create(result.StatusCode, body);
         }
 
-        return JsonSerializer.Deserialize<T>(body, JsonDefaults.Web)
-               ?? throw new InvalidOperationException($"The response body could not be deserialized into {typeof(T).Name}.");
+        var value = JsonSerializer.Deserialize<T>(body, JsonDefaults.Web)
+                    ?? throw new InvalidOperationException($"The response body could not be deserialized into {typeof(T).Name}.");
+
+        await LogSilentTruncationIfSuspectedAsync(value, cancellationToken);
+        return value;
+    }
+
+    private async Task LogSilentTruncationIfSuspectedAsync<T>(T value, CancellationToken cancellationToken)
+        where T : class
+    {
+        switch (value)
+        {
+            case Response response:
+                await LogSilentTruncationIfSuspectedAsync(
+                    response.Model,
+                    response.Usage?.InputTokens ?? 0,
+                    response.Status == ResponseStatuses.Incomplete ? StopReason.Length : StopReason.Stop,
+                    cancellationToken);
+                break;
+            case ChatCompletionResponse chat:
+                await LogSilentTruncationIfSuspectedAsync(
+                    chat.Model,
+                    chat.Usage?.PromptTokens ?? 0,
+                    string.Equals(chat.Choices?.FirstOrDefault()?.FinishReason, "length", StringComparison.OrdinalIgnoreCase)
+                        ? StopReason.Length
+                        : StopReason.Stop,
+                    cancellationToken);
+                break;
+        }
+    }
+
+    private async Task LogSilentTruncationIfSuspectedAsync(
+        string? modelId,
+        long inputTokens,
+        StopReason stopReason,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(modelId) || inputTokens <= 0 || stopReason != StopReason.Length)
+        {
+            return;
+        }
+
+        var model = await _modelListService.GetModelAsync(modelId, cancellationToken);
+        if (!OverflowDetector.IsSilentTruncation(inputTokens, model.ContextWindow, stopReason))
+        {
+            return;
+        }
+
+        _logger.LogWarning(
+            LogEvents.SilentTruncationSuspected,
+            "Response for {Model} stopped due to length near the context window. InputTokens={InputTokens}, ContextWindow={ContextWindow}.",
+            model.Id,
+            inputTokens,
+            model.ContextWindow);
     }
 }

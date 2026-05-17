@@ -42,6 +42,7 @@ The Event Log source is registered by the install script
 | 3000 | ModelsFetched | Info | Model list fetched (includes count) |
 | 3001 | RequestProxied | Info | Request routed (includes model and endpoint) |
 | 3002 | RequestFailed | Error | Upstream request failed |
+| 3003 | SilentTruncationSuspected | Warning | SDK response stopped due to length near the model context window |
 
 ### Errors (4xxx)
 
@@ -191,6 +192,7 @@ Clear-EventLog -LogName LlmProxy
 - Token expiration detected (401 response, auto-reload)
 - Model list fetched with count
 - Request routing decision: which model → which endpoint
+- Silent truncation suspicion when a length-limited SDK response is near the model context window
 
 ### Worker (background health)
 

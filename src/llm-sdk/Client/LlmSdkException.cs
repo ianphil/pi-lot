@@ -68,3 +68,25 @@ public sealed class RateLimitException : LlmSdkException
 
     public TimeSpan? RetryAfter { get; }
 }
+
+public sealed class ContextOverflowException : LlmSdkException
+{
+    public ContextOverflowException(
+        string message,
+        int? contextWindow,
+        int? inputTokens,
+        string? errorCode = ErrorCodes.ContextLengthExceeded,
+        string? errorType = null,
+        string? param = null,
+        int statusCode = 400,
+        Exception? innerException = null)
+        : base(message, errorCode, statusCode, errorType, param, innerException)
+    {
+        ContextWindow = contextWindow;
+        InputTokens = inputTokens;
+    }
+
+    public int? ContextWindow { get; }
+
+    public int? InputTokens { get; }
+}

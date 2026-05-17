@@ -1,10 +1,13 @@
 using System.Text.Json;
 using LlmSdk.Client;
+using LlmSdk.Core;
 using LlmSdk.Core.Models;
 using LlmSdk.Core.Services;
 using LlmSdk.Infrastructure;
 using LlmSdk.Proxy;
 using LlmSdk.Tests.Fakes;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace LlmSdk.Tests.Unit;
@@ -52,6 +55,52 @@ public sealed class LlmSdkClientTests
     }
 
     [Fact]
+    public async Task CreateResponseAsync_WhenErrorIsContextOverflow_ThrowsContextOverflowException()
+    {
+        const string body = """
+            {
+              "error": {
+                "message": "This model's maximum context length is 128000 tokens. However, you requested 131000 tokens.",
+                "type": "invalid_request_error",
+                "code": "context_length_exceeded"
+              }
+            }
+            """;
+        var service = new StubResponsesService(ResponseHttpResult.FromBody(body, 400, "application/json"));
+        var client = CreateClient(responsesService: service);
+
+        var exception = await Assert.ThrowsAsync<ContextOverflowException>(() => client.CreateResponseAsync(CreateResponseRequest()));
+
+        Assert.Equal(128000, exception.ContextWindow);
+        Assert.Equal(131000, exception.InputTokens);
+    }
+
+    [Fact]
+    public async Task CreateResponseStreamAsync_WhenErrorIsContextOverflow_ThrowsContextOverflowException()
+    {
+        const string body = """
+            {
+              "error": {
+                "message": "input is too long",
+                "type": "invalid_request_error",
+                "code": "context_length_exceeded"
+              }
+            }
+            """;
+        var service = new StubResponsesService(ResponseHttpResult.FromBody(body, 400, "application/json"));
+        var client = CreateClient(responsesService: service);
+
+        var exception = await Assert.ThrowsAsync<ContextOverflowException>(async () =>
+        {
+            await foreach (var _ in client.CreateResponseStreamAsync(CreateResponseRequest()))
+            {
+            }
+        });
+
+        Assert.Equal(ErrorCodes.ContextLengthExceeded, exception.ErrorCode);
+    }
+
+    [Fact]
     public async Task CreateResponseAsync_WithModelAndInput_BuildsRequestAndReturnsResponse()
     {
         var service = new StubResponsesService(ResponseHttpResult.FromBody(
@@ -66,6 +115,43 @@ public sealed class LlmSdkClientTests
         Assert.Equal("gpt-5.4-mini", service.LastRequest?.Model);
         Assert.Equal("Hello!", service.LastRequest?.Input.GetString());
         Assert.False(service.LastRequest?.Stream ?? false);
+    }
+
+    [Fact]
+    public async Task CreateResponseAsync_WhenLengthStopIsNearContextWindow_LogsSilentTruncationWarning()
+    {
+        var response = new Response
+        {
+            Id = "resp_length",
+            Model = "gpt-5.4-mini",
+            Status = ResponseStatuses.Incomplete,
+            Output = [],
+            Usage = new ResponseUsage { InputTokens = 96, OutputTokens = 1 },
+        };
+        var service = new StubResponsesService(ResponseHttpResult.FromBody(
+            JsonSerializer.Serialize(response, JsonDefaults.Web),
+            200,
+            "application/json"));
+        var modelProvider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelInfo
+                {
+                    Id = "gpt-5.4-mini",
+                    SupportedEndpoints = ["/responses"],
+                    TokenLimits = new ModelTokenLimits { MaxContextWindowTokens = 100 },
+                },
+            ],
+        };
+        var logger = new CapturingLogger<LlmSdkClient>();
+        var client = CreateClient(responsesService: service, modelProvider: modelProvider, logger: logger);
+
+        await client.CreateResponseAsync(CreateResponseRequest());
+
+        var entry = Assert.Single(logger.Entries, static entry => entry.EventId == LogEvents.SilentTruncationSuspected);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Contains("InputTokens=96", entry.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -742,13 +828,15 @@ public sealed class LlmSdkClientTests
         StubResponsesService? responsesService = null,
         StubChatCompletionsService? chatService = null,
         FakeModelProvider? modelProvider = null,
-        LlmSdkOptions? options = null)
+        LlmSdkOptions? options = null,
+        ILogger<LlmSdkClient>? logger = null)
     {
         return new LlmSdkClient(
             responsesService ?? new StubResponsesService(ResponseHttpResult.FromBody("{}", 200, "application/json")),
             chatService ?? new StubChatCompletionsService(ResponseHttpResult.FromBody("{}", 200, "application/json")),
             new ModelListService(modelProvider ?? new FakeModelProvider(), new EmbeddedModelCatalogue()),
-            Options.Create(options ?? new LlmSdkOptions()));
+            Options.Create(options ?? new LlmSdkOptions()),
+            logger ?? NullLogger<LlmSdkClient>.Instance);
     }
 
     private static CreateResponseRequest CreateResponseRequest(string? model = "gpt-5.4-mini", string input = "Hello!")
@@ -797,6 +885,38 @@ public sealed class LlmSdkClientTests
                 },
             ],
         };
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<LogEntry> Entries { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state)
+            where TState : notnull =>
+            NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Entries.Add(new LogEntry(logLevel, eventId, exception, formatter(state, exception)));
+        }
+    }
+
+    private sealed record LogEntry(LogLevel Level, EventId EventId, Exception? Exception, string Message);
+
+    private sealed class NullScope : IDisposable
+    {
+        public static readonly NullScope Instance = new();
+
+        public void Dispose()
+        {
+        }
     }
 
     private static Response CreateToolCallResponse(string argumentsJson)
