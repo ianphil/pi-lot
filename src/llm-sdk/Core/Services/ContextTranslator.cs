@@ -19,6 +19,7 @@ public static class ContextTranslator
             MaxOutputTokens = options?.MaxOutputTokens,
             Temperature = options?.Temperature,
             TopP = options?.TopP,
+            Reasoning = ToResponseReasoning(options?.Thinking),
             Metadata = options?.Metadata,
             Headers = options?.Headers,
             RequestId = options?.RequestId,
@@ -54,6 +55,7 @@ public static class ContextTranslator
             MaxCompletionTokens = options?.MaxOutputTokens,
             Temperature = options?.Temperature,
             TopP = options?.TopP,
+            Reasoning = ToResponseReasoning(options?.Thinking),
             Headers = options?.Headers,
             RequestId = options?.RequestId,
             CorrelationId = options?.CorrelationId,
@@ -147,11 +149,16 @@ public static class ContextTranslator
     {
         TextContent text => new { type = "input_text", text = text.Text },
         ImageContent image => new { type = "input_image", image_url = $"data:{image.MediaType};base64,{image.Base64Data}" },
-        ThinkingContent thinking => new { type = "summary_text", text = thinking.Text },
+        ThinkingContent thinking => ToResponseThinkingPart(thinking),
         ToolCallContent toolCall => new { type = "function_call", call_id = toolCall.Id, name = toolCall.Name, arguments = toolCall.ArgumentsJson },
         ToolResultContent toolResult => new { type = "function_call_output", call_id = toolResult.ToolCallId, output = toolResult.Output },
         _ => throw new InvalidOperationException($"Unsupported content block type '{block.GetType().Name}'."),
     };
+
+    private static object ToResponseThinkingPart(ThinkingContent thinking) =>
+        thinking.Redacted || !string.IsNullOrWhiteSpace(thinking.Signature)
+            ? new { type = "summary_text", text = thinking.Text, redacted = thinking.Redacted, signature = thinking.Signature }
+            : new { type = "summary_text", text = thinking.Text };
 
     private static ChatMessage ToChatMessage(Message message) => message switch
     {
@@ -330,7 +337,25 @@ public static class ContextTranslator
         {
             content.AddRange(reasoning.Summary.Select(static summary => new ThinkingContent(summary.Text)));
         }
+
+        if (!string.IsNullOrWhiteSpace(reasoning.EncryptedContent))
+        {
+            content.Add(new ThinkingContent(string.Empty, Redacted: true, Signature: reasoning.EncryptedContent));
+        }
     }
+
+    private static ResponseReasoning? ToResponseReasoning(ThinkingLevel? thinking) =>
+        thinking.HasValue ? new ResponseReasoning { Effort = ToWireThinkingLevel(thinking.Value) } : null;
+
+    private static string ToWireThinkingLevel(ThinkingLevel level) => level switch
+    {
+        ThinkingLevel.Minimal => "minimal",
+        ThinkingLevel.Low => "low",
+        ThinkingLevel.Medium => "medium",
+        ThinkingLevel.High => "high",
+        ThinkingLevel.XHigh => "xhigh",
+        _ => throw new ArgumentOutOfRangeException(nameof(level), level, null),
+    };
 
     private static void AddChatContent(List<ContentBlock> content, object? chatContent)
     {

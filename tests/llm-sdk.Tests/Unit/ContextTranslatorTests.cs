@@ -173,4 +173,69 @@ public sealed class ContextTranslatorTests
         var json = JsonSerializer.Serialize(request, JsonDefaults.Web);
         Assert.Contains("\"user\":\"session-123\"", json, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void ToCreateResponseRequest_WithThinkingOption_MapsReasoningEffort()
+    {
+        var request = ContextTranslator.ToCreateResponseRequest(
+            new Context { Messages = [new UserMessage([new TextContent("Think carefully.")])] },
+            new CompletionOptions { Thinking = ThinkingLevel.XHigh });
+
+        Assert.Equal("xhigh", request.Reasoning?.Effort);
+    }
+
+    [Fact]
+    public void ToChatCompletionRequest_WithThinkingOption_MapsReasoningEffort()
+    {
+        var request = ContextTranslator.ToChatCompletionRequest(
+            new Context { Messages = [new UserMessage([new TextContent("Think carefully.")])] },
+            new CompletionOptions { Thinking = ThinkingLevel.Minimal });
+
+        Assert.Equal("minimal", request.Reasoning?.Effort);
+    }
+
+    [Fact]
+    public void ToCreateResponseRequest_WithRedactedThinkingContent_PreservesSignatureForReplay()
+    {
+        var context = new Context
+        {
+            Messages =
+            [
+                new AssistantMessage(
+                [
+                    new ThinkingContent(string.Empty, Redacted: true, Signature: "encrypted_reasoning"),
+                    new TextContent("Prior answer."),
+                ], StopReason.Stop),
+            ],
+        };
+
+        var request = ContextTranslator.ToCreateResponseRequest(context);
+        var json = request.Input.GetRawText();
+
+        Assert.Contains("\"type\":\"summary_text\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"redacted\":true", json, StringComparison.Ordinal);
+        Assert.Contains("\"signature\":\"encrypted_reasoning\"", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ToAssistantMessage_WithEncryptedReasoning_PreservesRedactedThinkingSignature()
+    {
+        var message = ContextTranslator.ToAssistantMessage(new Response
+        {
+            Id = "resp_123",
+            Model = "gpt-5.4-mini",
+            Output =
+            [
+                new ResponseReasoningItem
+                {
+                    Id = "rs_123",
+                    EncryptedContent = "encrypted_reasoning",
+                },
+            ],
+        });
+
+        var thinking = Assert.IsType<ThinkingContent>(Assert.Single(message.Content));
+        Assert.True(thinking.Redacted);
+        Assert.Equal("encrypted_reasoning", thinking.Signature);
+    }
 }

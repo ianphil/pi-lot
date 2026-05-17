@@ -606,6 +606,47 @@ public sealed class LlmSdkClientTests
     }
 
     [Fact]
+    public async Task CompleteAsync_WithThinkingOption_ClampsEffortToModelSupportedLevel()
+    {
+        var expected = CreateResponse("resp_context_123", "Hello from context");
+        var service = new StubResponsesService(ResponseHttpResult.FromBody(
+            JsonSerializer.Serialize(expected, JsonDefaults.Web),
+            200,
+            "application/json"));
+        var modelProvider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelInfo
+                {
+                    Id = "reasoning-model",
+                    Capabilities = new ModelCapabilities
+                    {
+                        Supports = new ModelSupports
+                        {
+                            ReasoningEffort = ["low", "medium"],
+                        },
+                    },
+                    SupportedEndpoints = ["/responses"],
+                },
+            ],
+        };
+        var client = CreateClient(responsesService: service, modelProvider: modelProvider);
+
+        await client.CompleteAsync(
+            new Context { Messages = [new UserMessage([new TextContent("Hello!")])] },
+            new CompletionOptions
+            {
+                Model = "reasoning-model",
+                PreferredApi = CompletionApi.Responses,
+                AbortMode = AbortMode.Throw,
+                Thinking = ThinkingLevel.XHigh,
+            });
+
+        Assert.Equal("medium", service.LastRequest?.Reasoning?.Effort);
+    }
+
+    [Fact]
     public async Task CompleteAsync_WithInvalidToolArguments_ReturnsErrorToolResult()
     {
         var service = new StubResponsesService(ResponseHttpResult.FromBody(

@@ -194,6 +194,7 @@ public sealed record CompletionOptions
     public IReadOnlyDictionary<string, string>? Metadata { get; init; }
     public CacheRetention Cache { get; init; } = CacheRetention.None;
     public string? SessionId { get; init; }
+    public ThinkingLevel? Thinking { get; init; }
     public Func<JsonNode, JsonNode?>? OnPayload { get; init; }
     public Action<ResponseSnapshot>? OnResponse { get; init; }
 }

@@ -19,16 +19,17 @@ internal static class LlmSdkClientContextAdapter
 
         if (ShouldThrow(options))
         {
-            if (options?.PreferredApi == CompletionApi.ChatCompletions)
+            var effectiveOptions = await ApplyThinkingClampAsync(client, options, cancellationToken);
+            if (effectiveOptions?.PreferredApi == CompletionApi.ChatCompletions)
             {
                 var chatResponse = await client.CreateChatCompletionAsync(
-                    ContextTranslator.ToChatCompletionRequest(context, options),
+                    ContextTranslator.ToChatCompletionRequest(context, effectiveOptions),
                     cancellationToken);
                 return ContextTranslator.ToAssistantMessage(chatResponse, context.Tools);
             }
 
             var response = await client.CreateResponseAsync(
-                ContextTranslator.ToCreateResponseRequest(context, options),
+                ContextTranslator.ToCreateResponseRequest(context, effectiveOptions),
                 cancellationToken);
             return ContextTranslator.ToAssistantMessage(response, context.Tools);
         }
@@ -57,9 +58,11 @@ internal static class LlmSdkClientContextAdapter
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(context);
 
-        if (options?.PreferredApi == CompletionApi.ChatCompletions)
+        var effectiveOptions = await ApplyThinkingClampAsync(client, options, cancellationToken);
+
+        if (effectiveOptions?.PreferredApi == CompletionApi.ChatCompletions)
         {
-            await foreach (var streamEvent in StreamChatCompletionsAsync(client, context, options, cancellationToken)
+            await foreach (var streamEvent in StreamChatCompletionsAsync(client, context, effectiveOptions, cancellationToken)
                                .WithCancellation(cancellationToken))
             {
                 yield return streamEvent;
@@ -68,11 +71,28 @@ internal static class LlmSdkClientContextAdapter
             yield break;
         }
 
-        await foreach (var streamEvent in StreamResponsesAsync(client, context, options, cancellationToken)
-                           .WithCancellation(cancellationToken))
+        await foreach (var streamEvent in StreamResponsesAsync(client, context, effectiveOptions, cancellationToken)
+                            .WithCancellation(cancellationToken))
         {
             yield return streamEvent;
         }
+    }
+
+    private static async Task<CompletionOptions?> ApplyThinkingClampAsync(
+        ILlmSdkClient client,
+        CompletionOptions? options,
+        CancellationToken cancellationToken)
+    {
+        if (options?.Thinking is not { } requested || string.IsNullOrWhiteSpace(options.Model))
+        {
+            return options;
+        }
+
+        var model = await client.GetModelAsync(options.Model, cancellationToken);
+        var clamped = ThinkingLevelClamp.Clamp(requested, model);
+        return clamped == options.Thinking
+            ? options
+            : options with { Thinking = clamped };
     }
 
     private static async IAsyncEnumerable<AssistantStreamEvent> StreamResponsesAsync(

@@ -74,6 +74,40 @@ public sealed class FauxLlmSdkClientTests
     }
 
     [Fact]
+    public async Task CompleteAsync_WithRedactedThinkingReplay_RecordsSignatureOnNextTurn()
+    {
+        var firstMessage = new AssistantMessage(
+        [
+            new ThinkingContent(string.Empty, Redacted: true, Signature: "encrypted_reasoning"),
+            new TextContent("First answer."),
+        ], StopReason.Stop);
+        var client = new FauxLlmSdkClient(
+        [
+            new FauxResponse([new StreamDone(firstMessage)]),
+            FauxResponse.Text("Second answer."),
+        ]);
+
+        var first = await client.CompleteAsync(new Context
+        {
+            Messages = [new UserMessage([new TextContent("First question")])],
+        });
+        await client.CompleteAsync(new Context
+        {
+            Messages =
+            [
+                new UserMessage([new TextContent("First question")]),
+                first,
+                new UserMessage([new TextContent("Follow up")]),
+            ],
+        });
+
+        var replayedAssistant = Assert.IsType<AssistantMessage>(client.RecordedRequests[1].Messages[1]);
+        var thinking = Assert.IsType<ThinkingContent>(replayedAssistant.Content[0]);
+        Assert.True(thinking.Redacted);
+        Assert.Equal("encrypted_reasoning", thinking.Signature);
+    }
+
+    [Fact]
     public async Task StreamAsync_WithScriptedResponse_YieldsEventsInOrderAndRecordsRequest()
     {
         var scripted = FauxResponse.Text("Hello", new Usage(3, 2));

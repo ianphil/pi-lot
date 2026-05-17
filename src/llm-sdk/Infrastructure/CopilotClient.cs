@@ -581,6 +581,7 @@ public sealed class CopilotClient : IAuthProvider, IModelProvider
         TopP = request.TopP,
         Tools = request.Tools,
         ToolChoice = request.ToolChoice,
+        Reasoning = request.Reasoning,
         Headers = request.Headers,
         RequestId = request.RequestId,
         CorrelationId = request.CorrelationId,

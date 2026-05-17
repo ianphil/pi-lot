@@ -91,9 +91,11 @@ public sealed record class ModelInfo
 [JsonConverter(typeof(JsonStringEnumConverter<ThinkingLevel>))]
 public enum ThinkingLevel
 {
+    Minimal,
     Low,
     Medium,
     High,
+    XHigh,
 }
 
 public record ModelPricing
