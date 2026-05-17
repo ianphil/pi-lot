@@ -14,6 +14,7 @@ A .NET library for accessing GitHub Copilot's LLM API with OpenAI-compatible Res
 ## Guides
 
 - `docs/sdk-guide.md` - using `LlmSdk` directly
+- `docs/sdk/index.md` - deeper SDK developer docs
 - `docs/agent-guide.md` - building tool-calling agents with `LlmAgent`
 - `docs/cli-guide.md` - using the `llm` CLI
 - `docs/api-reference.md` - proxy endpoint reference

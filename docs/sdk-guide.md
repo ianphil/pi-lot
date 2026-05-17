@@ -7,6 +7,8 @@ translation between the Responses and Chat Completions API surfaces.
 For a higher-level tool-calling loop built on top of `LlmSdk`, see
 `docs/agent-guide.md`.
 
+For deeper developer documentation, see `docs/sdk/index.md`.
+
 ## Scope
 
 `LlmSdk` is Copilot-specific by design, not a generic multi-provider SDK. Its
