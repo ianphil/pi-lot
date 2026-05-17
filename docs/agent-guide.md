@@ -146,10 +146,21 @@ the same with a "tool not found" result.
 - the user prompt becomes the first context item
 - `AgentLoopOptions.Instructions` maps to `CreateResponseRequest.Instructions`
 - tool definitions map to `CreateResponseRequest.Tools`
+- `Headers`, `PromptCacheKey`, `OnPayload`, and `OnResponse` forward to the raw
+  `CreateResponseRequest` for every agent turn
+- request IDs, correlation IDs, metadata, timeout, and retry options also forward
+  to every agent turn
 - completed response output items are appended to context
 - tool results are appended as `function_call_output` items
 
 The loop is client-side and stateless. It does not use `previous_response_id`.
+It remains raw Responses-native: portable `CacheRetention`, `ThinkingLevel`, and
+`AbortMode` semantics are not part of the current agent API.
+
+`OnPayload` and `OnResponse` are per-turn hooks. A tool-using run may invoke
+them multiple times because each follow-up turn sends another Responses request.
+Use `OnPayload` primarily for inspection or controlled rewrites; returning a
+replacement payload changes the request sent for that turn.
 
 ## Reference consumers in this repo
 

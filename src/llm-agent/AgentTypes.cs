@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using LlmSdk.Client;
 using LlmSdk.Core.Models;
 
@@ -39,6 +40,10 @@ public sealed record AgentLoopOptions
     public int? TimeoutMs { get; init; }
     public int? MaxRetries { get; init; }
     public int? MaxRetryDelayMs { get; init; }
+    public IReadOnlyDictionary<string, string>? Headers { get; init; }
+    public string? PromptCacheKey { get; init; }
+    public Func<JsonNode, JsonNode?>? OnPayload { get; init; }
+    public Action<ResponseSnapshot>? OnResponse { get; init; }
     public AgentContextBudgetOptions? ContextBudget { get; init; }
 }
 

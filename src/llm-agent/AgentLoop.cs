@@ -140,6 +140,10 @@ public static class AgentLoop
             TimeoutMs = options.TimeoutMs,
             MaxRetries = options.MaxRetries,
             MaxRetryDelayMs = options.MaxRetryDelayMs,
+            Headers = options.Headers,
+            PromptCacheKey = options.PromptCacheKey,
+            OnPayload = options.OnPayload,
+            OnResponse = options.OnResponse,
             Tools = options.Tools.Select(static tool => tool.ToToolDefinition()).ToArray(),
         };
 

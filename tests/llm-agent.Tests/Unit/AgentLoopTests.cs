@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using LlmAgent.Tests.Fakes;
 using LlmAgent.Tests.Helpers;
 using LlmSdk.Client;
@@ -604,6 +605,105 @@ public sealed class AgentLoopTests
     }
 
     [Fact]
+    public async Task RunAsync_ForwardsSdkRequestOptionsToResponseStream()
+    {
+        var headers = new Dictionary<string, string> { ["X-Debug"] = "enabled" };
+        var metadata = new Dictionary<string, string> { ["surface"] = "agent-unit" };
+        Func<JsonNode, JsonNode?> onPayload = static payload => payload;
+        Action<ResponseSnapshot> onResponse = static _ => { };
+        var client = new FakeLlmSdkClient(
+            createResponseStreamAsync: (_, _) => StreamHelpers.ToAsyncEnumerable(
+                StreamHelpers.Completed(StreamHelpers.CreateResponse(StreamHelpers.AssistantMessage("Done.")), sequenceNumber: 1)));
+
+        await CollectEventsAsync(AgentLoop.RunAsync(
+            client,
+            "Hello",
+            CreateOptions(
+                headers: headers,
+                promptCacheKey: "agent-session",
+                requestId: "agent-request",
+                correlationId: "agent-correlation",
+                metadata: metadata,
+                timeoutMs: 60000,
+                maxRetries: 2,
+                maxRetryDelayMs: 1000,
+                onPayload: onPayload,
+                onResponse: onResponse)));
+
+        var request = client.LastCreateResponseStreamRequest;
+        Assert.NotNull(request);
+        Assert.Same(headers, request.Headers);
+        Assert.Equal("agent-session", request.PromptCacheKey);
+        Assert.Equal("agent-request", request.RequestId);
+        Assert.Equal("agent-correlation", request.CorrelationId);
+        Assert.Same(metadata, request.Metadata);
+        Assert.Equal(60000, request.TimeoutMs);
+        Assert.Equal(2, request.MaxRetries);
+        Assert.Equal(1000, request.MaxRetryDelayMs);
+        Assert.Same(onPayload, request.OnPayload);
+        Assert.Same(onResponse, request.OnResponse);
+    }
+
+    [Fact]
+    public async Task RunAsync_ForwardsSdkRequestOptionsOnEveryTurn()
+    {
+        var requests = new List<CreateResponseRequest>();
+        var headers = new Dictionary<string, string> { ["X-Agent"] = "test" };
+        var metadata = new Dictionary<string, string> { ["surface"] = "agent-unit" };
+        Func<JsonNode, JsonNode?> onPayload = static _ => null;
+        Action<ResponseSnapshot> onResponse = static _ => { };
+        var firstResponse = StreamHelpers.CreateResponse(
+            StreamHelpers.FunctionCall("read_file", "call_1", "{\"path\":\"test.txt\"}", id: "fc_1"));
+        var secondResponse = StreamHelpers.CreateResponse(StreamHelpers.AssistantMessage("Done."));
+        var streams = new Queue<ResponseStreamEvent[]>(
+        [
+            [StreamHelpers.Completed(firstResponse, sequenceNumber: 1)],
+            [StreamHelpers.Completed(secondResponse, sequenceNumber: 2)],
+        ]);
+        var tool = new FakeAgentTool(
+            "read_file",
+            "Read a file.",
+            executeAsync: (_, _, _) => Task.FromResult(new AgentToolResult("file contents")));
+        var client = new FakeLlmSdkClient(
+            createResponseStreamAsync: (request, _) =>
+            {
+                requests.Add(request);
+                return StreamHelpers.ToAsyncEnumerable(streams.Dequeue());
+            });
+
+        await CollectEventsAsync(AgentLoop.RunAsync(
+            client,
+            "Read test.txt",
+            CreateOptions(
+                [tool],
+                headers: headers,
+                promptCacheKey: "agent-session",
+                requestId: "agent-request",
+                correlationId: "agent-correlation",
+                metadata: metadata,
+                timeoutMs: 60000,
+                maxRetries: 2,
+                maxRetryDelayMs: 1000,
+                onPayload: onPayload,
+                onResponse: onResponse)));
+
+        Assert.Equal(2, requests.Count);
+        foreach (var request in requests)
+        {
+            Assert.Same(headers, request.Headers);
+            Assert.Equal("agent-session", request.PromptCacheKey);
+            Assert.Equal("agent-request", request.RequestId);
+            Assert.Equal("agent-correlation", request.CorrelationId);
+            Assert.Same(metadata, request.Metadata);
+            Assert.Equal(60000, request.TimeoutMs);
+            Assert.Equal(2, request.MaxRetries);
+            Assert.Equal(1000, request.MaxRetryDelayMs);
+            Assert.Same(onPayload, request.OnPayload);
+            Assert.Same(onResponse, request.OnResponse);
+        }
+    }
+
+    [Fact]
     public async Task RunAsync_FullMultiTurnScenario_EmitsCompleteEventSequenceAndTypedContext()
     {
         var requests = new List<CreateResponseRequest>();
@@ -866,7 +966,17 @@ public sealed class AgentLoopTests
         string? instructions = null,
         double? temperature = null,
         ResponseReasoning? reasoning = null,
-        AgentContextBudgetOptions? contextBudget = null) => new()
+        AgentContextBudgetOptions? contextBudget = null,
+        IReadOnlyDictionary<string, string>? headers = null,
+        string? promptCacheKey = null,
+        string? requestId = null,
+        string? correlationId = null,
+        IReadOnlyDictionary<string, string>? metadata = null,
+        int? timeoutMs = null,
+        int? maxRetries = null,
+        int? maxRetryDelayMs = null,
+        Func<JsonNode, JsonNode?>? onPayload = null,
+        Action<ResponseSnapshot>? onResponse = null) => new()
         {
             Model = model,
             Instructions = instructions,
@@ -874,6 +984,16 @@ public sealed class AgentLoopTests
             MaxTurns = maxTurns,
             Temperature = temperature,
             Reasoning = reasoning,
+            Headers = headers,
+            PromptCacheKey = promptCacheKey,
+            RequestId = requestId,
+            CorrelationId = correlationId,
+            Metadata = metadata,
+            TimeoutMs = timeoutMs,
+            MaxRetries = maxRetries,
+            MaxRetryDelayMs = maxRetryDelayMs,
+            OnPayload = onPayload,
+            OnResponse = onResponse,
             ContextBudget = contextBudget,
         };
 
