@@ -142,6 +142,14 @@ blocks; `FromFile` rejects unknown extensions and files over 20 MB by default.
 When the selected model does not support vision, portable calls replace images
 with `[image omitted: model does not support vision]` and continue.
 
+Portable `AssistantMessage.Diagnostics` is null on clean calls and populated
+when the SDK had to recover, fall back, or adjust a request. Diagnostics are
+additive to logging and use reserved codes such as `image_dropped`,
+`thinking_clamped`, `overflow_detected`, `silent_truncation_suspected`,
+`partial_due_to_abort`, and `partial_due_to_error`. Each entry has a severity,
+code, message, and optional string detail map; secret-like detail values are
+redacted before being attached to the message.
+
 ---
 
 ## Responses API

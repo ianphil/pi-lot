@@ -60,12 +60,17 @@ public sealed record AssistantMessage(
     [property: JsonPropertyName("usage")] Usage? Usage = null,
     [property: JsonPropertyName("errorMessage")] string? ErrorMessage = null) : Message
 {
+    [JsonPropertyName("diagnostics")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Diagnostics? Diagnostics { get; init; }
+
     public bool Equals(AssistantMessage? other) =>
         other is not null &&
         Content.SequenceEqual(other.Content) &&
         StopReason == other.StopReason &&
         Equals(Usage, other.Usage) &&
-        string.Equals(ErrorMessage, other.ErrorMessage, StringComparison.Ordinal);
+        string.Equals(ErrorMessage, other.ErrorMessage, StringComparison.Ordinal) &&
+        Equals(Diagnostics, other.Diagnostics);
 
     public override int GetHashCode()
     {
@@ -74,6 +79,7 @@ public sealed record AssistantMessage(
         hash.Add(StopReason);
         hash.Add(Usage);
         hash.Add(ErrorMessage, StringComparer.Ordinal);
+        hash.Add(Diagnostics);
         return hash.ToHashCode();
     }
 }

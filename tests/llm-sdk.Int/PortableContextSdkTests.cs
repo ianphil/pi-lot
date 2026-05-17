@@ -58,6 +58,10 @@ public sealed class PortableContextSdkTests
 
         Assert.Equal("Hello from fake.", Assert.IsType<TextContent>(Assert.Single(message.Content)).Text);
         Assert.Equal(new Usage(10, 4, CacheReadTokens: 3), message.Usage);
+        var diagnostic = AssertSingleDiagnostic(message, "thinking_clamped");
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal("XHigh", diagnostic.Detail?["requested"]);
+        Assert.Equal("Medium", diagnostic.Detail?["effective"]);
         var request = Assert.Single(provider.ResponsesRequests);
         Assert.Equal("fake-gpt", request.Model);
         Assert.Equal("Be concise.", request.Instructions);
@@ -67,6 +71,147 @@ public sealed class PortableContextSdkTests
         var inputJson = request.Input.GetRawText();
         Assert.Contains("\"type\":\"input_image\"", inputJson, StringComparison.Ordinal);
         Assert.Contains("\"image_url\":\"data:image/png;base64,", inputJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WithFakeNonVisionModel_AttachesImageDroppedDiagnostic()
+    {
+        var provider = new FakeModelProvider
+        {
+            Models =
+            [
+                CreateResponsesModel() with
+                {
+                    Capabilities = new ModelCapabilities
+                    {
+                        Supports = new ModelSupports { Vision = false },
+                    },
+                },
+            ],
+        };
+        provider.ResponsesResults.Enqueue(new ProxyHttpResult(
+            JsonSerializer.Serialize(CreateTextResponse("No vision.", new ResponseUsage
+            {
+                InputTokens = 8,
+                OutputTokens = 3,
+                TotalTokens = 11,
+            }), JsonDefaults.Web),
+            200));
+        await using var services = SdkIntTestHost.CreateFakeApiProvider(provider);
+        var client = services.GetRequiredService<ILlmSdkClient>();
+
+        var message = await client.CompleteAsync(CreateImageContext("Describe this image."), new CompletionOptions
+        {
+            Model = "fake-gpt",
+            AbortMode = AbortMode.Throw,
+        });
+
+        var diagnostic = AssertSingleDiagnostic(message, "image_dropped");
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal("1", diagnostic.Detail?["count"]);
+        Assert.Equal("fake-gpt", diagnostic.Detail?["model"]);
+        Assert.DoesNotContain("input_image", Assert.Single(provider.ResponsesRequests).Input.GetRawText(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WithFakeLengthStop_AttachesSilentTruncationDiagnostic()
+    {
+        var provider = new FakeModelProvider
+        {
+            Models =
+            [
+                CreateResponsesModel() with
+                {
+                    TokenLimits = new ModelTokenLimits { MaxContextWindowTokens = 100 },
+                },
+            ],
+        };
+        var response = CreateTextResponse(
+            "Truncated.",
+            new ResponseUsage
+            {
+                InputTokens = 96,
+                OutputTokens = 1,
+                TotalTokens = 97,
+            },
+            ResponseStatuses.Incomplete);
+        provider.ResponsesResults.Enqueue(new ProxyHttpResult(JsonSerializer.Serialize(response, JsonDefaults.Web), 200));
+        await using var services = SdkIntTestHost.CreateFakeApiProvider(provider);
+        var client = services.GetRequiredService<ILlmSdkClient>();
+
+        var message = await client.CompleteAsync(CreateContext("Write a long answer."), new CompletionOptions
+        {
+            Model = "fake-gpt",
+            AbortMode = AbortMode.Throw,
+        });
+
+        var diagnostic = AssertSingleDiagnostic(message, "silent_truncation_suspected");
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal("96", diagnostic.Detail?["inputTokens"]);
+        Assert.Equal("100", diagnostic.Detail?["window"]);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WithFakeContextOverflow_ReturnsOverflowDiagnostic()
+    {
+        var provider = new FakeModelProvider { Models = [CreateResponsesModel()] };
+        provider.ResponsesStreamResults.Enqueue(new ProxyStreamResult(
+            """
+            {
+              "error": {
+                "message": "This model's maximum context length is 128000 tokens. However, you requested 131250 tokens.",
+                "type": "invalid_request_error",
+                "code": "context_length_exceeded",
+                "param": "input"
+              }
+            }
+            """,
+            400));
+        await using var services = SdkIntTestHost.CreateFakeApiProvider(provider);
+        var client = services.GetRequiredService<ILlmSdkClient>();
+
+        var message = await client.CompleteAsync(CreateContext("Summarize this oversized prompt."), new CompletionOptions
+        {
+            Model = "fake-gpt",
+        });
+
+        Assert.Equal(StopReason.Error, message.StopReason);
+        var diagnostic = AssertSingleDiagnostic(message, "overflow_detected");
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+        Assert.Equal("128000", diagnostic.Detail?["window"]);
+        Assert.Equal("131250", diagnostic.Detail?["input"]);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WithFakeChatContextOverflow_ReturnsOverflowDiagnostic()
+    {
+        var provider = new FakeModelProvider { Models = [CreateChatModel()] };
+        provider.ChatCompletionsStreamResults.Enqueue(new ProxyStreamResult(
+            """
+            {
+              "error": {
+                "message": "This model's maximum context length is 128000 tokens. However, you requested 131250 tokens.",
+                "type": "invalid_request_error",
+                "code": "context_length_exceeded",
+                "param": "messages"
+              }
+            }
+            """,
+            400));
+        await using var services = SdkIntTestHost.CreateFakeApiProvider(provider);
+        var client = services.GetRequiredService<ILlmSdkClient>();
+
+        var message = await client.CompleteAsync(CreateContext("Summarize this oversized prompt."), new CompletionOptions
+        {
+            Model = "fake-chat",
+            PreferredApi = CompletionApi.ChatCompletions,
+        });
+
+        Assert.Equal(StopReason.Error, message.StopReason);
+        var diagnostic = AssertSingleDiagnostic(message, "overflow_detected");
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+        Assert.Equal("128000", diagnostic.Detail?["window"]);
+        Assert.Equal("131250", diagnostic.Detail?["input"]);
     }
 
     [Fact]
@@ -255,6 +400,8 @@ public sealed class PortableContextSdkTests
         var done = Assert.Single(events.OfType<StreamDone>());
         Assert.Equal(StopReason.Aborted, done.FinalMessage.StopReason);
         Assert.Equal("Partial fake response", Assert.IsType<TextContent>(Assert.Single(done.FinalMessage.Content)).Text);
+        var diagnostic = AssertSingleDiagnostic(done.FinalMessage, "partial_due_to_abort");
+        Assert.Equal(DiagnosticSeverity.Info, diagnostic.Severity);
         Assert.Empty(events.OfType<StreamError>());
         var request = Assert.Single(provider.ResponsesStreamRequests);
         Assert.True(request.Stream);
@@ -281,6 +428,9 @@ public sealed class PortableContextSdkTests
         Assert.Equal(StopReason.Error, message.StopReason);
         Assert.Equal("Partial fake response", Assert.IsType<TextContent>(Assert.Single(message.Content)).Text);
         Assert.Equal("stream disconnected", message.ErrorMessage);
+        var diagnostic = AssertSingleDiagnostic(message, "partial_due_to_error");
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+        Assert.Equal(nameof(HttpRequestException), diagnostic.Detail?["exception"]);
         var request = Assert.Single(provider.ResponsesStreamRequests);
         Assert.True(request.Stream);
     }
@@ -474,10 +624,14 @@ public sealed class PortableContextSdkTests
         SupportedEndpoints = ["/chat/completions"],
     };
 
-    private static Response CreateTextResponse(string text, ResponseUsage usage) => new()
+    private static Response CreateTextResponse(
+        string text,
+        ResponseUsage usage,
+        string status = ResponseStatuses.Completed) => new()
     {
         Id = "resp_context_int",
         Model = "fake-gpt",
+        Status = status,
         Usage = usage,
         Output =
         [
@@ -488,6 +642,13 @@ public sealed class PortableContextSdkTests
             },
         ],
     };
+
+    private static DiagnosticEntry AssertSingleDiagnostic(AssistantMessage message, string code)
+    {
+        var diagnostics = message.Diagnostics;
+        Assert.NotNull(diagnostics);
+        return Assert.Single(diagnostics.Entries, entry => string.Equals(entry.Code, code, StringComparison.Ordinal));
+    }
 
     private static async Task<List<T>> CollectAsync<T>(IAsyncEnumerable<T> values)
     {
