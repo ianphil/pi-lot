@@ -4,6 +4,7 @@ using LlmSdk.Core;
 using LlmSdk.Core.Models;
 using LlmSdk.Core.Services;
 using LlmSdk.Proxy;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -144,7 +145,7 @@ public sealed class LlmSdkClient : ILlmSdkClient
         CompletionOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        return LlmSdkClientContextAdapter.CompleteAsync(this, context, options, cancellationToken);
+        return LlmSdkClientContextAdapter.CompleteAsync(this, context, ResolveContextOptions(options), _logger, cancellationToken);
     }
 
     public IAsyncEnumerable<AssistantStreamEvent> StreamAsync(
@@ -152,7 +153,7 @@ public sealed class LlmSdkClient : ILlmSdkClient
         CompletionOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        return LlmSdkClientContextAdapter.StreamAsync(this, context, options, cancellationToken);
+        return LlmSdkClientContextAdapter.StreamAsync(this, context, ResolveContextOptions(options), _logger, cancellationToken);
     }
 
     public async IAsyncEnumerable<ChatCompletionChunk> CreateChatCompletionStreamAsync(
@@ -275,6 +276,7 @@ public sealed class LlmSdkClient : ILlmSdkClient
             TopP = request.TopP,
             Tools = request.Tools,
             ToolChoice = request.ToolChoice,
+            Reasoning = request.Reasoning,
             Headers = request.Headers,
             RequestId = request.RequestId,
             CorrelationId = request.CorrelationId,
@@ -285,6 +287,16 @@ public sealed class LlmSdkClient : ILlmSdkClient
             OnPayload = request.OnPayload,
             OnResponse = request.OnResponse,
         };
+    }
+
+    private CompletionOptions? ResolveContextOptions(CompletionOptions? options)
+    {
+        if (!string.IsNullOrWhiteSpace(options?.Model) || string.IsNullOrWhiteSpace(_options.DefaultModel))
+        {
+            return options;
+        }
+
+        return (options ?? new CompletionOptions()) with { Model = _options.DefaultModel };
     }
 
     private string ResolveModel(string? model)

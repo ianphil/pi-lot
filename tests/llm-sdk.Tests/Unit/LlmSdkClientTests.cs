@@ -647,6 +647,93 @@ public sealed class LlmSdkClientTests
     }
 
     [Fact]
+    public async Task CompleteAsync_WithNonVisionModel_ReplacesImagesWithPlaceholderAndLogs()
+    {
+        var expected = CreateResponse("resp_context_123", "No image support");
+        var service = new StubResponsesService(ResponseHttpResult.FromBody(
+            JsonSerializer.Serialize(expected, JsonDefaults.Web),
+            200,
+            "application/json"));
+        var modelProvider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelInfo
+                {
+                    Id = "text-only-model",
+                    Capabilities = new ModelCapabilities
+                    {
+                        Supports = new ModelSupports { Vision = false },
+                    },
+                    SupportedEndpoints = ["/responses"],
+                },
+            ],
+        };
+        var logger = new CapturingLogger<LlmSdkClient>();
+        var client = CreateClient(responsesService: service, modelProvider: modelProvider, logger: logger);
+
+        await client.CompleteAsync(
+            new Context
+            {
+                Messages =
+                [
+                    new UserMessage(
+                    [
+                        new TextContent("Describe this image."),
+                        new ImageContent("image/png", "iVBORw0KGgo="),
+                    ]),
+                ],
+            },
+            new CompletionOptions { Model = "text-only-model", PreferredApi = CompletionApi.Responses, AbortMode = AbortMode.Throw });
+
+        var json = service.LastRequest?.Input.GetRawText();
+        Assert.DoesNotContain("input_image", json, StringComparison.Ordinal);
+        Assert.Contains("[image omitted: model does not support vision]", json, StringComparison.Ordinal);
+        var entry = Assert.Single(logger.Entries, static entry => entry.EventId == LogEvents.ImagesDroppedForNonVisionModel);
+        Assert.Equal(LogLevel.Debug, entry.Level);
+        Assert.Contains("Dropping 1 image(s) for non-vision model text-only-model.", entry.Message);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WithDefaultNonVisionModel_ReplacesImagesBeforeSending()
+    {
+        var expected = CreateResponse("resp_context_123", "No image support");
+        var service = new StubResponsesService(ResponseHttpResult.FromBody(
+            JsonSerializer.Serialize(expected, JsonDefaults.Web),
+            200,
+            "application/json"));
+        var modelProvider = new FakeModelProvider
+        {
+            Models =
+            [
+                new ModelInfo
+                {
+                    Id = "text-only-model",
+                    Capabilities = new ModelCapabilities
+                    {
+                        Supports = new ModelSupports { Vision = false },
+                    },
+                    SupportedEndpoints = ["/responses"],
+                },
+            ],
+        };
+        var client = CreateClient(
+            responsesService: service,
+            modelProvider: modelProvider,
+            options: new LlmSdkOptions { DefaultModel = "text-only-model" });
+
+        await client.CompleteAsync(
+            new Context
+            {
+                Messages = [new UserMessage([new ImageContent("image/png", "iVBORw0KGgo=")])],
+            },
+            new CompletionOptions { PreferredApi = CompletionApi.Responses, AbortMode = AbortMode.Throw });
+
+        Assert.Equal("text-only-model", service.LastRequest?.Model);
+        Assert.Contains("[image omitted: model does not support vision]", service.LastRequest?.Input.GetRawText(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CompleteAsync_WithInvalidToolArguments_ReturnsErrorToolResult()
     {
         var service = new StubResponsesService(ResponseHttpResult.FromBody(

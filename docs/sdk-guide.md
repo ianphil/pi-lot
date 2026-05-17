@@ -136,6 +136,12 @@ the selected model before sending it upstream. Redacted reasoning signatures
 returned by the Responses API are preserved in `ThinkingContent` so they can be
 included in later context turns.
 
+Portable context calls support `ImageContent` for base64 PNG, JPEG, GIF, and
+WebP inputs. Use `ImageContentFactory.FromFile` or `FromBytes` to create image
+blocks; `FromFile` rejects unknown extensions and files over 20 MB by default.
+When the selected model does not support vision, portable calls replace images
+with `[image omitted: model does not support vision]` and continue.
+
 ---
 
 ## Responses API
