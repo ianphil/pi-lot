@@ -1,9 +1,12 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using LlmSdk.Core;
 using LlmSdk.Core.Models;
 using LlmSdk.Infrastructure;
 using LlmSdk.Proxy;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LlmSdk.Tests.Unit;
@@ -420,6 +423,169 @@ public sealed class CopilotClientTests
         Assert.NotNull(body);
         using var document = JsonDocument.Parse(body);
         Assert.False(document.RootElement.TryGetProperty("metadata", out _));
+    }
+
+    [Fact]
+    public async Task SendResponsesAsync_WithPayloadHook_CanInspectAndRewriteSerializedPayload()
+    {
+        string? observedModel = null;
+        string? body = null;
+        var client = CreateClient(request =>
+        {
+            body = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+            return Task.FromResult(JsonResponse(CompletedResponseJson));
+        });
+
+        await client.SendResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+            OnPayload = payload =>
+            {
+                observedModel = payload["model"]?.GetValue<string>();
+                payload["model"] = "rewritten-model";
+                return payload;
+            },
+        });
+
+        Assert.Equal("gpt-5.4-mini", observedModel);
+        Assert.NotNull(body);
+        using var document = JsonDocument.Parse(body);
+        Assert.Equal("rewritten-model", document.RootElement.GetProperty("model").GetString());
+    }
+
+    [Fact]
+    public async Task SendResponsesAsync_WhenPayloadHookReturnsNull_IgnoresMutatedNode()
+    {
+        string? body = null;
+        var client = CreateClient(request =>
+        {
+            body = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+            return Task.FromResult(JsonResponse(CompletedResponseJson));
+        });
+
+        await client.SendResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+            OnPayload = payload =>
+            {
+                payload["model"] = "ignored-model";
+                return null;
+            },
+        });
+
+        Assert.NotNull(body);
+        using var document = JsonDocument.Parse(body);
+        Assert.Equal("gpt-5.4-mini", document.RootElement.GetProperty("model").GetString());
+    }
+
+    [Fact]
+    public async Task SendResponsesAsync_WithResponseHook_CapturesFinalResponseSnapshot()
+    {
+        ResponseSnapshot? snapshot = null;
+        var client = CreateClient(request =>
+        {
+            var response = JsonResponse(CompletedResponseJson);
+            response.Headers.TryAddWithoutValidation("X-Request-Id", "response-123");
+            response.Content.Headers.TryAddWithoutValidation("X-Content-Trace", "content-456");
+            return Task.FromResult(response);
+        });
+
+        await client.SendResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+            OnResponse = response => snapshot = response,
+        });
+
+        Assert.NotNull(snapshot);
+        Assert.Equal(200, snapshot.StatusCode);
+        Assert.Equal("response-123", Assert.Single(snapshot.Headers["X-Request-Id"]));
+        Assert.Equal("content-456", Assert.Single(snapshot.Headers["X-Content-Trace"]));
+        Assert.True(snapshot.Elapsed >= TimeSpan.Zero);
+        Assert.Equal("https://api.enterprise.githubcopilot.com/responses", snapshot.RequestUri?.ToString());
+    }
+
+    [Fact]
+    public async Task SendResponsesAsync_WithRetries_InvokesHooksOnceForLogicalRequestAndFinalResponse()
+    {
+        var payloadHookCalls = 0;
+        var responseHookStatuses = new List<int>();
+        var sendCount = 0;
+        var client = CreateClient(_ =>
+        {
+            sendCount++;
+            return Task.FromResult(sendCount < 3
+                ? new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                {
+                    Content = new StringContent("""{"error":"server"}""", Encoding.UTF8, "application/json"),
+                }
+                : JsonResponse(CompletedResponseJson));
+        });
+
+        var result = await client.SendResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+            MaxRetries = 2,
+            MaxRetryDelayMs = 1,
+            OnPayload = payload =>
+            {
+                payloadHookCalls++;
+                return payload;
+            },
+            OnResponse = response => responseHookStatuses.Add(response.StatusCode),
+        });
+
+        Assert.Equal(200, result.StatusCode);
+        Assert.Equal(3, sendCount);
+        Assert.Equal(1, payloadHookCalls);
+        Assert.Equal([200], responseHookStatuses);
+    }
+
+    [Fact]
+    public async Task StreamResponsesAsync_WithResponseHook_RunsBeforeBodyEnumeration()
+    {
+        ResponseSnapshot? snapshot = null;
+        var client = CreateClient(_ =>
+        {
+            var response = EventStreamResponse("event: response.completed\ndata: {}\n\n");
+            response.Headers.TryAddWithoutValidation("X-Request-Id", "stream-response-123");
+            return Task.FromResult(response);
+        });
+
+        var result = await client.StreamResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+            OnResponse = response => snapshot = response,
+        });
+
+        Assert.NotNull(snapshot);
+        Assert.Equal(200, snapshot.StatusCode);
+        Assert.Equal("stream-response-123", Assert.Single(snapshot.Headers["X-Request-Id"]));
+
+        var chunks = await ReadChunksAsync(result.Chunks!);
+        Assert.Single(chunks);
+    }
+
+    [Fact]
+    public async Task SendResponsesAsync_WhenInspectionHooksThrow_LogsAndContinues()
+    {
+        var logger = new CapturingLogger<CopilotClient>();
+        var client = CreateClient(_ => Task.FromResult(JsonResponse(CompletedResponseJson)), logger: logger);
+
+        var result = await client.SendResponsesAsync(new CreateResponseRequest
+        {
+            Model = "gpt-5.4-mini",
+            Input = JsonDocument.Parse("""[{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}]""").RootElement.Clone(),
+            OnPayload = _ => throw new InvalidOperationException("payload failed"),
+            OnResponse = _ => throw new InvalidOperationException("response failed"),
+        });
+
+        Assert.Equal(200, result.StatusCode);
+        Assert.Equal(2, logger.Entries.Count(entry => entry.EventId == LogEvents.InspectionHookFailed));
     }
 
     [Fact]
@@ -923,9 +1089,10 @@ public sealed class CopilotClientTests
         string? envToken = "test-token",
         ICopilotCredentialStore? credentialStore = null,
         bool loadCredential = true,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        ILogger<CopilotClient>? logger = null)
     {
-        return CreateClient((request, _) => responder(request), envToken, credentialStore, loadCredential, timeProvider);
+        return CreateClient((request, _) => responder(request), envToken, credentialStore, loadCredential, timeProvider, logger);
     }
 
     private static CopilotClient CreateClient(
@@ -933,7 +1100,8 @@ public sealed class CopilotClientTests
         string? envToken = "test-token",
         ICopilotCredentialStore? credentialStore = null,
         bool loadCredential = true,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        ILogger<CopilotClient>? logger = null)
     {
         var originalToken = Environment.GetEnvironmentVariable("COPILOT_TOKEN");
         Environment.SetEnvironmentVariable("COPILOT_TOKEN", envToken);
@@ -946,7 +1114,7 @@ public sealed class CopilotClientTests
             };
 
             var client = new CopilotClient(
-                NullLogger<CopilotClient>.Instance,
+                logger ?? NullLogger<CopilotClient>.Instance,
                 new StubHttpClientFactory(httpClient),
                 credentialStore ?? new StubCredentialStore([]),
                 timeProvider ?? TimeProvider.System);
@@ -1136,6 +1304,38 @@ public sealed class CopilotClientTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             responder(request, cancellationToken);
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<LogEntry> Entries { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state)
+            where TState : notnull =>
+            NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Entries.Add(new LogEntry(logLevel, eventId, exception, formatter(state, exception)));
+        }
+    }
+
+    private sealed record LogEntry(LogLevel Level, EventId EventId, Exception? Exception, string Message);
+
+    private sealed class NullScope : IDisposable
+    {
+        public static readonly NullScope Instance = new();
+
+        public void Dispose()
+        {
+        }
     }
 
     private sealed class BlockingStreamContent : HttpContent

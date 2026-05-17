@@ -81,12 +81,14 @@ services.AddLlmSdk(options =>
 
 ---
 
-## Per-call HTTP options
+## Per-call options and inspection hooks
 
 The portable `CompletionOptions` surface and raw request DTOs support per-call
-HTTP controls:
+HTTP controls and best-effort inspection hooks:
 
 ```csharp
+using System.Text.Json.Nodes;
+
 var message = await client.CompleteAsync(context, new CompletionOptions
 {
     Model = "gpt-5.4-mini",
@@ -95,12 +97,23 @@ var message = await client.CompleteAsync(context, new CompletionOptions
     MaxRetries = 2,
     MaxRetryDelayMs = 1_000,
     Metadata = new Dictionary<string, string> { ["traceId"] = "abc123" },
+    OnPayload = payload =>
+    {
+        Console.WriteLine(payload.ToJsonString());
+        return null;
+    },
+    OnResponse = response =>
+        Console.WriteLine($"{response.StatusCode} {response.RequestUri}"),
 });
 ```
 
 Per-call headers are added to upstream requests, but `Authorization` cannot be
-overwritten. `Metadata` is serialized for Responses API requests and omitted for
-Chat Completions requests.
+overwritten. `Metadata` and `CorrelationId` are SDK-local values and are not sent
+upstream. `OnPayload` receives the serialized outbound JSON as a mutable
+`JsonNode`; return a replacement node to rewrite the body, or `null` to leave the
+original payload unchanged. `OnResponse` runs once after final response headers
+arrive and before the body is read or streamed. Throwing hooks are logged and do
+not fail the request.
 
 ---
 

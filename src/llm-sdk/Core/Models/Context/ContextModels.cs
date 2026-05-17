@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace LlmSdk.Core.Models;
@@ -190,6 +191,8 @@ public sealed record CompletionOptions
     public int? MaxRetries { get; init; }
     public int? MaxRetryDelayMs { get; init; }
     public IReadOnlyDictionary<string, string>? Metadata { get; init; }
+    public Func<JsonNode, JsonNode?>? OnPayload { get; init; }
+    public Action<ResponseSnapshot>? OnResponse { get; init; }
 }
 
 public enum CompletionApi

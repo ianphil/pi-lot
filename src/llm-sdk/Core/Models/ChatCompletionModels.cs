@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace LlmSdk.Core.Models;
@@ -54,6 +55,12 @@ public sealed record class ChatCompletionRequest
 
     [JsonIgnore]
     public IReadOnlyDictionary<string, string>? Metadata { get; init; }
+
+    [JsonIgnore]
+    public Func<JsonNode, JsonNode?>? OnPayload { get; init; }
+
+    [JsonIgnore]
+    public Action<ResponseSnapshot>? OnResponse { get; init; }
 }
 
 public sealed class ChatMessage

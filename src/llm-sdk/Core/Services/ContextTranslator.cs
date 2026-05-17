@@ -26,6 +26,8 @@ public static class ContextTranslator
             TimeoutMs = options?.TimeoutMs,
             MaxRetries = options?.MaxRetries,
             MaxRetryDelayMs = options?.MaxRetryDelayMs,
+            OnPayload = options?.OnPayload,
+            OnResponse = options?.OnResponse,
         };
     }
 
@@ -57,6 +59,8 @@ public static class ContextTranslator
             MaxRetries = options?.MaxRetries,
             MaxRetryDelayMs = options?.MaxRetryDelayMs,
             Metadata = options?.Metadata,
+            OnPayload = options?.OnPayload,
+            OnResponse = options?.OnResponse,
         };
     }
 

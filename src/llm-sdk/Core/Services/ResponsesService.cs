@@ -193,6 +193,8 @@ public sealed class ResponsesService : IResponsesService
         TimeoutMs = request.TimeoutMs,
         MaxRetries = request.MaxRetries,
         MaxRetryDelayMs = request.MaxRetryDelayMs,
+        OnPayload = request.OnPayload,
+        OnResponse = request.OnResponse,
     };
 
     private static CreateResponseRequest CloneForStreaming(CreateResponseRequest request) => new()
@@ -225,6 +227,8 @@ public sealed class ResponsesService : IResponsesService
         TimeoutMs = request.TimeoutMs,
         MaxRetries = request.MaxRetries,
         MaxRetryDelayMs = request.MaxRetryDelayMs,
+        OnPayload = request.OnPayload,
+        OnResponse = request.OnResponse,
     };
 
     private static ResponseHttpResult NormalizeError(ProxyHttpResult upstream)
