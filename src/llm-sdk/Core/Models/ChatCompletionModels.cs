@@ -38,6 +38,9 @@ public sealed record class ChatCompletionRequest
     [JsonPropertyName("tool_choice")]
     public object? ToolChoice { get; init; }
 
+    [JsonPropertyName("reasoning")]
+    public ResponseReasoning? Reasoning { get; init; }
+
     [JsonIgnore]
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
 

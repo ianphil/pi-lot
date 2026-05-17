@@ -71,4 +71,19 @@ public sealed class ContextSerializationTests
         Assert.Contains("\"sessionId\":\"session-123\"", json, StringComparison.Ordinal);
         Assert.Equal(options, JsonSerializer.Deserialize<CompletionOptions>(json, JsonDefaults.Web));
     }
+
+    [Fact]
+    public void CompletionOptions_WithThinkingLevel_RoundTrips()
+    {
+        var options = new CompletionOptions
+        {
+            Model = "gpt-5.4-mini",
+            Thinking = ThinkingLevel.XHigh,
+        };
+
+        var json = JsonSerializer.Serialize(options, JsonDefaults.Web);
+
+        Assert.Contains("\"thinking\":\"XHigh\"", json, StringComparison.Ordinal);
+        Assert.Equal(options, JsonSerializer.Deserialize<CompletionOptions>(json, JsonDefaults.Web));
+    }
 }

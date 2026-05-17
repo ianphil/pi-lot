@@ -21,7 +21,19 @@ public sealed class PortableContextSdkTests
     [Fact]
     public async Task CompleteAsync_WithFakeApi_ReturnsAssistantMessageWithUsage()
     {
-        var provider = new FakeModelProvider { Models = [CreateResponsesModel()] };
+        var provider = new FakeModelProvider
+        {
+            Models =
+            [
+                CreateResponsesModel() with
+                {
+                    Capabilities = new ModelCapabilities
+                    {
+                        Supports = new ModelSupports { ReasoningEffort = ["low", "medium"] },
+                    },
+                },
+            ],
+        };
         provider.ResponsesResults.Enqueue(new ProxyHttpResult(
             JsonSerializer.Serialize(CreateTextResponse("Hello from fake.", new ResponseUsage
             {
@@ -41,6 +53,7 @@ public sealed class PortableContextSdkTests
             AbortMode = AbortMode.Throw,
             Cache = CacheRetention.Short,
             SessionId = "sdk-int-cache-session",
+            Thinking = ThinkingLevel.XHigh,
         });
 
         Assert.Equal("Hello from fake.", Assert.IsType<TextContent>(Assert.Single(message.Content)).Text);
@@ -50,6 +63,7 @@ public sealed class PortableContextSdkTests
         Assert.Equal("Be concise.", request.Instructions);
         Assert.Equal(32, request.MaxOutputTokens);
         Assert.Equal("sdk-int-cache-session", request.PromptCacheKey);
+        Assert.Equal("medium", request.Reasoning?.Effort);
     }
 
     [Fact]
@@ -281,6 +295,7 @@ public sealed class PortableContextSdkTests
             MaxOutputTokens = 32,
             Cache = CacheRetention.Short,
             SessionId = "sdk-int-live-cache-session",
+            Thinking = ThinkingLevel.Low,
         });
 
         var text = string.Concat(message.Content.OfType<TextContent>().Select(static content => content.Text)).Trim();

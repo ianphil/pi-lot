@@ -93,6 +93,7 @@ var message = await client.CompleteAsync(context, new CompletionOptions
 {
     Model = "gpt-5.4-mini",
     AbortMode = AbortMode.ReturnPartial,
+    Thinking = ThinkingLevel.High,
     Headers = new Dictionary<string, string> { ["X-Debug"] = "enabled" },
     TimeoutMs = 30_000,
     MaxRetries = 2,
@@ -128,6 +129,12 @@ streaming has started, cancellation returns a partial assistant message with
 `StopReason.Aborted`, and stream failures return a partial assistant message with
 `StopReason.Error` plus `ErrorMessage`. Set `AbortMode.Throw` to preserve the
 previous exception behavior.
+
+Set `CompletionOptions.Thinking` to request a reasoning effort. Portable
+context calls clamp the requested level down to the nearest level supported by
+the selected model before sending it upstream. Redacted reasoning signatures
+returned by the Responses API are preserved in `ThinkingContent` so they can be
+included in later context turns.
 
 ---
 
