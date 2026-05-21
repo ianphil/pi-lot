@@ -14,11 +14,16 @@ public sealed class AgentEventTests
         var message = new AssistantMessage([new TextContent("hi")], StopReason.Stop);
         var streamEvent = new TextDelta("hi");
         var toolResult = new AgentToolResult("done");
+        var usage = new Usage(10, 5);
+        var diagnostics = new Diagnostics(
+        [
+            new DiagnosticEntry(DiagnosticSeverity.Warning, "test_warning", "Test warning."),
+        ]);
 
         var names = new[]
         {
             Describe(new AgentStarted()),
-            Describe(new AgentEnded(context)),
+            Describe(new AgentEnded(context) { Status = AgentStatus.Completed }),
             Describe(new TurnStarted()),
             Describe(new TurnEnded(message, [new AgentToolCallResult("call_1", "lookup", "done", false)])),
             Describe(new ContextBudgetWarning(new AgentContextBudgetResult(
@@ -30,7 +35,9 @@ public sealed class AgentEventTests
                 new ModelTokenLimits { MaxPromptTokens = 1000 }))),
             Describe(new MessageStarted()),
             Describe(new MessageDelta(streamEvent)),
-            Describe(new MessageEnded(message)),
+            Describe(new MessageUsage(usage)),
+            Describe(new MessageDiagnostics(diagnostics)),
+            Describe(new MessageEnded(message) { Status = AgentStatus.Completed }),
             Describe(new ToolExecutionStarted("call_1", "lookup", "{\"city\":\"Paris\"}")),
             Describe(new ToolExecutionEnded("call_1", "lookup", toolResult)),
         };
@@ -44,6 +51,8 @@ public sealed class AgentEventTests
             "context_budget_warning",
             "message_started",
             "message_delta",
+            "message_usage",
+            "message_diagnostics",
             "message_ended",
             "tool_execution_started",
             "tool_execution_ended",
@@ -59,6 +68,8 @@ public sealed class AgentEventTests
         ContextBudgetWarning => "context_budget_warning",
         MessageStarted => "message_started",
         MessageDelta => "message_delta",
+        MessageUsage => "message_usage",
+        MessageDiagnostics => "message_diagnostics",
         MessageEnded => "message_ended",
         ToolExecutionStarted => "tool_execution_started",
         ToolExecutionEnded => "tool_execution_ended",

@@ -15,10 +15,14 @@ internal static class AgentIntTestHelpers
         }
     }
 
-    public static Response CreateResponse(params ResponseItem[] output) => new()
+    public static Response CreateResponse(params ResponseItem[] output) => CreateResponse(ResponseStatuses.Completed, null, output);
+
+    public static Response CreateResponse(string status, ResponseUsage? usage = null, params ResponseItem[] output) => new()
     {
         Id = "resp_agent_int",
+        Status = status,
         Output = output,
+        Usage = usage,
     };
 
     public static ResponseMessageItem AssistantMessage(string text, string id = "msg_agent_int") => new()
@@ -53,8 +57,28 @@ internal static class AgentIntTestHelpers
         0,
         "msg_agent_int");
 
+    public static ResponseUsage Usage(int inputTokens = 10, int outputTokens = 5) => new()
+    {
+        InputTokens = inputTokens,
+        OutputTokens = outputTokens,
+        TotalTokens = inputTokens + outputTokens,
+    };
+
     public static ResponseCompletedEvent Completed(Response response, int sequenceNumber = 0) =>
         new("response.completed", sequenceNumber, response);
+
+    public static async IAsyncEnumerable<ResponseStreamEvent> ThrowAfterAsync(
+        Exception exception,
+        params ResponseStreamEvent[] events)
+    {
+        foreach (var streamEvent in events)
+        {
+            yield return streamEvent;
+            await Task.Yield();
+        }
+
+        throw exception;
+    }
 
     public static async Task<List<AgentEvent>> CollectEventsAsync(IAsyncEnumerable<AgentEvent> source)
     {

@@ -52,9 +52,21 @@ public sealed record AgentLoopOptions
 
 public abstract record AgentEvent;
 
+public enum AgentStatus
+{
+    Completed,
+    Incomplete,
+    Cancelled,
+    Failed,
+}
+
 public sealed record AgentStarted : AgentEvent;
 
-public sealed record AgentEnded(AgentContext Context) : AgentEvent;
+public sealed record AgentEnded(AgentContext Context) : AgentEvent
+{
+    public AgentStatus Status { get; init; } = AgentStatus.Completed;
+    public string? ErrorMessage { get; init; }
+}
 
 public sealed record TurnStarted : AgentEvent;
 
@@ -69,9 +81,16 @@ public sealed record MessageStarted : AgentEvent;
 
 public sealed record MessageDelta(AssistantStreamEvent StreamEvent) : AgentEvent;
 
+public sealed record MessageUsage(Usage Usage) : AgentEvent;
+
+public sealed record MessageDiagnostics(Diagnostics Diagnostics) : AgentEvent;
+
 public sealed record MessageEnded(AssistantMessage Message) : AgentEvent
 {
     public AssistantMessage Response => Message;
+    public AgentStatus Status { get; init; } = AgentStatus.Completed;
+    public string? ErrorMessage { get; init; }
+    public bool IsPartial => Status is not AgentStatus.Completed;
 }
 
 public sealed record ToolExecutionStarted(string CallId, string ToolName, string Arguments) : AgentEvent;
