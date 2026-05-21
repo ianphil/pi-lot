@@ -133,24 +133,39 @@ the selected SDK path provides it.
 assistant message, such as partial-response or request-adaptation warnings.
 Callers do not need to parse raw SDK stream internals to observe those values.
 
-`MessageEnded.Status` and `AgentEnded.Status` describe terminal semantics:
+`MessageEnded.Status` and `AgentEnded.Status` describe terminal semantics using
+the single `AgentStatus` enum:
 
-| Condition | Message status | Run status | Notes |
-|---|---|---|---|
-| Normal model stop or tool use | `Completed` | `Completed` | The message is complete for this turn. |
-| SDK `StopReason.Length` | `Incomplete` | `Incomplete` | The assistant message is partial because output stopped due to length. |
-| SDK-produced aborted result | `Cancelled` | `Cancelled` | Used when the SDK returns an aborted terminal message before external cancellation stops enumeration. |
-| SDK `StreamError` or error stop reason | `FailedPartial` | `Failed` | The terminal message may contain partial assistant content and diagnostics. |
+| Condition | Status | Notes |
+|---|---|---|
+| Normal model stop or tool use | `Completed` | The message is complete for this turn. |
+| SDK `StopReason.Length` | `Incomplete` | The assistant message is partial because output stopped due to length. |
+| `MaxTurns` reached before a terminal turn | `Incomplete` (run only) | Loop budget exhausted; `AgentEnded.ErrorMessage` describes it. |
+| SDK-produced aborted result (e.g. external `CancellationToken` cancel mid-stream under default `AbortMode.ReturnPartial`) | `Cancelled` | The SDK adapter converts a mid-stream `OperationCanceledException` into `StreamDone(StopReason.Aborted)` and the agent surfaces it as `Cancelled`. |
+| SDK `StreamError` or `StopReason.Error` | `Failed` | The terminal message may contain partial assistant content and diagnostics. |
 
-`MessageEnded.IsPartial` is true for incomplete, cancelled, and failed-partial
-terminal messages. `MessageEnded.ErrorMessage` and `AgentEnded.ErrorMessage`
-carry the recoverable stream error message when one is available.
+`MessageEnded.IsPartial` is `true` whenever `Status` is not `Completed`; it is
+derived from `Status` so the two cannot disagree. `MessageEnded.ErrorMessage`
+and `AgentEnded.ErrorMessage` carry the recoverable stream error message (or
+`MaxTurns` reason) when one is available.
 
-External `CancellationToken` cancellation keeps normal .NET semantics:
-`AgentLoop.RunAsync(...)` throws `OperationCanceledException`. The loop does not
-guarantee `MessageEnded`, `TurnEnded`, or `AgentEnded` after the caller cancels
-the token. Use agent statuses for SDK-produced terminal outcomes, not as a
-replacement for cooperative cancellation.
+### Cancellation semantics
+
+The agent does **not** introduce its own `AbortMode`. It inherits the SDK
+default (`AbortMode.ReturnPartial`):
+
+- A `CancellationToken` cancelled **mid-stream** is caught inside the SDK
+  adapter and converted into a terminal `StreamDone(StopReason.Aborted)`. The
+  agent surfaces this as `MessageEnded { Status = Cancelled }` and
+  `AgentEnded { Status = Cancelled }` — it does **not** throw
+  `OperationCanceledException`.
+- A `CancellationToken` already cancelled **between turns** (checked by the
+  loop itself before the next request) throws `OperationCanceledException` and
+  does not guarantee `MessageEnded`, `TurnEnded`, or `AgentEnded` events.
+
+`AbortMode` is intentionally not exposed on `AgentLoopOptions` in this
+release. Callers who need throw-on-cancel semantics should treat that as a
+future agent option request, not as a per-call override.
 
 For tool progress, handle the `ToolExecution*` events.
 
@@ -188,7 +203,7 @@ tool policy hooks are separate future agent API stories.
   `OnResponse` forward through `CompletionOptions` for every agent turn
 - request IDs, correlation IDs, metadata, timeout, and retry options also forward
   to every agent turn
-- completed, incomplete, cancelled, and failed-partial assistant messages are appended to context when the SDK produces a terminal assistant message
+- completed, incomplete, cancelled, and failed assistant messages are appended to context when the SDK produces a terminal assistant message
 - tool results are appended as portable tool messages
 
 The loop is client-side and stateless. It does not use `previous_response_id`.

@@ -115,4 +115,17 @@ internal static class StreamHelpers
 
     public static ResponseIncompleteEvent Incomplete(Response response, int sequenceNumber = 0)
         => new("response.incomplete", sequenceNumber, response);
+
+    public static async IAsyncEnumerable<ResponseStreamEvent> ThrowAfterAsync(
+        Exception exception,
+        params ResponseStreamEvent[] events)
+    {
+        foreach (var streamEvent in events)
+        {
+            yield return streamEvent;
+            await Task.Yield();
+        }
+
+        throw exception;
+    }
 }

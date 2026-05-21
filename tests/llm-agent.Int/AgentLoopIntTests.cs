@@ -184,11 +184,11 @@ public sealed class AgentLoopIntTests
         Assert.Equal(8, usage.Usage.OutputTokens);
 
         var messageEnded = Assert.IsType<MessageEnded>(events.Single(static evt => evt is MessageEnded));
-        Assert.Equal(AgentMessageStatus.Completed, messageEnded.Status);
+        Assert.Equal(AgentStatus.Completed, messageEnded.Status);
         Assert.False(messageEnded.IsPartial);
 
         var agentEnded = Assert.IsType<AgentEnded>(events.Single(static evt => evt is AgentEnded));
-        Assert.Equal(AgentRunStatus.Completed, agentEnded.Status);
+        Assert.Equal(AgentStatus.Completed, agentEnded.Status);
     }
 
     [Fact]
@@ -210,13 +210,13 @@ public sealed class AgentLoopIntTests
         Assert.Contains(diagnostics.Diagnostics.Entries, static entry => entry.Code == "partial_due_to_error");
 
         var messageEnded = Assert.IsType<MessageEnded>(events.Single(static evt => evt is MessageEnded));
-        Assert.Equal(AgentMessageStatus.FailedPartial, messageEnded.Status);
+        Assert.Equal(AgentStatus.Failed, messageEnded.Status);
         Assert.True(messageEnded.IsPartial);
         Assert.Equal("stream interrupted", messageEnded.ErrorMessage);
         Assert.Equal("partial answer", Assert.IsType<TextContent>(messageEnded.Message.Content.Single()).Text);
 
         var agentEnded = Assert.IsType<AgentEnded>(events.Single(static evt => evt is AgentEnded));
-        Assert.Equal(AgentRunStatus.Failed, agentEnded.Status);
+        Assert.Equal(AgentStatus.Failed, agentEnded.Status);
         Assert.Equal("stream interrupted", agentEnded.ErrorMessage);
     }
 
@@ -304,11 +304,11 @@ public sealed class AgentLoopIntTests
         Assert.True(usage.Usage.OutputTokens > 0);
 
         var messageEnded = Assert.IsType<MessageEnded>(events.Single(static evt => evt is MessageEnded));
-        Assert.Equal(AgentMessageStatus.Completed, messageEnded.Status);
+        Assert.Equal(AgentStatus.Completed, messageEnded.Status);
         Assert.False(messageEnded.IsPartial);
 
         var agentEnded = Assert.IsType<AgentEnded>(events.Single(static evt => evt is AgentEnded));
-        Assert.Equal(AgentRunStatus.Completed, agentEnded.Status);
+        Assert.Equal(AgentStatus.Completed, agentEnded.Status);
     }
 
     [Fact]

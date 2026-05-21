@@ -23,7 +23,7 @@ public sealed class AgentEventTests
         var names = new[]
         {
             Describe(new AgentStarted()),
-            Describe(new AgentEnded(context) { Status = AgentRunStatus.Completed }),
+            Describe(new AgentEnded(context) { Status = AgentStatus.Completed }),
             Describe(new TurnStarted()),
             Describe(new TurnEnded(message, [new AgentToolCallResult("call_1", "lookup", "done", false)])),
             Describe(new ContextBudgetWarning(new AgentContextBudgetResult(
@@ -37,7 +37,7 @@ public sealed class AgentEventTests
             Describe(new MessageDelta(streamEvent)),
             Describe(new MessageUsage(usage)),
             Describe(new MessageDiagnostics(diagnostics)),
-            Describe(new MessageEnded(message) { Status = AgentMessageStatus.Completed }),
+            Describe(new MessageEnded(message) { Status = AgentStatus.Completed }),
             Describe(new ToolExecutionStarted("call_1", "lookup", "{\"city\":\"Paris\"}")),
             Describe(new ToolExecutionEnded("call_1", "lookup", toolResult)),
         };

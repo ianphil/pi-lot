@@ -25,7 +25,7 @@ public static class AgentLoop
         yield return new AgentStarted();
 
         var turnCount = 0;
-        var runStatus = AgentRunStatus.Completed;
+        var runStatus = AgentStatus.Completed;
         string? runErrorMessage = null;
 
         while (true)
@@ -34,6 +34,8 @@ public static class AgentLoop
 
             if (options.MaxTurns.HasValue && turnCount >= options.MaxTurns.Value)
             {
+                runStatus = AgentStatus.Incomplete;
+                runErrorMessage = $"Max turns ({options.MaxTurns.Value}) reached before the agent produced a terminal response.";
                 break;
             }
 
@@ -58,26 +60,32 @@ public static class AgentLoop
             yield return new MessageStarted();
 
             AssistantMessage? message = null;
-            var messageStatus = AgentMessageStatus.Completed;
+            var messageStatus = AgentStatus.Completed;
             string? messageErrorMessage = null;
+            var usageEmitted = false;
 
             await foreach (var streamEvent in stream.WithCancellation(cancellationToken))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
                 switch (streamEvent)
                 {
                     case StreamStart:
                         break;
 
                     case UsageEvent usage:
+                        usageEmitted = true;
                         yield return new MessageUsage(usage.Usage);
                         break;
 
                     case StreamDone done:
                         message = done.FinalMessage;
-                        messageStatus = ToMessageStatus(done.FinalMessage.StopReason);
+                        messageStatus = ToAgentStatus(done.FinalMessage.StopReason);
                         messageErrorMessage = done.FinalMessage.ErrorMessage;
+                        if (!usageEmitted && done.FinalMessage.Usage is { } doneUsage)
+                        {
+                            usageEmitted = true;
+                            yield return new MessageUsage(doneUsage);
+                        }
+
                         if (done.FinalMessage.Diagnostics is not null)
                         {
                             yield return new MessageDiagnostics(done.FinalMessage.Diagnostics);
@@ -86,15 +94,20 @@ public static class AgentLoop
                         yield return new MessageEnded(done.FinalMessage)
                         {
                             Status = messageStatus,
-                            IsPartial = IsPartial(messageStatus),
                             ErrorMessage = messageErrorMessage,
                         };
                         break;
 
                     case StreamError error:
                         message = error.PartialMessage;
-                        messageStatus = AgentMessageStatus.FailedPartial;
+                        messageStatus = AgentStatus.Failed;
                         messageErrorMessage = error.Message;
+                        if (!usageEmitted && error.PartialMessage.Usage is { } errorUsage)
+                        {
+                            usageEmitted = true;
+                            yield return new MessageUsage(errorUsage);
+                        }
+
                         if (error.PartialMessage.Diagnostics is not null)
                         {
                             yield return new MessageDiagnostics(error.PartialMessage.Diagnostics);
@@ -103,7 +116,6 @@ public static class AgentLoop
                         yield return new MessageEnded(error.PartialMessage)
                         {
                             Status = messageStatus,
-                            IsPartial = true,
                             ErrorMessage = messageErrorMessage,
                         };
                         break;
@@ -124,10 +136,10 @@ public static class AgentLoop
             var toolResults = new List<AgentToolCallResult>();
             var functionCalls = message.Content.OfType<ToolCallContent>().ToArray();
 
-            if (messageStatus is not AgentMessageStatus.Completed)
+            if (messageStatus is not AgentStatus.Completed)
             {
-                runStatus = ToRunStatus(messageStatus);
-                runErrorMessage = messageErrorMessage ?? message.ErrorMessage;
+                runStatus = messageStatus;
+                runErrorMessage = messageErrorMessage;
                 yield return new TurnEnded(message, toolResults);
                 break;
             }
@@ -233,23 +245,13 @@ public static class AgentLoop
             _ => null,
         };
 
-    private static AgentMessageStatus ToMessageStatus(StopReason stopReason) => stopReason switch
+    private static AgentStatus ToAgentStatus(StopReason stopReason) => stopReason switch
     {
-        StopReason.Length => AgentMessageStatus.Incomplete,
-        StopReason.Aborted => AgentMessageStatus.Cancelled,
-        StopReason.Error => AgentMessageStatus.FailedPartial,
-        _ => AgentMessageStatus.Completed,
+        StopReason.Length => AgentStatus.Incomplete,
+        StopReason.Aborted => AgentStatus.Cancelled,
+        StopReason.Error => AgentStatus.Failed,
+        _ => AgentStatus.Completed,
     };
-
-    private static AgentRunStatus ToRunStatus(AgentMessageStatus messageStatus) => messageStatus switch
-    {
-        AgentMessageStatus.Incomplete => AgentRunStatus.Incomplete,
-        AgentMessageStatus.Cancelled => AgentRunStatus.Cancelled,
-        AgentMessageStatus.FailedPartial => AgentRunStatus.Failed,
-        _ => AgentRunStatus.Completed,
-    };
-
-    private static bool IsPartial(AgentMessageStatus messageStatus) => messageStatus is not AgentMessageStatus.Completed;
 
     private static string FormatToolValidationError(ToolValidationResult result)
     {

@@ -34,7 +34,7 @@ public sealed class AgentLoopTests
             messageEnded =>
             {
                 var ended = Assert.IsType<MessageEnded>(messageEnded);
-                Assert.Equal(AgentMessageStatus.Completed, ended.Status);
+                Assert.Equal(AgentStatus.Completed, ended.Status);
                 Assert.False(ended.IsPartial);
                 Assert.Null(ended.ErrorMessage);
                 Assert.Equal("Done.", Assert.IsType<TextContent>(ended.Message.Content.Single()).Text);
@@ -48,7 +48,7 @@ public sealed class AgentLoopTests
             agentEnded =>
             {
                 var ended = Assert.IsType<AgentEnded>(agentEnded);
-                Assert.Equal(AgentRunStatus.Completed, ended.Status);
+                Assert.Equal(AgentStatus.Completed, ended.Status);
                 Assert.Null(ended.ErrorMessage);
                 Assert.Collection(
                     ended.Context.Items,
@@ -89,7 +89,7 @@ public sealed class AgentLoopTests
         var events = await CollectEventsAsync(AgentLoop.RunAsync(client, "Hello", CreateOptions()));
 
         var messageEnded = Assert.IsType<MessageEnded>(events.Single(evt => evt is MessageEnded));
-        Assert.Equal(AgentMessageStatus.Completed, messageEnded.Status);
+        Assert.Equal(AgentStatus.Completed, messageEnded.Status);
         Assert.False(messageEnded.IsPartial);
         Assert.Equal("Done.", Assert.IsType<TextContent>(messageEnded.Message.Content.Single()).Text);
     }
@@ -116,10 +116,10 @@ public sealed class AgentLoopTests
     }
 
     [Fact]
-    public async Task RunAsync_StreamErrorEmitsDiagnosticsAndFailedPartialStatus()
+    public async Task RunAsync_StreamErrorEmitsDiagnosticsAndFailedStatus()
     {
         var client = new FakeLlmSdkClient(
-            createResponseStreamAsync: (_, _) => ThrowAfterAsync(
+            createResponseStreamAsync: (_, _) => StreamHelpers.ThrowAfterAsync(
                 new IOException("stream broke"),
                 StreamHelpers.OutputTextDelta("partial", sequenceNumber: 1)));
 
@@ -131,13 +131,13 @@ public sealed class AgentLoopTests
         Assert.Equal("partial_due_to_error", entry.Code);
 
         var messageEnded = Assert.IsType<MessageEnded>(events.Single(evt => evt is MessageEnded));
-        Assert.Equal(AgentMessageStatus.FailedPartial, messageEnded.Status);
+        Assert.Equal(AgentStatus.Failed, messageEnded.Status);
         Assert.True(messageEnded.IsPartial);
         Assert.Equal("stream broke", messageEnded.ErrorMessage);
         Assert.Equal("partial", Assert.IsType<TextContent>(messageEnded.Message.Content.Single()).Text);
 
         var agentEnded = Assert.IsType<AgentEnded>(events.Single(evt => evt is AgentEnded));
-        Assert.Equal(AgentRunStatus.Failed, agentEnded.Status);
+        Assert.Equal(AgentStatus.Failed, agentEnded.Status);
         Assert.Equal("stream broke", agentEnded.ErrorMessage);
         var assistantContext = Assert.IsType<AssistantResponseContextItem>(agentEnded.Context.Items[1]);
         Assert.Equal("partial", Assert.IsType<TextContent>(assistantContext.Message.Content.Single()).Text);
@@ -147,19 +147,19 @@ public sealed class AgentLoopTests
     public async Task RunAsync_SdkAbortedPartialEmitsCancelledStatus()
     {
         var client = new FakeLlmSdkClient(
-            createResponseStreamAsync: (_, _) => ThrowAfterAsync(
+            createResponseStreamAsync: (_, _) => StreamHelpers.ThrowAfterAsync(
                 new OperationCanceledException("upstream aborted"),
                 StreamHelpers.OutputTextDelta("partial", sequenceNumber: 1)));
 
         var events = await CollectEventsAsync(AgentLoop.RunAsync(client, "Hello", CreateOptions()));
 
         var messageEnded = Assert.IsType<MessageEnded>(events.Single(evt => evt is MessageEnded));
-        Assert.Equal(AgentMessageStatus.Cancelled, messageEnded.Status);
+        Assert.Equal(AgentStatus.Cancelled, messageEnded.Status);
         Assert.True(messageEnded.IsPartial);
         Assert.Equal(StopReason.Aborted, messageEnded.Message.StopReason);
 
         var agentEnded = Assert.IsType<AgentEnded>(events.Single(evt => evt is AgentEnded));
-        Assert.Equal(AgentRunStatus.Cancelled, agentEnded.Status);
+        Assert.Equal(AgentStatus.Cancelled, agentEnded.Status);
     }
 
     [Fact]
@@ -192,6 +192,120 @@ public sealed class AgentLoopTests
         var agentEnded = Assert.IsType<AgentEnded>(events.Single(evt => evt is AgentEnded));
         var assistantContext = Assert.IsType<AssistantResponseContextItem>(agentEnded.Context.Items[1]);
         Assert.Contains(assistantContext.Message.Content, static block => block is ThinkingContent { Text: "thought summary" });
+    }
+
+    [Fact]
+    public async Task RunAsync_StreamErrorWithUsageEmitsMessageUsageOnFailedPartial()
+    {
+        var failedResponse = new Response
+        {
+            Id = "resp_failed",
+            Status = ResponseStatuses.Failed,
+            Output = [StreamHelpers.AssistantMessage("partial")],
+            Usage = StreamHelpers.Usage(inputTokens: 9, outputTokens: 4),
+            Error = new ResponseError { Message = "upstream rejected", Type = "server_error" },
+        };
+        var client = new FakeLlmSdkClient(
+            createResponseStreamAsync: (_, _) => StreamHelpers.ToAsyncEnumerable(
+                StreamHelpers.OutputTextDelta("partial", sequenceNumber: 1),
+                StreamHelpers.Failed(failedResponse, sequenceNumber: 2)));
+
+        var events = await CollectEventsAsync(AgentLoop.RunAsync(client, "Hello", CreateOptions()));
+
+        var messageEnded = Assert.IsType<MessageEnded>(events.Single(evt => evt is MessageEnded));
+        Assert.Equal(AgentStatus.Failed, messageEnded.Status);
+        Assert.True(messageEnded.IsPartial);
+
+        var usageEvent = Assert.Single(events.OfType<MessageUsage>());
+        Assert.Equal(9, usageEvent.Usage.InputTokens);
+        Assert.Equal(4, usageEvent.Usage.OutputTokens);
+        Assert.Equal(9, messageEnded.Message.Usage?.InputTokens);
+    }
+
+    [Fact]
+    public async Task RunAsync_MidStreamUsageEventIsNotDuplicatedByTerminalEmit()
+    {
+        var response = StreamHelpers.CreateResponse(
+            ResponseStatuses.Completed,
+            StreamHelpers.Usage(inputTokens: 12, outputTokens: 7),
+            StreamHelpers.AssistantMessage("Done."));
+        var client = new FakeLlmSdkClient(
+            createResponseStreamAsync: (_, _) => StreamHelpers.ToAsyncEnumerable(
+                StreamHelpers.Completed(response, sequenceNumber: 1)));
+
+        var events = await CollectEventsAsync(AgentLoop.RunAsync(client, "Hello", CreateOptions()));
+
+        var usageEvents = events.OfType<MessageUsage>().ToArray();
+        Assert.Single(usageEvents);
+        Assert.Equal(12, usageEvents[0].Usage.InputTokens);
+    }
+
+    [Fact]
+    public async Task RunAsync_MaxTurnsReachedReportsIncompleteRunStatus()
+    {
+        var schema = CreateObjectSchema(new { }, []);
+        var tool = new FakeAgentTool(
+            "noop",
+            "no-op tool",
+            parameters: schema,
+            executeAsync: (_, _, _) => Task.FromResult(new AgentToolResult("ok")));
+        var response = StreamHelpers.CreateResponse(
+            StreamHelpers.FunctionCall("noop", callId: "call_loop", arguments: "{}"));
+        var client = new FakeLlmSdkClient(
+            createResponseStreamAsync: (_, _) => StreamHelpers.ToAsyncEnumerable(
+                StreamHelpers.Completed(response, sequenceNumber: 1)));
+
+        var events = await CollectEventsAsync(AgentLoop.RunAsync(
+            client,
+            "Hello",
+            CreateOptions(tools: [tool], maxTurns: 1)));
+
+        var agentEnded = Assert.IsType<AgentEnded>(events.Single(evt => evt is AgentEnded));
+        Assert.Equal(AgentStatus.Incomplete, agentEnded.Status);
+        Assert.False(string.IsNullOrWhiteSpace(agentEnded.ErrorMessage));
+        Assert.Contains("Max turns", agentEnded.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RunAsync_ExternalCancellationDuringStreamProducesCancelledStatus()
+    {
+        using var cts = new CancellationTokenSource();
+        var unblock = new TaskCompletionSource();
+
+        var client = new FakeLlmSdkClient(
+            createResponseStreamAsync: (_, ct) => StreamMidwayCancelAsync(cts, unblock, ct));
+
+        var runTask = CollectEventsAsync(AgentLoop.RunAsync(client, "Hello", CreateOptions(), cts.Token));
+
+        await unblock.Task;
+        cts.Cancel();
+
+        var events = await runTask;
+
+        var messageEnded = Assert.IsType<MessageEnded>(events.Single(evt => evt is MessageEnded));
+        Assert.Equal(AgentStatus.Cancelled, messageEnded.Status);
+        Assert.True(messageEnded.IsPartial);
+        Assert.Equal(StopReason.Aborted, messageEnded.Message.StopReason);
+
+        var agentEnded = Assert.IsType<AgentEnded>(events.Single(evt => evt is AgentEnded));
+        Assert.Equal(AgentStatus.Cancelled, agentEnded.Status);
+    }
+
+    private static async IAsyncEnumerable<ResponseStreamEvent> StreamMidwayCancelAsync(
+        CancellationTokenSource cts,
+        TaskCompletionSource unblock,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        yield return StreamHelpers.OutputTextDelta("partial", sequenceNumber: 1);
+        unblock.TrySetResult();
+        try
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+        }
+        finally
+        {
+            _ = cts;
+        }
     }
 
     [Fact]
@@ -596,7 +710,7 @@ public sealed class AgentLoopTests
             messageEnded =>
             {
                 var ended = Assert.IsType<MessageEnded>(messageEnded);
-                Assert.Equal(AgentMessageStatus.FailedPartial, ended.Status);
+                Assert.Equal(AgentStatus.Failed, ended.Status);
                 Assert.True(ended.IsPartial);
                 Assert.Equal(StopReason.Error, ended.Message.StopReason);
             },
@@ -609,7 +723,7 @@ public sealed class AgentLoopTests
             agentEnded =>
             {
                 var ended = Assert.IsType<AgentEnded>(agentEnded);
-                Assert.Equal(AgentRunStatus.Failed, ended.Status);
+                Assert.Equal(AgentStatus.Failed, ended.Status);
             });
     }
 
@@ -634,7 +748,7 @@ public sealed class AgentLoopTests
             messageEnded =>
             {
                 var ended = Assert.IsType<MessageEnded>(messageEnded);
-                Assert.Equal(AgentMessageStatus.Incomplete, ended.Status);
+                Assert.Equal(AgentStatus.Incomplete, ended.Status);
                 Assert.True(ended.IsPartial);
                 Assert.Equal("Incomplete.", Assert.IsType<TextContent>(ended.Message.Content.Single()).Text);
             },
@@ -647,7 +761,7 @@ public sealed class AgentLoopTests
             agentEnded =>
             {
                 var ended = Assert.IsType<AgentEnded>(agentEnded);
-                Assert.Equal(AgentRunStatus.Incomplete, ended.Status);
+                Assert.Equal(AgentStatus.Incomplete, ended.Status);
             });
     }
 
@@ -1221,19 +1335,6 @@ public sealed class AgentLoopTests
                 additionalProperties,
             },
             JsonDefaults.Web);
-
-    private static async IAsyncEnumerable<ResponseStreamEvent> ThrowAfterAsync(
-        Exception exception,
-        params ResponseStreamEvent[] events)
-    {
-        foreach (var streamEvent in events)
-        {
-            yield return streamEvent;
-            await Task.Yield();
-        }
-
-        throw exception;
-    }
 
     private static async Task<List<AgentEvent>> CollectEventsAsync(IAsyncEnumerable<AgentEvent> events)
     {
