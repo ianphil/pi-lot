@@ -4,6 +4,7 @@ obj/
 *.suo
 .vs/
 logs/
+.todo/
 .playwright-cli/
 .dapr/
 src/llm-ui/wwwroot/
