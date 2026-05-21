@@ -25,6 +25,8 @@ public static class AgentLoop
         yield return new AgentStarted();
 
         var turnCount = 0;
+        var runStatus = AgentRunStatus.Completed;
+        string? runErrorMessage = null;
 
         while (true)
         {
@@ -56,7 +58,8 @@ public static class AgentLoop
             yield return new MessageStarted();
 
             AssistantMessage? message = null;
-            var terminalState = StreamTerminalState.Completed;
+            var messageStatus = AgentMessageStatus.Completed;
+            string? messageErrorMessage = null;
 
             await foreach (var streamEvent in stream.WithCancellation(cancellationToken))
             {
@@ -65,19 +68,44 @@ public static class AgentLoop
                 switch (streamEvent)
                 {
                     case StreamStart:
-                    case UsageEvent:
+                        break;
+
+                    case UsageEvent usage:
+                        yield return new MessageUsage(usage.Usage);
                         break;
 
                     case StreamDone done:
                         message = done.FinalMessage;
-                        terminalState = ToTerminalState(done.FinalMessage.StopReason);
-                        yield return new MessageEnded(done.FinalMessage);
+                        messageStatus = ToMessageStatus(done.FinalMessage.StopReason);
+                        messageErrorMessage = done.FinalMessage.ErrorMessage;
+                        if (done.FinalMessage.Diagnostics is not null)
+                        {
+                            yield return new MessageDiagnostics(done.FinalMessage.Diagnostics);
+                        }
+
+                        yield return new MessageEnded(done.FinalMessage)
+                        {
+                            Status = messageStatus,
+                            IsPartial = IsPartial(messageStatus),
+                            ErrorMessage = messageErrorMessage,
+                        };
                         break;
 
                     case StreamError error:
                         message = error.PartialMessage;
-                        terminalState = StreamTerminalState.Failed;
-                        yield return new MessageEnded(error.PartialMessage);
+                        messageStatus = AgentMessageStatus.FailedPartial;
+                        messageErrorMessage = error.Message;
+                        if (error.PartialMessage.Diagnostics is not null)
+                        {
+                            yield return new MessageDiagnostics(error.PartialMessage.Diagnostics);
+                        }
+
+                        yield return new MessageEnded(error.PartialMessage)
+                        {
+                            Status = messageStatus,
+                            IsPartial = true,
+                            ErrorMessage = messageErrorMessage,
+                        };
                         break;
 
                     default:
@@ -96,8 +124,10 @@ public static class AgentLoop
             var toolResults = new List<AgentToolCallResult>();
             var functionCalls = message.Content.OfType<ToolCallContent>().ToArray();
 
-            if (terminalState is not StreamTerminalState.Completed)
+            if (messageStatus is not AgentMessageStatus.Completed)
             {
+                runStatus = ToRunStatus(messageStatus);
+                runErrorMessage = messageErrorMessage ?? message.ErrorMessage;
                 yield return new TurnEnded(message, toolResults);
                 break;
             }
@@ -123,7 +153,11 @@ public static class AgentLoop
             }
         }
 
-        yield return new AgentEnded(context);
+        yield return new AgentEnded(context)
+        {
+            Status = runStatus,
+            ErrorMessage = runErrorMessage,
+        };
     }
 
     private static Context BuildContext(AgentContext context, AgentLoopOptions options)
@@ -199,13 +233,23 @@ public static class AgentLoop
             _ => null,
         };
 
-    private static StreamTerminalState ToTerminalState(StopReason stopReason) => stopReason switch
+    private static AgentMessageStatus ToMessageStatus(StopReason stopReason) => stopReason switch
     {
-        StopReason.Error => StreamTerminalState.Failed,
-        StopReason.Aborted => StreamTerminalState.Failed,
-        StopReason.Length => StreamTerminalState.Incomplete,
-        _ => StreamTerminalState.Completed,
+        StopReason.Length => AgentMessageStatus.Incomplete,
+        StopReason.Aborted => AgentMessageStatus.Cancelled,
+        StopReason.Error => AgentMessageStatus.FailedPartial,
+        _ => AgentMessageStatus.Completed,
     };
+
+    private static AgentRunStatus ToRunStatus(AgentMessageStatus messageStatus) => messageStatus switch
+    {
+        AgentMessageStatus.Incomplete => AgentRunStatus.Incomplete,
+        AgentMessageStatus.Cancelled => AgentRunStatus.Cancelled,
+        AgentMessageStatus.FailedPartial => AgentRunStatus.Failed,
+        _ => AgentRunStatus.Completed,
+    };
+
+    private static bool IsPartial(AgentMessageStatus messageStatus) => messageStatus is not AgentMessageStatus.Completed;
 
     private static string FormatToolValidationError(ToolValidationResult result)
     {
@@ -217,10 +261,4 @@ public static class AgentLoop
         return $"Tool argument validation failed: {string.Join("; ", result.Errors)}";
     }
 
-    private enum StreamTerminalState
-    {
-        Completed,
-        Failed,
-        Incomplete,
-    }
 }

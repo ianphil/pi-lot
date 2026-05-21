@@ -17,10 +17,14 @@ internal static class StreamHelpers
     public static IAsyncEnumerable<ResponseStreamEvent> ToAsyncEnumerable(params ResponseStreamEvent[] source)
         => ToAsyncEnumerable(source.AsEnumerable());
 
-    public static Response CreateResponse(params ResponseItem[] output) => new()
+    public static Response CreateResponse(params ResponseItem[] output) => CreateResponse(ResponseStatuses.Completed, null, output);
+
+    public static Response CreateResponse(string status, ResponseUsage? usage = null, params ResponseItem[] output) => new()
     {
         Id = "resp_123",
+        Status = status,
         Output = output,
+        Usage = usage,
     };
 
     public static ResponseMessageItem AssistantMessage(string text, string id = "msg_123") => new()
@@ -47,6 +51,25 @@ internal static class StreamHelpers
         Arguments = arguments,
     };
 
+    public static ResponseReasoningItem Reasoning(string text, string id = "rs_123") => new()
+    {
+        Id = id,
+        Summary =
+        [
+            new ResponseSummaryTextPart
+            {
+                Text = text,
+            },
+        ],
+    };
+
+    public static ResponseUsage Usage(int inputTokens = 10, int outputTokens = 5) => new()
+    {
+        InputTokens = inputTokens,
+        OutputTokens = outputTokens,
+        TotalTokens = inputTokens + outputTokens,
+    };
+
     public static OutputTextDeltaEvent OutputTextDelta(
         string delta,
         int sequenceNumber = 0,
@@ -69,6 +92,19 @@ internal static class StreamHelpers
             sequenceNumber,
             delta,
             outputIndex,
+            itemId);
+
+    public static ReasoningDeltaEvent ReasoningDelta(
+        string delta,
+        int sequenceNumber = 0,
+        int outputIndex = 0,
+        int contentIndex = 0,
+        string? itemId = "rs_123") => new(
+            "response.reasoning.delta",
+            sequenceNumber,
+            delta,
+            outputIndex,
+            contentIndex,
             itemId);
 
     public static ResponseCompletedEvent Completed(Response response, int sequenceNumber = 0)

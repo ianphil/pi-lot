@@ -119,11 +119,39 @@ The main events are:
 
 - `AgentStarted` / `AgentEnded`
 - `TurnStarted` / `TurnEnded`
-- `MessageStarted` / `MessageDelta` / `MessageEnded`
+- `MessageStarted` / `MessageDelta` / `MessageUsage` / `MessageDiagnostics` / `MessageEnded`
 - `ToolExecutionStarted` / `ToolExecutionEnded`
 
 For text streaming, handle `MessageDelta` and look for the portable SDK
-`TextDelta` event.
+`TextDelta` event. Thinking/reasoning deltas are also surfaced through
+`MessageDelta` as portable SDK `ThinkingDelta` events, and final reasoning
+content is preserved in the final `AssistantMessage` as `ThinkingContent` when
+the selected SDK path provides it.
+
+`MessageUsage` reports normalized SDK token usage observed during streaming.
+`MessageDiagnostics` reports structured SDK diagnostics attached to the terminal
+assistant message, such as partial-response or request-adaptation warnings.
+Callers do not need to parse raw SDK stream internals to observe those values.
+
+`MessageEnded.Status` and `AgentEnded.Status` describe terminal semantics:
+
+| Condition | Message status | Run status | Notes |
+|---|---|---|---|
+| Normal model stop or tool use | `Completed` | `Completed` | The message is complete for this turn. |
+| SDK `StopReason.Length` | `Incomplete` | `Incomplete` | The assistant message is partial because output stopped due to length. |
+| SDK-produced aborted result | `Cancelled` | `Cancelled` | Used when the SDK returns an aborted terminal message before external cancellation stops enumeration. |
+| SDK `StreamError` or error stop reason | `FailedPartial` | `Failed` | The terminal message may contain partial assistant content and diagnostics. |
+
+`MessageEnded.IsPartial` is true for incomplete, cancelled, and failed-partial
+terminal messages. `MessageEnded.ErrorMessage` and `AgentEnded.ErrorMessage`
+carry the recoverable stream error message when one is available.
+
+External `CancellationToken` cancellation keeps normal .NET semantics:
+`AgentLoop.RunAsync(...)` throws `OperationCanceledException`. The loop does not
+guarantee `MessageEnded`, `TurnEnded`, or `AgentEnded` after the caller cancels
+the token. Use agent statuses for SDK-produced terminal outcomes, not as a
+replacement for cooperative cancellation.
+
 For tool progress, handle the `ToolExecution*` events.
 
 ## Tool authoring
@@ -160,7 +188,7 @@ tool policy hooks are separate future agent API stories.
   `OnResponse` forward through `CompletionOptions` for every agent turn
 - request IDs, correlation IDs, metadata, timeout, and retry options also forward
   to every agent turn
-- completed assistant messages are appended to context
+- completed, incomplete, cancelled, and failed-partial assistant messages are appended to context when the SDK produces a terminal assistant message
 - tool results are appended as portable tool messages
 
 The loop is client-side and stateless. It does not use `previous_response_id`.

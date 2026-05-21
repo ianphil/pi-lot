@@ -162,6 +162,65 @@ public sealed class AgentLoopIntTests
     }
 
     [Fact]
+    public async Task RunAsync_WithFakeSdk_SurfacesUsageAndCompletedStatus()
+    {
+        var response = AgentIntTestHelpers.CreateResponse(
+            ResponseStatuses.Completed,
+            AgentIntTestHelpers.Usage(inputTokens: 21, outputTokens: 8),
+            AgentIntTestHelpers.AssistantMessage("The docs say hello."));
+        var client = new FakeLlmSdkClient((_, _) => AgentIntTestHelpers.ToAsyncEnumerable(
+            [AgentIntTestHelpers.Completed(response, sequenceNumber: 1)]));
+
+        var events = await AgentIntTestHelpers.CollectEventsAsync(AgentLoop.RunAsync(
+            client,
+            "Read the docs.",
+            new AgentLoopOptions
+            {
+                Model = "fake-agent-model",
+            }));
+
+        var usage = Assert.IsType<MessageUsage>(events.Single(static evt => evt is MessageUsage));
+        Assert.Equal(21, usage.Usage.InputTokens);
+        Assert.Equal(8, usage.Usage.OutputTokens);
+
+        var messageEnded = Assert.IsType<MessageEnded>(events.Single(static evt => evt is MessageEnded));
+        Assert.Equal(AgentMessageStatus.Completed, messageEnded.Status);
+        Assert.False(messageEnded.IsPartial);
+
+        var agentEnded = Assert.IsType<AgentEnded>(events.Single(static evt => evt is AgentEnded));
+        Assert.Equal(AgentRunStatus.Completed, agentEnded.Status);
+    }
+
+    [Fact]
+    public async Task RunAsync_WithFakeSdk_StreamFailureSurfacesDiagnosticsAndPartialStatus()
+    {
+        var client = new FakeLlmSdkClient((_, _) => AgentIntTestHelpers.ThrowAfterAsync(
+            new IOException("stream interrupted"),
+            AgentIntTestHelpers.OutputTextDelta("partial answer", sequenceNumber: 1)));
+
+        var events = await AgentIntTestHelpers.CollectEventsAsync(AgentLoop.RunAsync(
+            client,
+            "Read the docs.",
+            new AgentLoopOptions
+            {
+                Model = "fake-agent-model",
+            }));
+
+        var diagnostics = Assert.IsType<MessageDiagnostics>(events.Single(static evt => evt is MessageDiagnostics));
+        Assert.Contains(diagnostics.Diagnostics.Entries, static entry => entry.Code == "partial_due_to_error");
+
+        var messageEnded = Assert.IsType<MessageEnded>(events.Single(static evt => evt is MessageEnded));
+        Assert.Equal(AgentMessageStatus.FailedPartial, messageEnded.Status);
+        Assert.True(messageEnded.IsPartial);
+        Assert.Equal("stream interrupted", messageEnded.ErrorMessage);
+        Assert.Equal("partial answer", Assert.IsType<TextContent>(messageEnded.Message.Content.Single()).Text);
+
+        var agentEnded = Assert.IsType<AgentEnded>(events.Single(static evt => evt is AgentEnded));
+        Assert.Equal(AgentRunStatus.Failed, agentEnded.Status);
+        Assert.Equal("stream interrupted", agentEnded.ErrorMessage);
+    }
+
+    [Fact]
     public async Task RunAsync_WithFakeSdk_InvalidToolArgumentsReturnErrorsWithoutExecutingTools()
     {
         var firstResponse = AgentIntTestHelpers.CreateResponse(
@@ -238,8 +297,18 @@ public sealed class AgentLoopIntTests
 
         Assert.Contains(events, static evt => evt is AgentStarted);
         Assert.Contains(events, static evt => evt is TurnEnded);
-        Assert.Contains(events, static evt => evt is AgentEnded);
         Assert.Contains("hello", text, StringComparison.OrdinalIgnoreCase);
+
+        var usage = Assert.IsType<MessageUsage>(events.Single(static evt => evt is MessageUsage));
+        Assert.True(usage.Usage.InputTokens > 0);
+        Assert.True(usage.Usage.OutputTokens > 0);
+
+        var messageEnded = Assert.IsType<MessageEnded>(events.Single(static evt => evt is MessageEnded));
+        Assert.Equal(AgentMessageStatus.Completed, messageEnded.Status);
+        Assert.False(messageEnded.IsPartial);
+
+        var agentEnded = Assert.IsType<AgentEnded>(events.Single(static evt => evt is AgentEnded));
+        Assert.Equal(AgentRunStatus.Completed, agentEnded.Status);
     }
 
     [Fact]
