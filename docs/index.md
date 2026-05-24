@@ -12,6 +12,7 @@ terminal client, agent loop, and experimental UI.
 | [Agent guide](agent-guide.md) | Tool-calling agent loop built on the SDK |
 | [CLI guide](cli-guide.md) | Terminal client commands and examples |
 | [Proxy API reference](api-reference.md) | Local OpenAI-compatible HTTP endpoints |
+| [Release channels](release-channels.md) | SDK and Agent package release model |
 | [Event log guide](event-log-guide.md) | Windows Event Log structure |
 | [Compliance tests](how-to-run-compliance-tests.md) | OpenResponses compliance runner |
 
